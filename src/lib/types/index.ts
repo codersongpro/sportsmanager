@@ -7,7 +7,7 @@
 
 import type { RNG } from "@/lib/sim/rng";
 
-export type SportId = "soccer" | "baseball" | "volleyball" | "pickleball";
+export type SportId = "soccer" | "basketball" | "baseball" | "volleyball" | "pickleball";
 export type Locale = "ko" | "en";
 export type CompetitionFormat = "league" | "tournament";
 
@@ -85,26 +85,14 @@ export interface Club {
 // Matches & results
 // ---------------------------------------------------------------------------
 
-export type MatchEventType =
-  | "goal"
-  | "yellow"
-  | "red"
-  | "injury"
-  | "chance"
-  | "save"
-  | "miss"
-  | "woodwork"
-  | "corner"
-  | "freekick"
-  | "foul"
-  | "offside"
-  | "substitution"
-  | "penalty_shootout";
+/** Sport-defined event kind (soccer: "goal", basketball: "three", ...). */
+export type MatchEventType = string;
 
-/** Absolute ball area on the pitch (home attacks toward `right`). */
+/** Absolute ball/play area (home attacks toward `right`). */
 export type PitchZone = "left" | "mid" | "right";
 
 export interface MatchEvent {
+  /** progress along the match timeline (sport-defined unit, e.g. 0-90). */
   minute: number;
   type: MatchEventType;
   clubId: string;
@@ -112,7 +100,7 @@ export interface MatchEvent {
   /** secondary player (assist provider, fouled player, etc.) */
   assistId?: string;
   detail?: LocalizedText;
-  /** where on the pitch this happened, for live visualization */
+  /** where on the playing surface this happened, for live visualization */
   zone?: PitchZone;
 }
 
@@ -308,6 +296,42 @@ export interface SimOptions {
   neutralVenue?: boolean; // true -> no home advantage (knockouts)
 }
 
+/** How a sport renders its live match (visuals, stats, scoring, clock). */
+export interface MatchEventMeta {
+  emoji: string;
+  label: LocalizedText;
+  tone?: "score" | "warn" | "danger" | "info";
+}
+
+export interface MatchStatRow {
+  label: LocalizedText;
+  h: number;
+  a: number;
+  suffix?: string;
+}
+
+export interface MatchPresentation {
+  /** playing-surface backdrop for the live viewer */
+  venue: "pitch" | "hardwood" | "net" | "diamond";
+  /** timeline length the playback clock runs to */
+  endProgress: number;
+  /** points along the timeline where a break card shows (e.g. half time) */
+  breaks: { at: number; label: LocalizedText }[];
+  /** running clock/label to show for a given progress value */
+  clockLabel: (progress: number, endProgress: number, finished: boolean) => string;
+  /** visual + label for an event type */
+  eventMeta: (type: MatchEventType) => MatchEventMeta;
+  /** running score for a club from the revealed events */
+  scoreOf: (events: MatchEvent[], clubId: string) => number;
+  /** live stat rows derived from the revealed events */
+  liveStats: (events: MatchEvent[], homeId: string, awayId: string) => MatchStatRow[];
+}
+
+export interface SquadSlot {
+  pos: PositionKey;
+  count: number;
+}
+
 export interface GenPlayerOpts {
   id: string;
   name: string;
@@ -331,6 +355,10 @@ export interface SportModule {
   formations: FormationDef[];
   trainingFocuses: TrainingFocus[];
   playstyles: PlayStyleDef[];
+  /** roster shape used when generating a club squad (~30 players for soccer) */
+  squadTemplate: SquadSlot[];
+  /** how the live match is rendered for this sport */
+  matchPresentation: MatchPresentation;
   /** flat list of every attribute key the sport uses */
   attributeKeys(): string[];
   /** play styles available to a given position */

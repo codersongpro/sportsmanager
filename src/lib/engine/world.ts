@@ -8,20 +8,6 @@ export interface World {
   players: Record<string, Player>;
 }
 
-// Squad template: position -> how many to generate (~30 per club).
-const SQUAD_TEMPLATE: { pos: string; count: number }[] = [
-  { pos: "GK", count: 3 },
-  { pos: "CB", count: 5 },
-  { pos: "LB", count: 2 },
-  { pos: "RB", count: 2 },
-  { pos: "DM", count: 3 },
-  { pos: "CM", count: 4 },
-  { pos: "AM", count: 2 },
-  { pos: "LW", count: 3 },
-  { pos: "RW", count: 3 },
-  { pos: "ST", count: 4 },
-];
-
 const STRENGTH_WEIGHTS = COUNTRIES.map((c) => c.strength);
 
 function pickNationality(seed: ClubSeed, rng: RNG): string {
@@ -69,7 +55,7 @@ export function buildWorld(sport: SportModule, rng: RNG, startSeason: number): W
     let number = 1;
     let depthIndex = 0;
 
-    for (const slot of SQUAD_TEMPLATE) {
+    for (const slot of sport.squadTemplate) {
       for (let i = 0; i < slot.count; i++) {
         // first-choice players near club reputation, depth weaker
         const depthPenalty = i === 0 ? rng.range(-1, 4) : -rng.range(3, 11);

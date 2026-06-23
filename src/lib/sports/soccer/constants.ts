@@ -2,8 +2,23 @@ import type {
   AttributeGroup,
   FormationDef,
   PositionMeta,
+  SquadSlot,
   TrainingFocus,
 } from "@/lib/types";
+
+// Roster shape: position -> how many to generate (~31 per club).
+export const SOCCER_SQUAD_TEMPLATE: SquadSlot[] = [
+  { pos: "GK", count: 3 },
+  { pos: "CB", count: 5 },
+  { pos: "LB", count: 2 },
+  { pos: "RB", count: 2 },
+  { pos: "DM", count: 3 },
+  { pos: "CM", count: 4 },
+  { pos: "AM", count: 2 },
+  { pos: "LW", count: 3 },
+  { pos: "RW", count: 3 },
+  { pos: "ST", count: 4 },
+];
 
 // Soccer positions, grouped GK / DEF / MID / FWD.
 export const SOCCER_POSITIONS: PositionMeta[] = [

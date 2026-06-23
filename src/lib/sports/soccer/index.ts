@@ -4,6 +4,7 @@ import {
   SOCCER_ATTRIBUTE_KEYS,
   SOCCER_FORMATIONS,
   SOCCER_POSITIONS,
+  SOCCER_SQUAD_TEMPLATE,
   SOCCER_TRAINING_FOCUSES,
 } from "./constants";
 import { SOCCER_PLAYSTYLES, playstylesForPosition } from "./playstyles";
@@ -12,6 +13,7 @@ import { generatePlayer } from "./generate";
 import { ageAndDevelop, weeklyTrain } from "./growth";
 import { simulateMatch } from "./sim";
 import { autoPickLineup, validateLineup } from "./lineup";
+import { soccerPresentation } from "./match";
 
 export function defaultSoccerTactics(): Tactics {
   return {
@@ -34,6 +36,8 @@ export const soccerModule: SportModule = {
   formations: SOCCER_FORMATIONS,
   trainingFocuses: SOCCER_TRAINING_FOCUSES,
   playstyles: SOCCER_PLAYSTYLES,
+  squadTemplate: SOCCER_SQUAD_TEMPLATE,
+  matchPresentation: soccerPresentation,
   attributeKeys: () => SOCCER_ATTRIBUTE_KEYS,
   playstylesFor: playstylesForPosition,
   calcOverall,
