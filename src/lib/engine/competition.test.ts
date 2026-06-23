@@ -43,7 +43,7 @@ describe("competition engine", () => {
 
   it("tournament: playing every round resolves to a single champion", () => {
     const clubs = smallClubs("kor", world); // 8 clubs -> clean power of two
-    let tourney = createTournament("kor-test", { ko: "테스트", en: "Test" }, "KR", "club", clubs, 2026);
+    const tourney = createTournament("kor-test", { ko: "테스트", en: "Test" }, "KR", "club", clubs, 2026);
 
     let guard = 0;
     while (!isComplete(tourney) && guard++ < 20) {

@@ -28,10 +28,7 @@ export default function GameLayout({ children }: { children: React.ReactNode }) 
   const [checked, setChecked] = useState(false);
 
   useEffect(() => {
-    if (state) {
-      setChecked(true);
-      return;
-    }
+    if (state) return;
     const id = typeof window !== "undefined" ? localStorage.getItem("sm_last_save_id") : null;
     if (!id) {
       router.replace("/");
@@ -44,7 +41,7 @@ export default function GameLayout({ children }: { children: React.ReactNode }) 
     });
   }, [state, router, loadFromSave]);
 
-  if (!checked || !state) return null;
+  if ((!checked && !state) || !state) return null;
 
   return (
     <div className="flex flex-1 flex-col">

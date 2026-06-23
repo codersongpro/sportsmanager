@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useState, useCallback } from "react";
+import { createContext, useContext, useState, useCallback } from "react";
 import type { Locale, LocalizedText } from "@/lib/types";
 import { dict, type DictKey } from "./dict";
 
@@ -18,12 +18,10 @@ interface I18nContextValue {
 const I18nContext = createContext<I18nContextValue | null>(null);
 
 export function I18nProvider({ children }: { children: React.ReactNode }) {
-  const [locale, setLocaleState] = useState<Locale>("ko");
-
-  useEffect(() => {
+  const [locale, setLocaleState] = useState<Locale>(() => {
     const stored = typeof window !== "undefined" ? localStorage.getItem(LOCALE_KEY) : null;
-    if (stored === "ko" || stored === "en") setLocaleState(stored);
-  }, []);
+    return stored === "ko" || stored === "en" ? stored : "ko";
+  });
 
   const setLocale = useCallback((l: Locale) => {
     setLocaleState(l);
