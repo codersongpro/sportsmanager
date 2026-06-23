@@ -1,6 +1,7 @@
-import type { Club, GameState, MatchTeam, NewsItem, Player, SimOptions, SportModule } from "@/lib/types";
+import type { Club, GameState, MatchResult, MatchTeam, NewsItem, Player, SimOptions, SportModule } from "@/lib/types";
 import { createRng, type RNG } from "@/lib/sim/rng";
 import { createLeague, createTournament, isComplete, recordResult } from "./competition";
+import { makePostMatchPress } from "./press";
 
 const WEEK = 7;
 // Safety cap on how many calendar days a single "continue" can advance through
@@ -26,6 +27,34 @@ function bumpApps(players: Record<string, Player>, id: string) {
   if (p) p.apps = (p.apps ?? 0) + 1;
 }
 
+/** Record a match into each lineup player's recent-form history (last 6). */
+function recordForm(
+  players: Record<string, Player>,
+  lineup: string[],
+  ratings: Record<string, number>,
+  oppShort: string,
+  result: "W" | "D" | "L",
+  scoreFor: number,
+  scoreAgainst: number,
+  day: number,
+) {
+  for (const id of lineup) {
+    const p = players[id];
+    if (!p) continue;
+    const form = (p.recentForm ??= []);
+    form.push({ day, rating: ratings[id] ?? 6, oppShort, result, scoreFor, scoreAgainst });
+    if (form.length > 6) form.splice(0, form.length - 6);
+  }
+}
+
+function outcomeFor(forHome: boolean, r: MatchResult): "W" | "D" | "L" {
+  const mine = forHome ? r.homeScore : r.awayScore;
+  const theirs = forHome ? r.awayScore : r.homeScore;
+  if (mine > theirs) return "W";
+  if (mine < theirs) return "L";
+  return "D";
+}
+
 function playMatchesForDay(state: GameState, sport: SportModule, rng: RNG) {
   const comp = state.competition;
   const todays = comp.fixtures.filter((f) => !f.played && f.day === state.day);
@@ -47,15 +76,34 @@ function playMatchesForDay(state: GameState, sport: SportModule, rng: RNG) {
     for (const p of homeTeam.lineup) bumpApps(state.players, p.id);
     for (const p of awayTeam.lineup) bumpApps(state.players, p.id);
 
+    recordForm(state.players, homeTeam.lineup.map((p) => p.id), result.playerRatings, away.shortName, outcomeFor(true, result), result.homeScore, result.awayScore, state.day);
+    recordForm(state.players, awayTeam.lineup.map((p) => p.id), result.playerRatings, home.shortName, outcomeFor(false, result), result.awayScore, result.homeScore, state.day);
+
     pushNews(state, {
       ko: `${home.nameKo ?? home.name} ${result.homeScore} - ${result.awayScore} ${away.nameKo ?? away.name}`,
       en: `${home.name} ${result.homeScore} - ${result.awayScore} ${away.name}`,
     });
 
-    if (fixture.homeId === state.manager.clubId || fixture.awayId === state.manager.clubId) {
+    const userIsHome = fixture.homeId === state.manager.clubId;
+    if (userIsHome || fixture.awayId === state.manager.clubId) {
       state.lastResultFixtureId = fixture.id;
+      const outcome = outcomeFor(userIsHome, result);
+      const oppShort = userIsHome ? away.shortName : home.shortName;
+      applyManagerRep(state, outcome, userIsHome ? home.reputation : away.reputation, userIsHome ? away.reputation : home.reputation);
+      const press = (state.press ??= []);
+      press.push(makePostMatchPress(`press_${state.day}_${fixture.id}`, state.day, outcome, oppShort));
+      if (press.length > 12) press.splice(0, press.length - 12);
     }
   }
+}
+
+/** Manager reputation drifts with results; upsets count for more. */
+function applyManagerRep(state: GameState, outcome: "W" | "D" | "L", myRep: number, oppRep: number) {
+  let delta = 0;
+  if (outcome === "W") delta = 1 + Math.max(0, oppRep - myRep) / 18;
+  else if (outcome === "L") delta = -1 - Math.max(0, myRep - oppRep) / 24;
+  else delta = (oppRep - myRep) / 40;
+  state.manager.reputation = Math.max(1, Math.min(99, Math.round((state.manager.reputation + delta) * 10) / 10));
 }
 
 function processWeeklyFinances(state: GameState) {

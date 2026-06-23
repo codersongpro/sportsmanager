@@ -137,6 +137,21 @@ export const dict = {
   insufficientFunds: { ko: "예산이 부족합니다", en: "Insufficient funds" },
   signed: { ko: "영입 완료", en: "Signed" },
   sold: { ko: "방출 완료", en: "Sold" },
+  fee: { ko: "이적료", en: "Fee" },
+  managerReputation: { ko: "감독 평판", en: "Manager Reputation" },
+  influence: { ko: "협상 영향력", en: "Negotiating Power" },
+  signChance: { ko: "영입 가능성", en: "Sign Chance" },
+
+  // form card
+  recentForm: { ko: "최근 5경기", en: "Last 5 Matches" },
+  avgRating: { ko: "평균 평점", en: "Avg Rating" },
+  noForm: { ko: "최근 경기 기록이 없습니다", en: "No recent matches" },
+
+  // press / media
+  press: { ko: "미디어", en: "Media" },
+  pressConference: { ko: "기자회견", en: "Press Conference" },
+  noPress: { ko: "대기 중인 기자회견이 없습니다", en: "No press to attend" },
+  pendingPress: { ko: "대기 중인 기자회견", en: "Pending press" },
 
   // competition / match
   played: { ko: "경기", en: "P" },

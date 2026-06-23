@@ -5,6 +5,7 @@ import { useI18n } from "@/lib/i18n/I18nProvider";
 import { useGameStore } from "@/lib/store/gameStore";
 import { getSport } from "@/lib/sports";
 import { AttributeBar } from "@/components/AttributeBar";
+import { PlayerFormCard } from "@/components/PlayerFormCard";
 import { playerDisplayName, formatMoney, clubDisplayName } from "@/lib/utils/format";
 
 export default function PlayerDetailPage() {
@@ -56,6 +57,8 @@ export default function PlayerDetailPage() {
           </div>
         </div>
       )}
+
+      <PlayerFormCard player={player} />
 
       <div>
         <h2 className="mb-2 font-semibold text-zinc-500">{t("attributes")}</h2>

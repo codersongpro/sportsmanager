@@ -46,6 +46,17 @@ export interface Player {
   devFactor: number;
   /** matches played this season, feeds growth from experience */
   apps?: number;
+  /** recent match ratings (most recent last), powers the form card */
+  recentForm?: FormEntry[];
+}
+
+export interface FormEntry {
+  day: number;
+  rating: number;
+  oppShort: string;
+  result: "W" | "D" | "L";
+  scoreFor: number;
+  scoreAgainst: number;
 }
 
 export interface Finances {
@@ -204,6 +215,24 @@ export interface NewsItem {
   read: boolean;
 }
 
+export interface PressOption {
+  text: LocalizedText;
+  /** applied to the user squad's morale on choosing this answer */
+  moraleDelta: number;
+  /** applied to manager reputation */
+  repDelta: number;
+  reply: LocalizedText;
+}
+
+export interface PressItem {
+  id: string;
+  day: number;
+  question: LocalizedText;
+  options: PressOption[];
+  answered?: boolean;
+  chosen?: number;
+}
+
 export interface GameState {
   version: number;
   id: string; // save id
@@ -222,6 +251,8 @@ export interface GameState {
   trainingFocus: string; // user team's weekly training focus key
   lastResultFixtureId?: string; // most recent user match, for highlighting
   seasonOver: boolean;
+  /** pending press-conference prompts for the user */
+  press?: PressItem[];
   /** optional side competition: national-team World Cup, built from the same player pool */
   worldCup?: {
     competition: CompetitionState;

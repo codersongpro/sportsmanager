@@ -17,6 +17,7 @@ const NAV: { href: string; key: Parameters<ReturnType<typeof useI18n>["t"]>[0] }
   { href: "/game/transfers", key: "transfers" },
   { href: "/game/competition", key: "competition" },
   { href: "/game/worldcup", key: "worldCup" },
+  { href: "/game/press", key: "press" },
 ];
 
 export default function GameLayout({ children }: { children: React.ReactNode }) {

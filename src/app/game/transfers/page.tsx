@@ -2,17 +2,19 @@
 
 import { useMemo, useState } from "react";
 import { useI18n } from "@/lib/i18n/I18nProvider";
-import { useGameStore } from "@/lib/store/gameStore";
+import { useGameStore, negotiatedFee } from "@/lib/store/gameStore";
 import { getSport } from "@/lib/sports";
 import { playerDisplayName, clubDisplayName, formatMoney } from "@/lib/utils/format";
+import type { LocalizedText } from "@/lib/types";
 
 export default function TransfersPage() {
-  const { t } = useI18n();
+  const { t, tl } = useI18n();
   const state = useGameStore((s) => s.state);
   const buyPlayer = useGameStore((s) => s.buyPlayer);
   const sellPlayer = useGameStore((s) => s.sellPlayer);
   const [query, setQuery] = useState("");
   const [freeAgentsOnly, setFreeAgentsOnly] = useState(false);
+  const [feedback, setFeedback] = useState<{ ok: boolean; message: LocalizedText } | null>(null);
 
   const sport = state ? getSport(state.sportId) : null;
   const myClub = state ? state.clubs[state.manager.clubId] : null;
@@ -32,14 +34,38 @@ export default function TransfersPage() {
 
   if (!state || !sport || !myClub) return null;
 
+  const rep = state.manager.reputation;
   const mySquad = myClub.squad.map((id) => state.players[id]).filter(Boolean);
 
+  function attempt(playerId: string) {
+    const res = buyPlayer(playerId);
+    setFeedback(res);
+  }
+
   return (
-    <div className="mx-auto flex w-full max-w-4xl flex-col gap-6">
+    <div className="mx-auto flex w-full max-w-4xl flex-col gap-5">
       <h1 className="text-2xl font-bold">{t("transferMarket")}</h1>
-      <p className="text-sm text-zinc-500">
-        {t("transferBudget")}: {formatMoney(myClub.finances.transferBudget)}
-      </p>
+
+      <div className="grid gap-3 sm:grid-cols-3">
+        <div className="rounded-lg border border-zinc-200 p-3 text-center dark:border-zinc-800">
+          <div className="text-xs text-zinc-500">{t("transferBudget")}</div>
+          <div className="text-lg font-semibold">{formatMoney(myClub.finances.transferBudget)}</div>
+        </div>
+        <div className="rounded-lg border border-zinc-200 p-3 text-center dark:border-zinc-800">
+          <div className="text-xs text-zinc-500">{t("managerReputation")}</div>
+          <div className="text-lg font-semibold">{Math.round(rep)}</div>
+        </div>
+        <div className="rounded-lg border border-zinc-200 p-3 text-center dark:border-zinc-800">
+          <div className="text-xs text-zinc-500">{t("influence")}</div>
+          <div className="text-lg font-semibold">{rep >= 75 ? "★★★" : rep >= 55 ? "★★" : rep >= 35 ? "★" : "—"}</div>
+        </div>
+      </div>
+
+      {feedback && (
+        <div className={`rounded-md border px-3 py-2 text-sm ${feedback.ok ? "border-emerald-300 bg-emerald-50 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300" : "border-rose-300 bg-rose-50 text-rose-700 dark:border-rose-800 dark:bg-rose-950/40 dark:text-rose-300"}`}>
+          {tl(feedback.message)}
+        </div>
+      )}
 
       <div className="flex flex-wrap items-center gap-3">
         <input
@@ -57,7 +83,8 @@ export default function TransfersPage() {
       <div className="flex flex-col gap-1">
         {results.map((p) => {
           const club = p.clubId ? state.clubs[p.clubId] : null;
-          const affordable = myClub.finances.transferBudget >= p.value;
+          const fee = negotiatedFee(p.value, rep);
+          const affordable = myClub.finances.transferBudget >= fee;
           return (
             <div key={p.id} className="flex items-center justify-between gap-3 rounded-md border border-zinc-200 px-3 py-2 text-sm dark:border-zinc-800">
               <div className="flex-1">
@@ -66,10 +93,13 @@ export default function TransfersPage() {
                   {p.positions[0]} · {t("age")} {p.age} · {t("overall")} {sport.calcOverall(p)} · {club ? clubDisplayName(club) : t("freeAgents")}
                 </div>
               </div>
-              <div className="text-right text-xs text-zinc-500">{formatMoney(p.value)}</div>
+              <div className="text-right text-xs">
+                <div className="text-zinc-400 line-through">{formatMoney(p.value)}</div>
+                <div className="font-medium text-zinc-600 dark:text-zinc-300">{t("fee")} {formatMoney(fee)}</div>
+              </div>
               <button
                 disabled={!affordable}
-                onClick={() => buyPlayer(p.id)}
+                onClick={() => attempt(p.id)}
                 className="rounded-md bg-blue-600 px-3 py-1.5 text-white disabled:opacity-30"
               >
                 {t("buy")}
@@ -80,7 +110,7 @@ export default function TransfersPage() {
         {results.length === 0 && <p className="text-zinc-400">—</p>}
       </div>
 
-      <h2 className="mt-4 font-semibold text-zinc-500">{t("myClub")}</h2>
+      <h2 className="mt-2 font-semibold text-zinc-500">{t("myClub")}</h2>
       <div className="flex flex-col gap-1">
         {mySquad.map((p) => (
           <div key={p.id} className="flex items-center justify-between gap-3 rounded-md border border-zinc-200 px-3 py-2 text-sm dark:border-zinc-800">

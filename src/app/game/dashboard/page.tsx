@@ -68,6 +68,12 @@ export default function DashboardPage() {
         </div>
       )}
 
+      {(state.press?.some((p) => !p.answered) ?? false) && (
+        <Link href="/game/press" className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm font-medium text-amber-800 hover:bg-amber-100 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+          🎙 {t("pendingPress")}: {state.press!.filter((p) => !p.answered).length} →
+        </Link>
+      )}
+
       <div className="grid gap-6 sm:grid-cols-2">
         <div className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
           <h2 className="mb-2 font-semibold text-zinc-500">{t("nextMatch")}</h2>
