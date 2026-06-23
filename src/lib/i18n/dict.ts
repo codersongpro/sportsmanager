@@ -150,6 +150,8 @@ export const dict = {
   standings: { ko: "순위표", en: "Standings" },
   bracket: { ko: "대진표", en: "Bracket" },
   matchResult: { ko: "경기 결과", en: "Match Result" },
+  matchStats: { ko: "경기 통계", en: "Match Stats" },
+  matchEvents: { ko: "주요 이벤트", en: "Match Events" },
   possession: { ko: "점유율", en: "Possession" },
   shots: { ko: "슈팅", en: "Shots" },
   shotsOnTarget: { ko: "유효 슈팅", en: "On Target" },
@@ -170,6 +172,34 @@ export const dict = {
   chooseNation: { ko: "국가 선택", en: "Choose a Nation" },
   startWorldCup: { ko: "월드컵 시작", en: "Start World Cup" },
   simulateRound: { ko: "라운드 시뮬레이션", en: "Simulate Round" },
+
+  // live match viewer
+  watchMatch: { ko: "경기 관전", en: "Watch Match" },
+  live: { ko: "실시간", en: "LIVE" },
+  play: { ko: "재생", en: "Play" },
+  pause: { ko: "일시정지", en: "Pause" },
+  restart: { ko: "처음부터", en: "Restart" },
+  skipToEnd: { ko: "결과로 건너뛰기", en: "Skip to result" },
+  speed: { ko: "배속", en: "Speed" },
+  commentary: { ko: "중계", en: "Commentary" },
+  kickoff: { ko: "킥오프", en: "Kick-off" },
+  halfTime: { ko: "하프타임", en: "Half Time" },
+  fullTime: { ko: "경기 종료", en: "Full Time" },
+  extraTime: { ko: "연장전", en: "Extra Time" },
+  assist: { ko: "도움", en: "assist" },
+
+  // event labels
+  evGoal: { ko: "골", en: "GOAL" },
+  evSave: { ko: "선방", en: "Save" },
+  evMiss: { ko: "빗나간 슛", en: "Off target" },
+  evWoodwork: { ko: "골대", en: "Woodwork" },
+  evCorner: { ko: "코너킥", en: "Corner" },
+  evFreekick: { ko: "프리킥", en: "Free kick" },
+  evFoul: { ko: "파울", en: "Foul" },
+  evOffside: { ko: "오프사이드", en: "Offside" },
+  evChance: { ko: "기회", en: "Chance" },
+  evSub: { ko: "교체", en: "Substitution" },
+  playstyles: { ko: "플레이스타일", en: "Playstyles" },
 
   // misc
   goal: { ko: "골", en: "Goal" },

@@ -46,7 +46,7 @@ export default function PlayerDetailPage() {
 
       {styles.length > 0 && (
         <div>
-          <h2 className="mb-2 font-semibold text-zinc-500">Playstyles</h2>
+          <h2 className="mb-2 font-semibold text-zinc-500">{t("playstyles")}</h2>
           <div className="flex flex-wrap gap-2">
             {styles.map((s) => (
               <span key={s.key} title={tl(s.desc)} className="rounded-full bg-zinc-100 px-3 py-1 text-xs dark:bg-zinc-900">

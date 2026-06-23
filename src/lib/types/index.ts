@@ -91,14 +91,29 @@ export type MatchEventType =
   | "red"
   | "injury"
   | "chance"
+  | "save"
+  | "miss"
+  | "woodwork"
+  | "corner"
+  | "freekick"
+  | "foul"
+  | "offside"
+  | "substitution"
   | "penalty_shootout";
+
+/** Absolute ball area on the pitch (home attacks toward `right`). */
+export type PitchZone = "left" | "mid" | "right";
 
 export interface MatchEvent {
   minute: number;
   type: MatchEventType;
   clubId: string;
   playerId?: string;
+  /** secondary player (assist provider, fouled player, etc.) */
+  assistId?: string;
   detail?: LocalizedText;
+  /** where on the pitch this happened, for live visualization */
+  zone?: PitchZone;
 }
 
 export interface MatchStats {

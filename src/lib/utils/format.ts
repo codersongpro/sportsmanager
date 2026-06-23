@@ -1,12 +1,12 @@
 import type { Club, Player } from "@/lib/types";
 
-/** Always shows both the Latin and Korean form together (never locale-gated). */
+/** Always shows both forms together, Korean first then Latin (never locale-gated). */
 export function playerDisplayName(player: Player): string {
-  return player.nameKo ? `${player.name} (${player.nameKo})` : player.name;
+  return player.nameKo ? `${player.nameKo} (${player.name})` : player.name;
 }
 
 export function clubDisplayName(club: Club): string {
-  return club.nameKo ? `${club.name} / ${club.nameKo}` : club.name;
+  return club.nameKo ? `${club.nameKo} / ${club.name}` : club.name;
 }
 
 export function formatMoney(v: number): string {

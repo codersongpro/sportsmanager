@@ -1,7 +1,9 @@
 import type {
+  LocalizedText,
   MatchEvent,
   MatchResult,
   MatchTeam,
+  PitchZone,
   Player,
   SimOptions,
 } from "@/lib/types";
@@ -9,12 +11,25 @@ import type { RNG } from "@/lib/sim/rng";
 import { POSITION_GROUP } from "./constants";
 import { calcOverall } from "./ratings";
 
+// ---------------------------------------------------------------------------
+// Team strength model (drives results from real player attributes)
+// ---------------------------------------------------------------------------
+
+interface Pool {
+  players: Player[];
+  weights: number[];
+}
+
 interface TeamPower {
   gk: number;
+  gkPlayer?: Player;
   attackPower: number;
   defPower: number;
-  scorers: Player[];
-  scorerWeights: number[];
+  scorers: Pool;
+  assisters: Pool;
+  foulers: Pool;
+  pacey: Pool;
+  crossers: Pool;
   aggression: number;
 }
 
@@ -30,22 +45,15 @@ function poisson(rng: RNG, lambda: number): number {
 }
 
 function mentalityAtt(m: MatchTeam): number {
-  return m.club.tactics.mentality === "attacking"
-    ? 1.12
-    : m.club.tactics.mentality === "defensive"
-      ? 0.9
-      : 1;
+  return m.club.tactics.mentality === "attacking" ? 1.12 : m.club.tactics.mentality === "defensive" ? 0.9 : 1;
 }
 function mentalityDef(m: MatchTeam): number {
-  return m.club.tactics.mentality === "attacking"
-    ? 0.92
-    : m.club.tactics.mentality === "defensive"
-      ? 1.12
-      : 1;
+  return m.club.tactics.mentality === "attacking" ? 0.92 : m.club.tactics.mentality === "defensive" ? 1.12 : 1;
 }
 
 function teamPower(team: MatchTeam): TeamPower {
   let gk = 42;
+  let gkPlayer: Player | undefined;
   let defSum = 0,
     defN = 0,
     midSum = 0,
@@ -53,8 +61,12 @@ function teamPower(team: MatchTeam): TeamPower {
     fwdSum = 0,
     fwdN = 0,
     aggrSum = 0;
-  const scorers: Player[] = [];
-  const scorerWeights: number[] = [];
+
+  const scorers: Pool = { players: [], weights: [] };
+  const assisters: Pool = { players: [], weights: [] };
+  const foulers: Pool = { players: [], weights: [] };
+  const pacey: Pool = { players: [], weights: [] };
+  const crossers: Pool = { players: [], weights: [] };
 
   for (const p of team.lineup) {
     const pos = p.positions[0] ?? "CM";
@@ -62,19 +74,47 @@ function teamPower(team: MatchTeam): TeamPower {
     const ovr = calcOverall(p, pos);
     const cond = 0.85 + (p.condition / 100) * 0.15;
     const eff = ovr * cond * (1 + p.form * 0.01);
-    aggrSum += p.attributes.aggression ?? 40;
+    const a = p.attributes;
+    aggrSum += a.aggression ?? 40;
 
-    if (grp === "GK") gk = eff;
-    else if (grp === "DEF") (defSum += eff), defN++;
-    else if (grp === "MID") (midSum += eff), midN++;
-    else (fwdSum += eff), fwdN++;
+    if (grp === "GK") {
+      gk = eff;
+      gkPlayer = p;
+    } else if (grp === "DEF") {
+      defSum += eff;
+      defN++;
+    } else if (grp === "MID") {
+      midSum += eff;
+      midN++;
+    } else {
+      fwdSum += eff;
+      fwdN++;
+    }
 
-    // goal-scoring weight by role + finishing instinct
-    const fin = (p.attributes.finishing ?? 30) + (p.attributes.positioning ?? 30) * 0.4;
-    const roleW = grp === "FWD" ? 10 : grp === "MID" ? 4 : grp === "DEF" ? 1 : 0.05;
     if (grp !== "GK") {
-      scorers.push(p);
-      scorerWeights.push(roleW * (0.5 + fin / 80));
+      const roleW = grp === "FWD" ? 10 : grp === "MID" ? 4 : 1;
+      const fin = (a.finishing ?? 30) + (a.positioning ?? 30) * 0.4;
+      scorers.players.push(p);
+      scorers.weights.push(roleW * (0.5 + fin / 80));
+
+      const create = (a.passing ?? 30) + (a.vision ?? 30) * 0.6 + (a.crossing ?? 30) * 0.4;
+      assisters.players.push(p);
+      assisters.weights.push((grp === "MID" ? 6 : grp === "FWD" ? 5 : 1.5) * (0.4 + create / 110));
+
+      pacey.players.push(p);
+      pacey.weights.push((grp === "FWD" ? 6 : 2) * (0.4 + (a.pace ?? 40) / 80));
+
+      if (grp === "DEF" || pos === "LW" || pos === "RW" || pos === "AM") {
+        crossers.players.push(p);
+        crossers.weights.push(0.4 + (a.crossing ?? 30) / 70);
+      }
+    }
+
+    // any outfield player can foul; defenders & holding mids more so
+    const foulW = (grp === "DEF" ? 3 : grp === "MID" ? 2 : 1) * (0.5 + (a.aggression ?? 40) / 80);
+    if (grp !== "GK") {
+      foulers.players.push(p);
+      foulers.weights.push(foulW);
     }
   }
 
@@ -82,15 +122,21 @@ function teamPower(team: MatchTeam): TeamPower {
   const midfield = midN ? midSum / midN : 45;
   const attack = fwdN ? fwdSum / fwdN : midfield * 0.9;
 
-  const attackPower = (attack * 0.5 + midfield * 0.35 + 8) * mentalityAtt(team);
-  const defPower = (defense * 0.55 + midfield * 0.25 + gk * 0.2 + 8) * mentalityDef(team);
+  if (!crossers.players.length && scorers.players.length) {
+    crossers.players.push(...scorers.players);
+    crossers.weights.push(...scorers.players.map(() => 1));
+  }
 
   return {
     gk,
-    attackPower,
-    defPower,
+    gkPlayer,
+    attackPower: (attack * 0.5 + midfield * 0.35 + 8) * mentalityAtt(team),
+    defPower: (defense * 0.55 + midfield * 0.25 + gk * 0.2 + 8) * mentalityDef(team),
     scorers,
-    scorerWeights,
+    assisters,
+    foulers,
+    pacey,
+    crossers,
     aggression: team.lineup.length ? aggrSum / team.lineup.length : 45,
   };
 }
@@ -100,62 +146,267 @@ function expectedGoals(att: TeamPower, def: TeamPower): number {
   return Math.max(0.15, Math.min(5, xg));
 }
 
-function pickScorer(rng: RNG, power: TeamPower): Player | undefined {
-  if (!power.scorers.length) return undefined;
-  return rng.weighted(power.scorers, power.scorerWeights);
+// ---------------------------------------------------------------------------
+// Commentary phrase pools (bilingual, no names — the UI appends the player)
+// ---------------------------------------------------------------------------
+
+type Pool2 = LocalizedText[];
+const GOAL: Pool2 = [
+  { ko: "골! 왼쪽 구석으로 정확히 꽂아 넣습니다!", en: "GOAL! Buried into the bottom corner!" },
+  { ko: "골! 침착한 마무리로 골망을 흔듭니다!", en: "GOAL! A cool finish into the net!" },
+  { ko: "골! 강력한 슛이 골키퍼를 꿰뚫습니다!", en: "GOAL! A thunderbolt beats the keeper!" },
+  { ko: "골! 환상적인 개인 기량으로 득점합니다!", en: "GOAL! Brilliant individual finish!" },
+  { ko: "골! 문전 혼전 속에 밀어 넣습니다!", en: "GOAL! Bundled home in the scramble!" },
+];
+const HEADER: Pool2 = [{ ko: "헤딩 골! 제공권 싸움에서 완벽하게 승리합니다!", en: "Headed GOAL! Towering above the defense!" }];
+const SAVE: Pool2 = [
+  { ko: "선방! 골키퍼가 환상적으로 막아냅니다!", en: "Great save! The keeper denies them!" },
+  { ko: "선방! 반사신경으로 슛을 쳐냅니다!", en: "Save! Superb reflexes to turn it away!" },
+  { ko: "선방! 골키퍼가 코너로 밀어냅니다!", en: "Save! Pushed out for a corner!" },
+];
+const MISS: Pool2 = [
+  { ko: "아쉽게 골대를 벗어납니다!", en: "Just wide of the post!" },
+  { ko: "크로스바 위로 넘어갑니다!", en: "Skied over the bar!" },
+  { ko: "결정적인 기회를 놓칩니다!", en: "A glorious chance goes begging!" },
+];
+const WOOD: Pool2 = [
+  { ko: "골대를 맞고 나옵니다! 운이 없었습니다!", en: "Off the post! So close!" },
+  { ko: "크로스바를 강타합니다!", en: "Smashed against the crossbar!" },
+];
+const CORNER: Pool2 = [{ ko: "코너킥을 얻어냅니다.", en: "Wins a corner." }];
+const FOUL: Pool2 = [
+  { ko: "거친 태클로 파울을 범합니다.", en: "A clumsy challenge, free kick given." },
+  { ko: "상대를 끌어당겨 파울을 내줍니다.", en: "Pulls his man back, foul." },
+];
+const YELLOW: Pool2 = [{ ko: "경고! 심판이 옐로카드를 꺼냅니다.", en: "Yellow card! Into the book he goes." }];
+const RED: Pool2 = [{ ko: "퇴장! 심판이 레드카드를 직접 제시합니다!", en: "RED CARD! He's off!" }];
+const OFFSIDE: Pool2 = [{ ko: "오프사이드 깃발이 올라갑니다.", en: "The flag is up — offside." }];
+const CHANCE: Pool2 = [
+  { ko: "빠른 역습! 위험한 장면을 만듭니다!", en: "Lightning counter — danger!" },
+  { ko: "날카로운 침투 패스가 수비를 흔듭니다!", en: "A slicing through-ball splits the defense!" },
+];
+const INJURY: Pool2 = [{ ko: "부상으로 그라운드에 쓰러집니다.", en: "Down injured on the turf." }];
+
+function phrase(rng: RNG, pool: Pool2): LocalizedText {
+  return pool[rng.int(0, pool.length - 1)];
 }
 
-function addGoals(
-  rng: RNG,
-  events: MatchEvent[],
-  power: TeamPower,
-  clubId: string,
-  n: number,
-  minMin: number,
-  maxMin: number,
-) {
-  for (let i = 0; i < n; i++) {
-    const scorer = pickScorer(rng, power);
+// ---------------------------------------------------------------------------
+// Picking players by weighted attribute pools
+// ---------------------------------------------------------------------------
+
+function pick(rng: RNG, pool: Pool, exclude?: Player): Player | undefined {
+  let players = pool.players;
+  let weights = pool.weights;
+  if (exclude) {
+    players = [];
+    weights = [];
+    for (let i = 0; i < pool.players.length; i++) {
+      if (pool.players[i].id !== exclude.id) {
+        players.push(pool.players[i]);
+        weights.push(pool.weights[i]);
+      }
+    }
+  }
+  if (!players.length) return undefined;
+  return rng.weighted(players, weights);
+}
+
+// ---------------------------------------------------------------------------
+// Event timeline builder
+// ---------------------------------------------------------------------------
+
+interface Ctx {
+  rng: RNG;
+  events: MatchEvent[];
+  homeId: string;
+  awayId: string;
+  scorerIds: string[];
+  assistIds: string[];
+  saves: Record<string, number>;
+}
+
+function attackerZone(isHomeAttacking: boolean): PitchZone {
+  return isHomeAttacking ? "right" : "left";
+}
+
+/** Generate one attacking team's chances. Returns { shots, onTarget }. */
+function genAttack(
+  ctx: Ctx,
+  att: TeamPower,
+  def: TeamPower,
+  xg: number,
+  goals: number,
+  attackingHome: boolean,
+  attClubId: string,
+  defClubId: string,
+  loMin: number,
+  hiMin: number,
+): { shots: number; onTarget: number } {
+  const { rng, events } = ctx;
+  const zone = attackerZone(attackingHome);
+
+  const shots = Math.max(goals, Math.round(xg * 5 + rng.range(1, 5)));
+  const onTarget = Math.max(goals, Math.min(shots, Math.round(xg * 2.2 + rng.range(0, 2))));
+  const saved = onTarget - goals;
+  const offTarget = shots - onTarget;
+
+  // goals (with optional assist + occasional header)
+  for (let i = 0; i < goals; i++) {
+    const scorer = pick(rng, att.scorers);
+    const header = scorer && (scorer.attributes.heading ?? 0) > 70 && rng.bool(0.22);
+    const assister = rng.bool(0.72) ? pick(rng, att.assisters, scorer) : undefined;
+    if (scorer) ctx.scorerIds.push(scorer.id);
+    if (assister) ctx.assistIds.push(assister.id);
     events.push({
-      minute: rng.int(minMin, maxMin),
+      minute: rng.int(loMin, hiMin),
       type: "goal",
-      clubId,
+      clubId: attClubId,
       playerId: scorer?.id,
-      detail: { ko: "골!", en: "Goal!" },
+      assistId: assister?.id,
+      detail: header ? phrase(rng, HEADER) : phrase(rng, GOAL),
+      zone,
     });
   }
+
+  // saved shots -> credited to the defending keeper
+  for (let i = 0; i < saved; i++) {
+    const gkId = def.gkPlayer?.id;
+    if (gkId) ctx.saves[gkId] = (ctx.saves[gkId] ?? 0) + 1;
+    events.push({
+      minute: rng.int(loMin, hiMin),
+      type: "save",
+      clubId: defClubId,
+      playerId: gkId,
+      detail: phrase(rng, SAVE),
+      zone,
+    });
+  }
+
+  // off-target attempts (one may rattle the woodwork)
+  let wood = offTarget > 0 && rng.bool(0.18);
+  for (let i = 0; i < Math.min(offTarget, 5); i++) {
+    const shooter = pick(rng, att.scorers);
+    const isWood = wood;
+    wood = false;
+    events.push({
+      minute: rng.int(loMin, hiMin),
+      type: isWood ? "woodwork" : "miss",
+      clubId: attClubId,
+      playerId: shooter?.id,
+      detail: isWood ? phrase(rng, WOOD) : phrase(rng, MISS),
+      zone,
+    });
+  }
+
+  // corners
+  const corners = Math.min(5, poisson(rng, 1 + xg));
+  for (let i = 0; i < corners; i++) {
+    const taker = pick(rng, att.crossers);
+    events.push({
+      minute: rng.int(loMin, hiMin),
+      type: "corner",
+      clubId: attClubId,
+      playerId: taker?.id,
+      detail: phrase(rng, CORNER),
+      zone,
+    });
+  }
+
+  // offsides
+  const offs = Math.min(3, poisson(rng, 0.7));
+  for (let i = 0; i < offs; i++) {
+    const runner = pick(rng, att.pacey);
+    events.push({
+      minute: rng.int(loMin, hiMin),
+      type: "offside",
+      clubId: attClubId,
+      playerId: runner?.id,
+      detail: phrase(rng, OFFSIDE),
+      zone,
+    });
+  }
+
+  // big chances (flavor, near-misses already covered)
+  const bigC = Math.min(2, poisson(rng, xg * 0.4));
+  for (let i = 0; i < bigC; i++) {
+    const runner = pick(rng, att.scorers);
+    events.push({
+      minute: rng.int(loMin, hiMin),
+      type: "chance",
+      clubId: attClubId,
+      playerId: runner?.id,
+      detail: phrase(rng, CHANCE),
+      zone,
+    });
+  }
+
+  return { shots, onTarget };
 }
 
-function addCards(rng: RNG, events: MatchEvent[], team: MatchTeam, power: TeamPower) {
-  const n = poisson(rng, 0.9 + (power.aggression - 45) / 60);
-  for (let i = 0; i < n; i++) {
-    const p = rng.pick(team.lineup);
+/** Fouls, cards and injuries committed by a team. */
+function genDiscipline(ctx: Ctx, power: TeamPower, clubId: string, loMin: number, hiMin: number) {
+  const { rng, events } = ctx;
+  const fouls = Math.min(5, poisson(rng, 1.4 + (power.aggression - 45) / 45));
+  let cards = 0;
+  for (let i = 0; i < fouls; i++) {
+    const fouler = pick(rng, power.foulers);
     events.push({
-      minute: rng.int(10, 90),
-      type: "yellow",
-      clubId: team.club.id,
-      playerId: p.id,
-      detail: { ko: "경고", en: "Yellow card" },
+      minute: rng.int(loMin, hiMin),
+      type: "foul",
+      clubId,
+      playerId: fouler?.id,
+      detail: phrase(rng, FOUL),
+      zone: "mid",
+    });
+    // some fouls are booked
+    if (cards < 3 && rng.bool(0.32)) {
+      cards++;
+      events.push({
+        minute: rng.int(loMin, hiMin),
+        type: "yellow",
+        clubId,
+        playerId: fouler?.id,
+        detail: phrase(rng, YELLOW),
+        zone: "mid",
+      });
+    }
+  }
+  // rare straight red
+  if (rng.bool(0.04)) {
+    const p = pick(rng, power.foulers);
+    events.push({
+      minute: rng.int(30, hiMin),
+      type: "red",
+      clubId,
+      playerId: p?.id,
+      detail: phrase(rng, RED),
+      zone: "mid",
     });
   }
   // rare injury
-  if (rng.bool(0.08)) {
-    const p = rng.pick(team.lineup);
+  if (rng.bool(0.1)) {
+    const p = pick(rng, power.foulers);
     events.push({
-      minute: rng.int(15, 85),
+      minute: rng.int(loMin + 5, hiMin),
       type: "injury",
-      clubId: team.club.id,
-      playerId: p.id,
-      detail: { ko: "부상", en: "Injury" },
+      clubId,
+      playerId: p?.id,
+      detail: phrase(rng, INJURY),
+      zone: "mid",
     });
   }
 }
+
+// ---------------------------------------------------------------------------
+// Ratings
+// ---------------------------------------------------------------------------
 
 function ratePlayers(
   team: MatchTeam,
   goalsFor: number,
   goalsAgainst: number,
-  scorerIds: string[],
+  ctx: Ctx,
   rng: RNG,
 ): Record<string, number> {
   const out: Record<string, number> = {};
@@ -163,8 +414,11 @@ function ratePlayers(
   for (const p of team.lineup) {
     const grp = POSITION_GROUP[p.positions[0] ?? "CM"] ?? "MID";
     let r = 6.4 + rng.range(-0.5, 0.7) + resultBonus;
-    for (const sid of scorerIds) if (sid === p.id) r += 0.9;
-    if (grp === "GK") r += (goalsAgainst === 0 ? 0.6 : 0) - goalsAgainst * 0.15;
+    for (const sid of ctx.scorerIds) if (sid === p.id) r += 0.9;
+    for (const aid of ctx.assistIds) if (aid === p.id) r += 0.5;
+    if (grp === "GK") {
+      r += (goalsAgainst === 0 ? 0.6 : 0) - goalsAgainst * 0.15 + (ctx.saves[p.id] ?? 0) * 0.18;
+    }
     out[p.id] = Math.max(4, Math.min(10, Math.round(r * 10) / 10));
   }
   return out;
@@ -185,12 +439,11 @@ function shootout(rng: RNG): [number, number] {
   return [h, a];
 }
 
-export function simulateMatch(
-  home: MatchTeam,
-  away: MatchTeam,
-  rng: RNG,
-  opts: SimOptions = {},
-): MatchResult {
+// ---------------------------------------------------------------------------
+// Public entry point
+// ---------------------------------------------------------------------------
+
+export function simulateMatch(home: MatchTeam, away: MatchTeam, rng: RNG, opts: SimOptions = {}): MatchResult {
   const allowDraw = opts.allowDraw ?? true;
   const neutral = opts.neutralVenue ?? false;
 
@@ -204,13 +457,24 @@ export function simulateMatch(
     awayXg *= 0.95;
   }
 
-  const events: MatchEvent[] = [];
   let homeScore = poisson(rng, homeXg);
   let awayScore = poisson(rng, awayXg);
-  addGoals(rng, events, hp, home.club.id, homeScore, 1, 90);
-  addGoals(rng, events, ap, away.club.id, awayScore, 1, 90);
-  addCards(rng, events, home, hp);
-  addCards(rng, events, away, ap);
+
+  const ctx: Ctx = {
+    rng,
+    events: [],
+    homeId: home.club.id,
+    awayId: away.club.id,
+    scorerIds: [],
+    assistIds: [],
+    saves: {},
+  };
+
+  // Regulation narrative (events spread across both halves, 1'..90')
+  const hStat = genAttack(ctx, hp, ap, homeXg, homeScore, true, home.club.id, away.club.id, 1, 90);
+  const aStat = genAttack(ctx, ap, hp, awayXg, awayScore, false, away.club.id, home.club.id, 1, 90);
+  genDiscipline(ctx, hp, home.club.id, 8, 90);
+  genDiscipline(ctx, ap, away.club.id, 8, 90);
 
   let decidedBy: MatchResult["decidedBy"] = "normal";
   let winnerId: string | undefined;
@@ -221,13 +485,12 @@ export function simulateMatch(
   else if (awayScore > homeScore) winnerId = away.club.id;
 
   if (!allowDraw && homeScore === awayScore) {
-    // extra time
     const etH = poisson(rng, homeXg * 0.35);
     const etA = poisson(rng, awayXg * 0.35);
+    genAttack(ctx, hp, ap, homeXg * 0.35, etH, true, home.club.id, away.club.id, 91, 120);
+    genAttack(ctx, ap, hp, awayXg * 0.35, etA, false, away.club.id, home.club.id, 91, 120);
     homeScore += etH;
     awayScore += etA;
-    addGoals(rng, events, hp, home.club.id, etH, 91, 120);
-    addGoals(rng, events, ap, away.club.id, etA, 91, 120);
     if (homeScore !== awayScore) {
       decidedBy = "extra_time";
       winnerId = homeScore > awayScore ? home.club.id : away.club.id;
@@ -235,24 +498,23 @@ export function simulateMatch(
       decidedBy = "penalties";
       [homePens, awayPens] = shootout(rng);
       winnerId = homePens > awayPens ? home.club.id : away.club.id;
-      events.push({
+      ctx.events.push({
         minute: 121,
         type: "penalty_shootout",
         clubId: winnerId,
-        detail: { ko: `승부차기 ${homePens}-${awayPens}`, en: `Penalties ${homePens}-${awayPens}` },
+        detail: { ko: `승부차기 ${homePens} - ${awayPens} 승리!`, en: `Wins ${homePens}-${awayPens} on penalties!` },
+        zone: "mid",
       });
     }
   }
 
-  events.sort((a, b) => a.minute - b.minute);
+  ctx.events.sort((a, b) => a.minute - b.minute);
 
-  const scorerIds = events.filter((e) => e.type === "goal" && e.playerId).map((e) => e.playerId!);
   const playerRatings = {
-    ...ratePlayers(home, homeScore, awayScore, scorerIds, rng),
-    ...ratePlayers(away, awayScore, homeScore, scorerIds, rng),
+    ...ratePlayers(home, homeScore, awayScore, ctx, rng),
+    ...ratePlayers(away, awayScore, homeScore, ctx, rng),
   };
 
-  const totalShotsBase = (homeXg + awayXg) * 4;
   const homePoss = Math.round(
     50 + ((hp.attackPower + 100) / (hp.attackPower + ap.attackPower + 200) - 0.5) * 100,
   );
@@ -263,14 +525,14 @@ export function simulateMatch(
     awayId: away.club.id,
     homeScore,
     awayScore,
-    events,
+    events: ctx.events,
     playerRatings,
     stats: {
       homePossession: Math.max(30, Math.min(70, homePoss)),
-      homeShots: Math.round(homeXg * 5 + rng.range(0, 4)),
-      awayShots: Math.round(awayXg * 5 + rng.range(0, 4)),
-      homeShotsOnTarget: Math.round(homeXg * 2 + rng.range(0, 2)),
-      awayShotsOnTarget: Math.round(awayXg * 2 + rng.range(0, 2)),
+      homeShots: hStat.shots,
+      awayShots: aStat.shots,
+      homeShotsOnTarget: hStat.onTarget,
+      awayShotsOnTarget: aStat.onTarget,
     },
     winnerId,
     decidedBy,
