@@ -1,12 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { getSport } from "@/lib/sports";
-import { CLUBS } from "@/data/clubs";
+import { getClubsForSport } from "@/data/clubs";
 import { createNewGame } from "./newGame";
 import { continueGame, rolloverSeason } from "./season";
 
 describe("season engine", () => {
   const sport = getSport("soccer");
-  const korClub = CLUBS.find((c) => c.leagueId === "kor")!;
+  const korClub = getClubsForSport("soccer").find((c) => c.leagueId === "kor")!;
 
   function freshGame() {
     return createNewGame({

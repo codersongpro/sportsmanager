@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { createRng } from "@/lib/sim/rng";
 import { buildWorld } from "@/lib/engine/world";
-import { CLUBS } from "@/data/clubs";
+import { getClubsForSport } from "@/data/clubs";
 import { getSport } from "@/lib/sports";
 import type { SportId } from "@/lib/types";
 
@@ -19,7 +19,7 @@ describe("multi-sport modules", () => {
 
     it(`${id}: builds a world with non-empty squads and valid overalls`, () => {
       const world = buildWorld(sport, createRng(123), 2026);
-      const club = world.clubs[CLUBS[0].id];
+      const club = world.clubs[getClubsForSport(id)[0].id];
       expect(club.squad.length).toBeGreaterThanOrEqual(8);
       expect(club.tactics.lineup.length).toBe(sport.formations[0].slots.length);
       for (const pid of club.squad) {
@@ -34,7 +34,7 @@ describe("multi-sport modules", () => {
 
     it(`${id}: simulateMatch is deterministic and always has a winner`, () => {
       const world = buildWorld(sport, createRng(7), 2026);
-      const [a, b] = CLUBS.slice(0, 2);
+      const [a, b] = getClubsForSport(id).slice(0, 2);
       const team = (cid: string) => ({ club: world.clubs[cid], lineup: world.clubs[cid].tactics.lineup.map((p) => world.players[p]) });
 
       const r1 = sport.simulateMatch(team(a.id), team(b.id), createRng(3), { allowDraw: true });
@@ -49,7 +49,7 @@ describe("multi-sport modules", () => {
 
     it(`${id}: scoreOf(events) reconstructs the final score`, () => {
       const world = buildWorld(sport, createRng(50), 2026);
-      const [a, b] = CLUBS.slice(0, 2);
+      const [a, b] = getClubsForSport(id).slice(0, 2);
       const team = (cid: string) => ({ club: world.clubs[cid], lineup: world.clubs[cid].tactics.lineup.map((p) => world.players[p]) });
       const r = sport.simulateMatch(team(a.id), team(b.id), createRng(9), { allowDraw: true });
       const pres = sport.matchPresentation;

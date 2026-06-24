@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { CompetitionFormat, SportId } from "@/lib/types";
 import { SPORT_ORDER, getSport } from "@/lib/sports";
-import { LEAGUES, CLUBS } from "@/data/clubs";
+import { getClubsForSport, getLeaguesForSport } from "@/data/clubs";
 import { useI18n } from "@/lib/i18n/I18nProvider";
 import { useGameStore } from "@/lib/store/gameStore";
 
@@ -23,7 +23,17 @@ export default function NewGamePage() {
   const [managerName, setManagerName] = useState("");
   const [starting, setStarting] = useState(false);
 
-  const clubsInLeague = CLUBS.filter((c) => c.leagueId === leagueId);
+  const leagues = useMemo(() => getLeaguesForSport(sportId), [sportId]);
+  const clubs = useMemo(() => getClubsForSport(sportId), [sportId]);
+  const activeLeagueId = leagues.some((l) => l.id === leagueId) ? leagueId : leagues[0]?.id ?? "";
+  const clubsInLeague = clubs.filter((c) => c.leagueId === activeLeagueId);
+
+  function chooseSport(id: SportId) {
+    const nextLeagues = getLeaguesForSport(id);
+    setSportId(id);
+    setLeagueId(nextLeagues[0]?.id ?? "");
+    setClubId("");
+  }
 
   function start() {
     if (!managerName.trim() || !clubId) return;
@@ -44,8 +54,8 @@ export default function NewGamePage() {
   }
 
   return (
-    <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-6 px-6 py-10">
-      <h1 className="text-2xl font-bold">{t("newGame")}</h1>
+    <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 px-4 py-8 sm:px-6">
+      <h1 className="text-2xl font-bold tracking-tight">{t("newGame")}</h1>
 
       {step === "sport" && (
         <section className="flex flex-col gap-3">
@@ -58,9 +68,9 @@ export default function NewGamePage() {
                 <button
                   key={id}
                   disabled={!sport.available}
-                  onClick={() => setSportId(id)}
-                  className={`flex flex-col items-start gap-1 rounded-lg border p-4 text-left disabled:cursor-not-allowed disabled:opacity-40 ${
-                    selected ? "border-blue-500 bg-blue-50 dark:bg-blue-950/40" : "border-zinc-200 dark:border-zinc-800"
+                  onClick={() => chooseSport(id)}
+                  className={`surface-panel flex min-h-24 flex-col items-start gap-1 rounded-lg border p-4 text-left disabled:cursor-not-allowed disabled:opacity-40 ${
+                    selected ? "border-blue-500 bg-blue-50 dark:bg-blue-950/40" : ""
                   }`}
                 >
                   <span className="font-semibold">{tl(sport.name)}</span>
@@ -83,8 +93,8 @@ export default function NewGamePage() {
               <button
                 key={f}
                 onClick={() => setFormat(f)}
-                className={`flex flex-col items-start gap-1 rounded-lg border p-4 text-left ${
-                  format === f ? "border-blue-500 bg-blue-50 dark:bg-blue-950/40" : "border-zinc-200 dark:border-zinc-800"
+                className={`surface-panel flex flex-col items-start gap-1 rounded-lg border p-4 text-left ${
+                  format === f ? "border-blue-500 bg-blue-50 dark:bg-blue-950/40" : ""
                 }`}
               >
                 <span className="font-semibold">{f === "league" ? t("leagueMode") : t("tournamentMode")}</span>
@@ -107,15 +117,15 @@ export default function NewGamePage() {
         <section className="flex flex-col gap-3">
           <h2 className="font-semibold text-zinc-500">{t("chooseClub")}</h2>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-            {LEAGUES.map((l) => (
+            {leagues.map((l) => (
               <button
                 key={l.id}
                 onClick={() => {
                   setLeagueId(l.id);
                   setClubId("");
                 }}
-                className={`rounded-md border px-3 py-2 text-sm ${
-                  leagueId === l.id ? "border-blue-500 bg-blue-50 dark:bg-blue-950/40" : "border-zinc-200 dark:border-zinc-800"
+                className={`surface-panel rounded-md border px-3 py-2 text-sm font-medium ${
+                  activeLeagueId === l.id ? "border-blue-500 bg-blue-50 dark:bg-blue-950/40" : ""
                 }`}
               >
                 {tl(l.name)}
@@ -141,12 +151,13 @@ export default function NewGamePage() {
               <button
                 key={c.id}
                 onClick={() => setClubId(c.id)}
-                className={`flex flex-col gap-0.5 rounded-md border px-3 py-2 text-left text-sm ${
-                  clubId === c.id ? "border-blue-500 bg-blue-50 dark:bg-blue-950/40" : "border-zinc-200 dark:border-zinc-800"
+                className={`surface-panel flex min-h-20 flex-col gap-1 rounded-md border px-3 py-2 text-left text-sm ${
+                  clubId === c.id ? "border-blue-500 bg-blue-50 dark:bg-blue-950/40" : ""
                 }`}
               >
-                <span className="font-medium" style={{ color: c.color }}>
-                  {tl(c.name)}
+                <span className="flex items-center gap-2 font-semibold">
+                  <span className="h-3 w-3 shrink-0 rounded-full" style={{ backgroundColor: c.color }} />
+                  <span className="truncate">{tl(c.name)}</span>
                 </span>
                 <span className="text-xs text-zinc-500">REP {c.reputation}</span>
               </button>

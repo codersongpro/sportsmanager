@@ -216,9 +216,9 @@ export function MatchViewer({ result, home, away, players, sportId }: Props) {
   const clockLabel = activeBreak ? tl(activeBreak) : finished ? t("fullTime") : pres.clockLabel(clock, endMinute, false);
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex h-full min-h-0 flex-col gap-3 overflow-hidden p-2 sm:p-3">
       {/* Top control / scoreboard bar */}
-      <div className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-zinc-200 bg-white/95 px-4 py-2.5 backdrop-blur dark:border-zinc-800 dark:bg-zinc-950/95">
+      <div className="z-10 flex shrink-0 flex-wrap items-center justify-between gap-3 rounded-lg border border-[var(--line)] bg-[var(--panel)]/95 px-4 py-2.5 backdrop-blur">
         <span className="hidden text-sm text-zinc-500 sm:inline">{tl(sport.name)}</span>
         <div className="flex items-center gap-3">
           <span className="max-w-[26vw] truncate text-right text-sm font-semibold">{home.shortName}</span>
@@ -228,7 +228,7 @@ export function MatchViewer({ result, home, away, players, sportId }: Props) {
           <span className="max-w-[26vw] truncate text-left text-sm font-semibold">{away.shortName}</span>
         </div>
         <div className="flex items-center gap-2">
-          <span className="flex items-center gap-1.5 font-mono text-sm text-zinc-500">
+          <span className="flex items-center gap-1.5 font-mono text-sm text-soft">
             {!finished && !activeBreak && <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-rose-500" />}
             {clockLabel}
           </span>
@@ -243,11 +243,13 @@ export function MatchViewer({ result, home, away, players, sportId }: Props) {
         </p>
       )}
 
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_minmax(0,1fr)]">
-        <FormationTile title={`${home.shortName} · ${t("formation")}`} slots={homeSlots} attackUp ratingOf={ratingOf} t={t} venue={pres.venue} />
+      <div className="grid min-h-0 flex-1 gap-3 overflow-hidden xl:grid-cols-[minmax(180px,0.75fr)_minmax(0,1.7fr)_minmax(180px,0.75fr)]">
+        <div className="hidden min-h-0 overflow-hidden xl:block">
+          <FormationTile title={`${home.shortName} · ${t("formation")}`} slots={homeSlots} attackUp ratingOf={ratingOf} t={t} venue={pres.venue} />
+        </div>
 
-        <div className="flex flex-col gap-4">
-          <Tile title={t("watchMatch")} action={<span className="font-mono text-xs text-zinc-400">{clockLabel}</span>}>
+        <div className="flex min-h-0 flex-col gap-3 overflow-hidden">
+          <Tile title={t("watchMatch")} action={<span className="font-mono text-xs text-soft">{clockLabel}</span>} className="min-h-0 shrink-0">
             <Venue
               venue={pres.venue}
               ballX={ballX}
@@ -266,7 +268,7 @@ export function MatchViewer({ result, home, away, players, sportId }: Props) {
               <button onClick={restart} className="rounded-md border px-3 py-1.5 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-900">↺</button>
               <button onClick={skip} className="rounded-md border px-3 py-1.5 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-900">⏭ {t("skipToEnd")}</button>
               <div className="ml-auto flex items-center gap-1">
-                <span className="mr-1 text-xs text-zinc-500">{t("speed")}</span>
+                <span className="mr-1 text-xs text-soft">{t("speed")}</span>
                 {SPEEDS.map((s) => (
                   <button
                     key={s}
@@ -280,7 +282,7 @@ export function MatchViewer({ result, home, away, players, sportId }: Props) {
             </div>
           </Tile>
 
-          <div className="grid gap-4 sm:grid-cols-2">
+          <div className="grid min-h-0 flex-1 gap-3 overflow-hidden sm:grid-cols-2">
             <Tile title={t("matchStats")}>
               <div className="flex flex-col gap-2">
                 {liveStats.map((row, i) => (
@@ -290,14 +292,14 @@ export function MatchViewer({ result, home, away, players, sportId }: Props) {
               </div>
             </Tile>
             <Tile title={t("matchEvents")}>
-              <div className="flex max-h-44 flex-col gap-1 overflow-y-auto text-sm">
+              <div className="flex max-h-[22vh] flex-col gap-1 overflow-y-auto text-sm">
                 {keyEvents.length === 0 && <p className="text-zinc-400">—</p>}
                 {keyEvents.map((e, i) => {
                   const p = e.playerId ? players[e.playerId] : null;
                   const meta = pres.eventMeta(e.type);
                   return (
                     <div key={i} className="flex items-center gap-2">
-                      <span className="w-8 shrink-0 text-right font-mono text-xs text-zinc-500">{e.minute}</span>
+                      <span className="w-8 shrink-0 text-right font-mono text-xs text-soft">{e.minute}</span>
                       <span>{meta.emoji}</span>
                       <span className="truncate">{p ? playerDisplayName(p) : clubDisplayName(home.id === e.clubId ? home : away)}</span>
                     </div>
@@ -308,10 +310,12 @@ export function MatchViewer({ result, home, away, players, sportId }: Props) {
           </div>
         </div>
 
-        <FormationTile title={`${away.shortName} · ${t("formation")}`} slots={awaySlots} attackUp={false} ratingOf={ratingOf} t={t} venue={pres.venue} />
+        <div className="hidden min-h-0 overflow-hidden xl:block">
+          <FormationTile title={`${away.shortName} · ${t("formation")}`} slots={awaySlots} attackUp={false} ratingOf={ratingOf} t={t} venue={pres.venue} />
+        </div>
       </div>
 
-      <Tile title={`${clubDisplayName(home)} · ${t("squad")}`} bodyClassName="overflow-x-auto">
+      <Tile title={`${clubDisplayName(home)} · ${t("squad")}`} bodyClassName="overflow-x-auto" className="hidden">
         <div className="flex min-w-max gap-2">
           {homeSlots.map((s, i) => {
             if (!s.player) return null;
@@ -329,7 +333,7 @@ export function MatchViewer({ result, home, away, players, sportId }: Props) {
         </div>
       </Tile>
 
-      <Tile title={t("commentary")}>
+      <Tile title={t("commentary")} className="hidden">
         <div className="flex max-h-80 flex-col gap-1.5 overflow-y-auto">
           {feed.map((item, i) => {
             if (item.kind === "marker") {

@@ -6,22 +6,27 @@ import type { ReactNode } from "react";
  */
 export function Tile({
   title,
+  subtitle,
   action,
   className = "",
   bodyClassName = "",
   children,
 }: {
   title?: ReactNode;
+  subtitle?: ReactNode;
   action?: ReactNode;
   className?: string;
   bodyClassName?: string;
   children: ReactNode;
 }) {
   return (
-    <div className={`rounded-xl border border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-950 ${className}`}>
+    <div className={`surface-panel rounded-lg border p-3 shadow-sm shadow-zinc-900/5 ${className}`}>
       {(title || action) && (
-        <div className="mb-2 flex items-center justify-between gap-2">
-          {title ? <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-400">{title}</h3> : <span />}
+        <div className="mb-2 flex items-start justify-between gap-2">
+          <div>
+            {title ? <h3 className="text-xs font-semibold uppercase text-soft">{title}</h3> : null}
+            {subtitle ? <p className="mt-0.5 text-xs text-soft">{subtitle}</p> : null}
+          </div>
           {action}
         </div>
       )}

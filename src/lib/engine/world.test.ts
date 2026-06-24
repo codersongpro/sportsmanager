@@ -1,17 +1,20 @@
 import { describe, expect, it } from "vitest";
 import { createRng } from "@/lib/sim/rng";
 import { getSport } from "@/lib/sports";
-import { CLUBS } from "@/data/clubs";
+import { getClubsForSport, getLeaguesForSport } from "@/data/clubs";
+import type { SportId } from "@/lib/types";
 import { buildWorld, buildNationalTeams } from "./world";
 
 const sport = getSport("soccer");
+const SPORTS: SportId[] = ["soccer", "basketball", "baseball", "volleyball", "pickleball"];
 
 describe("buildWorld", () => {
   const world = buildWorld(sport, createRng(2026), 2026);
 
-  it("builds at least 64 clubs", () => {
-    expect(CLUBS.length).toBeGreaterThanOrEqual(64);
-    expect(Object.keys(world.clubs).length).toBe(CLUBS.length);
+  it("builds the soccer club set by default", () => {
+    const clubs = getClubsForSport("soccer");
+    expect(clubs.length).toBeGreaterThanOrEqual(64);
+    expect(Object.keys(world.clubs).length).toBe(clubs.length);
   });
 
   it("gives every club a squad of at least 30 players", () => {
@@ -48,5 +51,27 @@ describe("buildWorld", () => {
         expect(world.players[id]).toBeDefined();
       }
     }
+  });
+});
+
+describe("buildWorld multi-sport data", () => {
+  for (const id of SPORTS) {
+    it(`${id}: uses only leagues and clubs for that sport`, () => {
+      const sportModule = getSport(id);
+      const world = buildWorld(sportModule, createRng(2026), 2026);
+      const expectedClubs = getClubsForSport(id);
+      const leagueIds = new Set(getLeaguesForSport(id).map((l) => l.id));
+
+      expect(Object.keys(world.clubs).sort()).toEqual(expectedClubs.map((c) => c.id).sort());
+      for (const club of Object.values(world.clubs)) {
+        expect(leagueIds.has(club.leagueId)).toBe(true);
+      }
+    });
+  }
+
+  it("non-soccer worlds include sport-inspired player archetype names", () => {
+    const world = buildWorld(getSport("basketball"), createRng(77), 2026);
+    const names = Object.values(world.players).map((p) => p.name);
+    expect(names.some((name) => /Jalen|Cade|Luka|Giannis|Aria/.test(name))).toBe(true);
   });
 });

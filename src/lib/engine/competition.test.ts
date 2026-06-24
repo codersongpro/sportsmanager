@@ -1,14 +1,14 @@
 import { describe, expect, it } from "vitest";
 import { createRng } from "@/lib/sim/rng";
 import { getSport } from "@/lib/sports";
-import { CLUBS } from "@/data/clubs";
+import { getClubsForSport } from "@/data/clubs";
 import { buildWorld } from "./world";
 import { createLeague, createTournament, isComplete, recordResult, sortTable, upcomingFixtures } from "./competition";
 
 const sport = getSport("soccer");
 
 function smallClubs(leagueId: string, world: ReturnType<typeof buildWorld>) {
-  return CLUBS.filter((c) => c.leagueId === leagueId).map((c) => world.clubs[c.id]);
+  return getClubsForSport("soccer").filter((c) => c.leagueId === leagueId).map((c) => world.clubs[c.id]);
 }
 
 describe("competition engine", () => {

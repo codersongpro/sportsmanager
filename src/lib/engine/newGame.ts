@@ -1,7 +1,7 @@
 import type { CompetitionFormat, GameState, Locale, Manager, SportId } from "@/lib/types";
 import { createRng, hashSeed } from "@/lib/sim/rng";
 import { getSport } from "@/lib/sports";
-import { LEAGUES } from "@/data/clubs";
+import { getLeaguesForSport } from "@/data/clubs";
 import { buildWorld } from "./world";
 import { createLeague, createTournament } from "./competition";
 
@@ -21,7 +21,8 @@ export function createNewGame(opts: NewGameOptions): GameState {
   const rng = createRng(hashSeed(`${opts.managerName}|${opts.clubId}|${Date.now()}`));
 
   const world = buildWorld(sport, rng, startSeason);
-  const league = LEAGUES.find((l) => l.id === opts.leagueId) ?? LEAGUES[0];
+  const leagues = getLeaguesForSport(opts.sportId);
+  const league = leagues.find((l) => l.id === opts.leagueId) ?? leagues[0];
   const clubsInLeague = Object.values(world.clubs).filter((c) => c.leagueId === league.id);
   for (const club of clubsInLeague) club.isUser = club.id === opts.clubId;
 

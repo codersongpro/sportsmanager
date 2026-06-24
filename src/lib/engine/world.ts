@@ -1,7 +1,7 @@
-import type { Club, Finances, Player, SportModule, Tactics } from "@/lib/types";
+import type { Club, Finances, Player, SportId, SportModule, Tactics } from "@/lib/types";
 import type { RNG } from "@/lib/sim/rng";
 import { COUNTRIES, COUNTRY_BY_CODE } from "@/data/countries";
-import { CLUBS, type ClubSeed } from "@/data/clubs";
+import { getClubsForSport, getNameArchetypesForSport, type ClubSeed } from "@/data/clubs";
 
 export interface World {
   clubs: Record<string, Club>;
@@ -19,7 +19,12 @@ function pickNationality(seed: ClubSeed, rng: RNG): string {
   );
 }
 
-function makeName(code: string, rng: RNG): { name: string; nameKo: string } {
+function makeName(sportId: SportId, code: string, rng: RNG, preferArchetype = false): { name: string; nameKo: string } {
+  const archetypes = getNameArchetypesForSport(sportId);
+  if (archetypes.length > 0 && (preferArchetype || rng.bool(0.18))) {
+    return archetypes[rng.int(0, archetypes.length - 1)];
+  }
+
   const country = COUNTRY_BY_CODE[code] ?? COUNTRIES[0];
   const fi = rng.int(0, country.firstNames.length - 1);
   const li = rng.int(0, country.lastNames.length - 1);
@@ -50,7 +55,7 @@ export function buildWorld(sport: SportModule, rng: RNG, startSeason: number): W
   const clubs: Record<string, Club> = {};
   const players: Record<string, Player> = {};
 
-  for (const seed of CLUBS) {
+  for (const seed of getClubsForSport(sport.id)) {
     const squad: string[] = [];
     let number = 1;
     let depthIndex = 0;
@@ -61,7 +66,7 @@ export function buildWorld(sport: SportModule, rng: RNG, startSeason: number): W
         const depthPenalty = i === 0 ? rng.range(-1, 4) : -rng.range(3, 11);
         const target = Math.max(40, Math.min(94, seed.reputation + depthPenalty + rng.gaussian(0, 3)));
         const nat = pickNationality(seed, rng);
-        const nm = makeName(nat, rng);
+        const nm = makeName(sport.id, nat, rng, sport.id !== "soccer" && i === 0);
         const id = `p_${seed.id}_${depthIndex++}`;
         const player = sport.generatePlayer(
           {

@@ -1,4 +1,4 @@
-import type { LocalizedText } from "@/lib/types";
+import type { LocalizedText, SportId } from "@/lib/types";
 
 // 64 clubs across 8 domestic leagues. Names are city/nickname aliases (not real
 // club trademarks). Reputation (69-91) drives squad quality and seeding.
@@ -121,3 +121,168 @@ export const CLUBS: ClubSeed[] = [
 export const CLUB_BY_ID: Record<string, ClubSeed> = Object.fromEntries(
   CLUBS.map((cl) => [cl.id, cl]),
 );
+
+const BASKETBALL_LEAGUES: LeagueSeed[] = [
+  { id: "bb-na", name: { ko: "Continental Hoops", en: "Continental Hoops" }, country: "US" },
+  { id: "bb-global", name: { ko: "Global Hardwood", en: "Global Hardwood" }, country: "EU" },
+];
+
+const BASKETBALL_CLUBS: ClubSeed[] = [
+  c("bb-la-stars", "LA Starline", "LA Starline", "LAS", "bb-na", "US", 90, "#552583"),
+  c("bb-bay-splash", "Bay Splash", "Bay Splash", "BSP", "bb-na", "US", 89, "#1D428A"),
+  c("bb-boston-clovers", "Boston Clovers", "Boston Clovers", "BCL", "bb-na", "US", 88, "#007A33"),
+  c("bb-texas-mavs", "Texas Mavericks", "Texas Mavericks", "TMV", "bb-na", "US", 86, "#00538C"),
+  c("bb-chicago-wind", "Chicago Wind", "Chicago Wind", "CWD", "bb-na", "US", 82, "#CE1141"),
+  c("bb-miami-tide", "Miami Tide", "Miami Tide", "MTD", "bb-na", "US", 82, "#98002E"),
+  c("bb-denver-peaks", "Denver Peaks", "Denver Peaks", "DVP", "bb-na", "US", 84, "#0E2240"),
+  c("bb-seoul-royals", "Seoul Royals", "Seoul Royals", "SLR", "bb-na", "KR", 76, "#0B5CAD"),
+  c("bb-madrid-crowns", "Madrid Crowns", "Madrid Crowns", "MDC", "bb-global", "ES", 88, "#FDB927"),
+  c("bb-athens-flame", "Athens Flame", "Athens Flame", "ATF", "bb-global", "GR", 84, "#D71920"),
+  c("bb-istanbul-moon", "Istanbul Moon", "Istanbul Moon", "ISM", "bb-global", "TR", 84, "#F5A400"),
+  c("bb-belgrade-fortress", "Belgrade Fortress", "Belgrade Fortress", "BGF", "bb-global", "RS", 82, "#C8102E"),
+  c("bb-bologna-reds", "Bologna Reds", "Bologna Reds", "BLR", "bb-global", "IT", 80, "#BE0A26"),
+  c("bb-telaviv-lions", "Tel Aviv Lions", "Tel Aviv Lions", "TAL", "bb-global", "IL", 80, "#F7D417"),
+  c("bb-kaunas-amber", "Kaunas Amber", "Kaunas Amber", "KAM", "bb-global", "LT", 79, "#006A44"),
+  c("bb-manila-kings", "Manila Kings", "Manila Kings", "MNK", "bb-global", "PH", 75, "#0038A8"),
+];
+
+const BASEBALL_LEAGUES: LeagueSeed[] = [
+  { id: "bsb-majors", name: { ko: "Grand Diamond League", en: "Grand Diamond League" }, country: "US" },
+  { id: "bsb-pacific", name: { ko: "Pacific Pro Baseball", en: "Pacific Pro Baseball" }, country: "JP" },
+];
+
+const BASEBALL_CLUBS: ClubSeed[] = [
+  c("bsb-newyork-pinstripes", "New York Pinstripes", "New York Pinstripes", "NYP", "bsb-majors", "US", 90, "#132448"),
+  c("bsb-la-sunsets", "LA Sunsets", "LA Sunsets", "LAS", "bsb-majors", "US", 89, "#005A9C"),
+  c("bsb-boston-harbor", "Boston Harbor", "Boston Harbor", "BOH", "bsb-majors", "US", 86, "#BD3039"),
+  c("bsb-houston-orbit", "Houston Orbit", "Houston Orbit", "HOU", "bsb-majors", "US", 85, "#EB6E1F"),
+  c("bsb-atlanta-hammers", "Atlanta Hammers", "Atlanta Hammers", "ATH", "bsb-majors", "US", 85, "#CE1141"),
+  c("bsb-chicago-north", "Chicago North", "Chicago North", "CHN", "bsb-majors", "US", 82, "#0E3386"),
+  c("bsb-toronto-maples", "Toronto Maples", "Toronto Maples", "TOM", "bsb-majors", "CA", 80, "#134A8E"),
+  c("bsb-sanfran-gate", "San Francisco Gate", "San Francisco Gate", "SFG", "bsb-majors", "US", 81, "#FD5A1E"),
+  c("bsb-tokyo-giants", "Tokyo Giants", "Tokyo Giants", "TYG", "bsb-pacific", "JP", 87, "#F97700"),
+  c("bsb-osaka-tigers", "Osaka Tigers", "Osaka Tigers", "OST", "bsb-pacific", "JP", 84, "#FFE100"),
+  c("bsb-fukuoka-hawks", "Fukuoka Hawks", "Fukuoka Hawks", "FKH", "bsb-pacific", "JP", 84, "#FFCC00"),
+  c("bsb-seoul-twins", "Seoul Twins", "Seoul Twins", "SET", "bsb-pacific", "KR", 80, "#C30452"),
+  c("bsb-incheon-landers", "Incheon Landers", "Incheon Landers", "ICL", "bsb-pacific", "KR", 79, "#CE0E2D"),
+  c("bsb-busan-gulls", "Busan Gulls", "Busan Gulls", "BSG", "bsb-pacific", "KR", 77, "#002955"),
+  c("bsb-taipei-dragons", "Taipei Dragons", "Taipei Dragons", "TPD", "bsb-pacific", "TW", 76, "#003DA5"),
+  c("bsb-sydney-southern", "Sydney Southern", "Sydney Southern", "SYS", "bsb-pacific", "AU", 73, "#006341"),
+];
+
+const VOLLEYBALL_LEAGUES: LeagueSeed[] = [
+  { id: "vb-korea", name: { ko: "Korea Spike League", en: "Korea Spike League" }, country: "KR" },
+  { id: "vb-world", name: { ko: "World Volley Circuit", en: "World Volley Circuit" }, country: "IT" },
+];
+
+const VOLLEYBALL_CLUBS: ClubSeed[] = [
+  c("vb-seoul-wings", "Seoul Wings", "Seoul Wings", "SLW", "vb-korea", "KR", 80, "#0057B8"),
+  c("vb-incheon-air", "Incheon Air", "Incheon Air", "ICA", "vb-korea", "KR", 79, "#00A3E0"),
+  c("vb-suwon-hillstate", "Suwon Hillstate", "Suwon Hillstate", "SWH", "vb-korea", "KR", 79, "#006341"),
+  c("vb-daejeon-sparks", "Daejeon Sparks", "Daejeon Sparks", "DJS", "vb-korea", "KR", 78, "#E4002B"),
+  c("vb-cheonan-sky", "Cheonan Sky", "Cheonan Sky", "CNS", "vb-korea", "KR", 77, "#003DA5"),
+  c("vb-gimcheon-roads", "Gimcheon Roads", "Gimcheon Roads", "GMR", "vb-korea", "KR", 76, "#005EB8"),
+  c("vb-hwaseong-ibex", "Hwaseong Ibex", "Hwaseong Ibex", "HSI", "vb-korea", "KR", 75, "#C8102E"),
+  c("vb-busan-wave", "Busan Wave", "Busan Wave", "BSW", "vb-korea", "KR", 74, "#009CA6"),
+  c("vb-ankara-stars", "Ankara Stars", "Ankara Stars", "ANS", "vb-world", "TR", 86, "#FDB913"),
+  c("vb-istanbul-queens", "Istanbul Queens", "Istanbul Queens", "ISQ", "vb-world", "TR", 85, "#A6192E"),
+  c("vb-milan-blockers", "Milan Blockers", "Milan Blockers", "MLB", "vb-world", "IT", 84, "#111111"),
+  c("vb-novara-blue", "Novara Blue", "Novara Blue", "NVB", "vb-world", "IT", 82, "#004B93"),
+  c("vb-osaka-aces", "Osaka Aces", "Osaka Aces", "OSA", "vb-world", "JP", 80, "#E60012"),
+  c("vb-rio-samba", "Rio Samba", "Rio Samba", "RIS", "vb-world", "BR", 80, "#009739"),
+  c("vb-belgrade-nets", "Belgrade Nets", "Belgrade Nets", "BGN", "vb-world", "RS", 79, "#C6363C"),
+  c("vb-warsaw-spire", "Warsaw Spire", "Warsaw Spire", "WSP", "vb-world", "PL", 78, "#DC143C"),
+];
+
+const PICKLEBALL_LEAGUES: LeagueSeed[] = [
+  { id: "pb-pro", name: { ko: "Premier Paddle League", en: "Premier Paddle League" }, country: "US" },
+  { id: "pb-open", name: { ko: "Global Pickle Tour", en: "Global Pickle Tour" }, country: "US" },
+];
+
+const PICKLEBALL_CLUBS: ClubSeed[] = [
+  c("pb-austin-dinks", "Austin Dinks", "Austin Dinks", "ATD", "pb-pro", "US", 84, "#BF5700"),
+  c("pb-miami-smash", "Miami Smash", "Miami Smash", "MIS", "pb-pro", "US", 83, "#00B2A9"),
+  c("pb-seattle-kitchen", "Seattle Kitchen", "Seattle Kitchen", "SEK", "pb-pro", "US", 82, "#69BE28"),
+  c("pb-phoenix-rallies", "Phoenix Rallies", "Phoenix Rallies", "PHR", "pb-pro", "US", 81, "#E56020"),
+  c("pb-brooklyn-paddles", "Brooklyn Paddles", "Brooklyn Paddles", "BKP", "pb-pro", "US", 80, "#000000"),
+  c("pb-dallas-courts", "Dallas Courts", "Dallas Courts", "DLC", "pb-pro", "US", 79, "#003594"),
+  c("pb-vegas-volley", "Vegas Volley", "Vegas Volley", "VGV", "pb-pro", "US", 78, "#B4975A"),
+  c("pb-denver-drop", "Denver Drop", "Denver Drop", "DVD", "pb-pro", "US", 77, "#0E2240"),
+  c("pb-toronto-spin", "Toronto Spin", "Toronto Spin", "TOS", "pb-open", "CA", 78, "#DA291C"),
+  c("pb-seoul-paddle", "Seoul Paddle", "Seoul Paddle", "SLP", "pb-open", "KR", 76, "#0047A0"),
+  c("pb-tokyo-softgame", "Tokyo Softgame", "Tokyo Softgame", "TOSG", "pb-open", "JP", 76, "#BC002D"),
+  c("pb-london-lobs", "London Lobs", "London Lobs", "LDL", "pb-open", "EN", 75, "#1C2C5B"),
+  c("pb-madrid-kitchen", "Madrid Kitchen", "Madrid Kitchen", "MDK", "pb-open", "ES", 75, "#AA151B"),
+  c("pb-sydney-slices", "Sydney Slices", "Sydney Slices", "SYS", "pb-open", "AU", 74, "#00843D"),
+  c("pb-paris-paddlers", "Paris Paddlers", "Paris Paddlers", "PRP", "pb-open", "FR", 74, "#0055A4"),
+  c("pb-mexico-drive", "Mexico Drive", "Mexico Drive", "MXD", "pb-open", "MX", 73, "#006847"),
+];
+
+const SPORT_LEAGUES: Record<SportId, LeagueSeed[]> = {
+  soccer: LEAGUES,
+  basketball: BASKETBALL_LEAGUES,
+  baseball: BASEBALL_LEAGUES,
+  volleyball: VOLLEYBALL_LEAGUES,
+  pickleball: PICKLEBALL_LEAGUES,
+};
+
+const SPORT_CLUBS: Record<SportId, ClubSeed[]> = {
+  soccer: CLUBS,
+  basketball: BASKETBALL_CLUBS,
+  baseball: BASEBALL_CLUBS,
+  volleyball: VOLLEYBALL_CLUBS,
+  pickleball: PICKLEBALL_CLUBS,
+};
+
+export interface PlayerNameSeed {
+  name: string;
+  nameKo: string;
+}
+
+const SPORT_NAME_ARCHETYPES: Record<SportId, PlayerNameSeed[]> = {
+  soccer: [],
+  basketball: [
+    { name: "Jalen Cross", nameKo: "Jalen Cross" },
+    { name: "Cade Rivers", nameKo: "Cade Rivers" },
+    { name: "Luka Marin", nameKo: "Luka Marin" },
+    { name: "Giannis Karras", nameKo: "Giannis Karras" },
+    { name: "Aria Moon", nameKo: "Aria Moon" },
+  ],
+  baseball: [
+    { name: "Sho Ito", nameKo: "Sho Ito" },
+    { name: "Mookie Stone", nameKo: "Mookie Stone" },
+    { name: "Aaron Vale", nameKo: "Aaron Vale" },
+    { name: "Hyun Park", nameKo: "Hyun Park" },
+    { name: "Miguel Cruz", nameKo: "Miguel Cruz" },
+  ],
+  volleyball: [
+    { name: "Tijana Markovic", nameKo: "Tijana Markovic" },
+    { name: "Yuji Sato", nameKo: "Yuji Sato" },
+    { name: "Ebrar Demir", nameKo: "Ebrar Demir" },
+    { name: "Minji Kang", nameKo: "Minji Kang" },
+    { name: "Paola Ricci", nameKo: "Paola Ricci" },
+  ],
+  pickleball: [
+    { name: "Ben Archer", nameKo: "Ben Archer" },
+    { name: "Anna Bright", nameKo: "Anna Bright" },
+    { name: "Tyson Reed", nameKo: "Tyson Reed" },
+    { name: "Catherine Lane", nameKo: "Catherine Lane" },
+    { name: "JW Stone", nameKo: "JW Stone" },
+  ],
+};
+
+export function getLeaguesForSport(sportId: SportId): LeagueSeed[] {
+  return SPORT_LEAGUES[sportId];
+}
+
+export function getClubsForSport(sportId: SportId): ClubSeed[] {
+  return SPORT_CLUBS[sportId];
+}
+
+export function getClubByIdForSport(sportId: SportId, clubId: string): ClubSeed | undefined {
+  return getClubsForSport(sportId).find((club) => club.id === clubId);
+}
+
+export function getNameArchetypesForSport(sportId: SportId): PlayerNameSeed[] {
+  return SPORT_NAME_ARCHETYPES[sportId];
+}

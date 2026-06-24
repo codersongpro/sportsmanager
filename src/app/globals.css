@@ -1,8 +1,17 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f4f5f7;
+  --foreground: #15171c;
+  --panel: #ffffff;
+  --panel-muted: #eef1f5;
+  --line: #d8dde6;
+  --soft: #667085;
+  --accent: #1f6feb;
+  --accent-strong: #174ea6;
+  --success: #168a55;
+  --warning: #c77d00;
+  --danger: #c8324b;
 }
 
 @theme inline {
@@ -14,13 +23,51 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: #090b10;
+    --foreground: #eef2f7;
+    --panel: #121722;
+    --panel-muted: #1a2130;
+    --line: #2b3445;
+    --soft: #a5afc1;
+    --accent: #63a4ff;
+    --accent-strong: #8bbcff;
+    --success: #43c784;
+    --warning: #e8b14b;
+    --danger: #ff6b87;
   }
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
+}
+
+button,
+a,
+select,
+input {
+  outline-color: transparent;
+}
+
+button:focus-visible,
+a:focus-visible,
+select:focus-visible,
+input:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.surface-panel {
+  border-color: var(--line);
+  background: color-mix(in srgb, var(--panel) 96%, transparent);
+  color: var(--foreground);
+}
+
+.surface-muted {
+  background: var(--panel-muted);
+}
+
+.text-soft {
+  color: var(--soft);
 }
