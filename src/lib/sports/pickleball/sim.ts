@@ -8,6 +8,7 @@ interface Side {
   strength: number;
   attackers: Pool;
   finesse: Pool;
+  serve: number;
 }
 
 function side(team: MatchTeam): Side {
@@ -17,6 +18,7 @@ function side(team: MatchTeam): Side {
   const move = (avgAttr(l, "reflexes") + avgAttr(l, "speed") + avgAttr(l, "agility")) / 3;
   return {
     strength: power * 0.42 + touch * 0.33 + move * 0.25,
+    serve: avgAttr(l, "serve"),
     attackers: buildPool(l, (p) => 0.4 + ((p.attributes.drive ?? 40) + (p.attributes.volley ?? 40)) / 180),
     finesse: buildPool(l, (p) => 0.4 + ((p.attributes.dink ?? 40) + (p.attributes.strategy ?? 40)) / 180),
   };
@@ -31,7 +33,6 @@ const GAMEWON: Pool2 = [{ ko: "게임을 가져갑니다!", en: "Takes the game!
 const EXTRA: { type: string; detail: Pool2 }[] = [
   { type: "thirdShotDrop", detail: [{ ko: "서드샷 드롭으로 키친 싸움에 들어갑니다.", en: "Drops the third shot into the kitchen." }] },
   { type: "kitchenViolation", detail: [{ ko: "논발리존 침범이 선언됩니다.", en: "Kitchen violation is called." }] },
-  { type: "sideOut", detail: [{ ko: "서브권이 넘어갑니다.", en: "Side-out changes the server." }] },
   { type: "erne", detail: [{ ko: "옆라인을 돌아 어니 공격을 시도합니다.", en: "Steps around for an Erne attack." }] },
   { type: "lob", detail: [{ ko: "깊은 롭으로 상대를 뒤로 밀어냅니다.", en: "A deep lob pushes them back." }] },
   { type: "reset", detail: [{ ko: "강한 공을 부드럽게 리셋합니다.", en: "Resets the pace off a hard drive." }] },
@@ -46,16 +47,25 @@ const EXTRA: { type: string; detail: Pool2 }[] = [
   { type: "longRally", detail: [{ ko: "긴 랠리 끝에 집중력이 시험받습니다.", en: "A long rally tests both pairs." }] },
 ];
 
-function gameWinProb(h: number, a: number): number {
-  const p = 1 / (1 + Math.exp(-(h - a) / 7));
-  return Math.max(0.15, Math.min(0.85, p));
+function rallyWinProb(homeStrength: number, awayStrength: number, serverHome: boolean, homeServe: number, awayServe: number): number {
+  const serveEdge = serverHome ? (homeServe - 50) / 500 + 0.04 : -(awayServe - 50) / 500 - 0.04;
+  const p = 1 / (1 + Math.exp(-(homeStrength - awayStrength) / 7));
+  return Math.max(0.1, Math.min(0.9, p + serveEdge));
+}
+
+function gameFinished(homePoints: number, awayPoints: number): boolean {
+  return (homePoints >= 11 || awayPoints >= 11) && Math.abs(homePoints - awayPoints) >= 2;
+}
+
+function gameMinute(game: number, rally: number): number {
+  return game - 1 + Math.min(0.96, rally / 38);
 }
 
 export function simulateMatch(home: MatchTeam, away: MatchTeam, rng: RNG, opts: SimOptions = {}): MatchResult {
   const neutral = opts.neutralVenue ?? false;
   const hs = side(home);
   const as = side(away);
-  const hAdj = hs.strength + (neutral ? 0 : 1.5);
+  const hStrength = hs.strength + (neutral ? 0 : 1.5);
 
   const events: MatchEvent[] = [];
   const points: Record<string, number> = {};
@@ -64,41 +74,69 @@ export function simulateMatch(home: MatchTeam, away: MatchTeam, rng: RNG, opts: 
   let hG = 0;
   let aG = 0;
   let game = 0;
+  let serverHome = rng.bool(0.5);
+
   while (hG < 2 && aG < 2) {
     game++;
-    const homeWins = rng.bool(gameWinProb(hAdj, as.strength));
-    const wSide = homeWins ? hs : as;
-    const wClub = homeWins ? home.club.id : away.club.id;
-    const lClub = homeWins ? away.club.id : home.club.id;
-    const wz: PitchZone = homeWins ? "right" : "left";
-    const lz: PitchZone = homeWins ? "left" : "right";
-    const at = (f: number) => game - 1 + f;
+    let hPts = 0;
+    let aPts = 0;
+    let rally = 0;
 
-    for (let i = 0; i < 5; i++) {
-      const p = pick(rng, wSide.attackers);
-      bump(p?.id);
-      const r = rng.next();
-      const [type, pool] = r < 0.2 ? ["ace", ACE] : r < 0.4 ? ["smash", SMASH] : ["winner", WINNER];
-      events.push({ minute: at(rng.range(0.05, 0.9)), type, clubId: wClub, playerId: p?.id, detail: phrase(rng, pool as Pool2), zone: wz });
+    while (!gameFinished(hPts, aPts)) {
+      rally++;
+      const homeWinsRally = rng.bool(rallyWinProb(hStrength, as.strength, serverHome, hs.serve, as.serve));
+      const servingTeamWon = homeWinsRally === serverHome;
+      const winningSide = homeWinsRally ? hs : as;
+      const winningClub = homeWinsRally ? home.club.id : away.club.id;
+      const losingClub = homeWinsRally ? away.club.id : home.club.id;
+      const wz: PitchZone = homeWinsRally ? "right" : "left";
+      const lz: PitchZone = homeWinsRally ? "left" : "right";
+      const minute = gameMinute(game, rally);
+
+      if (servingTeamWon) {
+        if (homeWinsRally) hPts++; else aPts++;
+      } else {
+        serverHome = homeWinsRally;
+        events.push({ minute, type: "sideOut", clubId: winningClub, detail: { ko: "사이드아웃으로 서브권을 가져옵니다.", en: "Side-out earns the serve." }, zone: wz });
+      }
+
+      const roll = rng.next();
+      if (roll < 0.18 && serverHome === homeWinsRally) {
+        const p = pick(rng, winningSide.attackers);
+        bump(p?.id);
+        events.push({ minute, type: "ace", clubId: winningClub, playerId: p?.id, detail: phrase(rng, ACE), zone: wz });
+      } else if (roll < 0.34) {
+        const p = pick(rng, winningSide.attackers);
+        bump(p?.id);
+        events.push({ minute, type: "smash", clubId: winningClub, playerId: p?.id, detail: phrase(rng, SMASH), zone: wz });
+      } else if (roll < 0.5) {
+        const p = pick(rng, winningSide.attackers);
+        bump(p?.id);
+        events.push({ minute, type: "winner", clubId: winningClub, playerId: p?.id, detail: phrase(rng, WINNER), zone: wz });
+      } else if (roll < 0.65) {
+        const p = pick(rng, winningSide.finesse);
+        bump(p?.id);
+        events.push({ minute, type: "dink", clubId: winningClub, playerId: p?.id, detail: phrase(rng, DINK), zone: wz });
+      } else if (roll < 0.75) {
+        events.push({ minute, type: "fault", clubId: losingClub, detail: phrase(rng, FAULT), zone: lz });
+      } else if (roll < 0.9) {
+        const item = EXTRA[rng.int(0, EXTRA.length - 1)];
+        const p = pick(rng, rng.bool(0.55) ? winningSide.finesse : winningSide.attackers);
+        events.push({ minute, type: item.type, clubId: winningClub, playerId: p?.id, detail: phrase(rng, item.detail), zone: wz });
+      }
     }
-    for (let i = 0; i < 3; i++) {
-      const p = pick(rng, wSide.finesse);
-      bump(p?.id);
-      events.push({ minute: at(rng.range(0.1, 0.9)), type: "dink", clubId: wClub, playerId: p?.id, detail: phrase(rng, DINK), zone: wz });
-    }
-    for (let i = 0; i < 3; i++) {
-      events.push({ minute: at(rng.range(0.1, 0.9)), type: "fault", clubId: lClub, detail: phrase(rng, FAULT), zone: lz });
-    }
-    for (let i = 0; i < 6; i++) {
-      const homeEvent = rng.bool(0.5);
-      const s = homeEvent ? hs : as;
-      const clubId = homeEvent ? home.club.id : away.club.id;
-      const item = EXTRA[rng.int(0, EXTRA.length - 1)];
-      const p = pick(rng, rng.bool(0.55) ? s.finesse : s.attackers);
-      events.push({ minute: at(rng.range(0.08, 0.92)), type: item.type, clubId, playerId: p?.id, detail: phrase(rng, item.detail), zone: homeEvent ? "right" : "left" });
-    }
-    events.push({ minute: game, type: "gameWon", clubId: wClub, detail: phrase(rng, GAMEWON), zone: wz });
-    if (homeWins) hG++; else aG++;
+
+    const homeWinsGame = hPts > aPts;
+    const wClub = homeWinsGame ? home.club.id : away.club.id;
+    events.push({
+      minute: game,
+      type: "gameWon",
+      clubId: wClub,
+      detail: { ko: `${hPts}-${aPts}. ${phrase(rng, GAMEWON).ko}`, en: `${phrase(rng, GAMEWON).en} ${hPts}-${aPts}` },
+      zone: homeWinsGame ? "right" : "left",
+    });
+    if (homeWinsGame) hG++; else aG++;
+    serverHome = !serverHome;
   }
 
   events.sort((a, b) => a.minute - b.minute);
@@ -106,7 +144,7 @@ export function simulateMatch(home: MatchTeam, away: MatchTeam, rng: RNG, opts: 
   const playerRatings: Record<string, number> = {};
   const rate = (team: MatchTeam, win: boolean) => {
     for (const p of team.lineup) {
-      const r = 6.4 + (points[p.id] ?? 0) * 0.22 + (win ? 0.5 : -0.3) + rng.range(-0.3, 0.3);
+      const r = 6.4 + (points[p.id] ?? 0) * 0.12 + (win ? 0.5 : -0.3) + rng.range(-0.3, 0.3);
       playerRatings[p.id] = Math.max(4, Math.min(10, Math.round(r * 10) / 10));
     }
   };

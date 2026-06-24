@@ -64,6 +64,7 @@ export function MatchViewer({ result, home, away, players, sportId }: Props) {
   const { t, tl } = useI18n();
   const gameState = useGameStore((s) => s.state);
   const setTactics = useGameStore((s) => s.setTactics);
+  const setLineup = useGameStore((s) => s.setLineup);
   const autoPickLineup = useGameStore((s) => s.autoPickLineup);
   const sport = getSport(sportId);
   const pres = sport.matchPresentation;
@@ -87,8 +88,13 @@ export function MatchViewer({ result, home, away, players, sportId }: Props) {
   const [playing, setPlaying] = useState(true);
   const [speed, setSpeed] = useState(1);
   const [activeBreak, setActiveBreak] = useState<LocalizedText | null>(null);
+  const [activeBreakKind, setActiveBreakKind] = useState<"scheduled" | "timeout" | "substitution" | null>(null);
+  const [timeoutsLeft, setTimeoutsLeft] = useState(3);
   const managedClub = gameState?.manager.clubId === home.id ? home : gameState?.manager.clubId === away.id ? away : null;
-  const canAdjustTactics = Boolean(activeBreak && managedClub);
+  const canAdjustTactics = Boolean(activeBreak && managedClub && activeBreakKind !== "substitution");
+  const canManagePlayers = Boolean(activeBreak && managedClub);
+  const canCallTimeout = Boolean(managedClub && sportId !== "soccer" && clock < endMinute && timeoutsLeft > 0);
+  const canRequestSubstitution = Boolean(managedClub && clock < endMinute);
 
   const clockRef = useRef(0);
   const lastRef = useRef<number | null>(null);
@@ -114,9 +120,11 @@ export function MatchViewer({ result, home, away, players, sportId }: Props) {
           setClock(nc);
           setPlaying(false);
           setActiveBreak(b.label);
+          setActiveBreakKind("scheduled");
           if (!managedClub) {
             breakTimer.current = window.setTimeout(() => {
               setActiveBreak(null);
+              setActiveBreakKind(null);
               setPlaying(true);
             }, 2200);
           }
@@ -149,6 +157,7 @@ export function MatchViewer({ result, home, away, players, sportId }: Props) {
       breakTimer.current = null;
     }
     setActiveBreak(null);
+    setActiveBreakKind(null);
   }
   function togglePlay() {
     clearBreak();
@@ -172,6 +181,19 @@ export function MatchViewer({ result, home, away, players, sportId }: Props) {
     pres.breaks.forEach((_, i) => shownBreaks.current.add(i));
     setClock(endMinute);
     setPlaying(false);
+  }
+  function callTimeout() {
+    if (!managedClub || sportId === "soccer" || timeoutsLeft <= 0 || clockRef.current >= endMinute) return;
+    setTimeoutsLeft((n) => Math.max(0, n - 1));
+    setPlaying(false);
+    setActiveBreak({ ko: "작전타임", en: "Timeout" });
+    setActiveBreakKind("timeout");
+  }
+  function requestSubstitution() {
+    if (!managedClub || clockRef.current >= endMinute) return;
+    setPlaying(false);
+    setActiveBreak({ ko: "선수 교체", en: "Substitution" });
+    setActiveBreakKind("substitution");
   }
 
   const finished = clock >= endMinute;
@@ -273,6 +295,24 @@ export function MatchViewer({ result, home, away, players, sportId }: Props) {
               </button>
               <button onClick={restart} className="rounded-md border px-3 py-1.5 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-900">↺</button>
               <button onClick={skip} className="rounded-md border px-3 py-1.5 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-900">⏭ {t("skipToEnd")}</button>
+              {managedClub && (
+                <button
+                  onClick={requestSubstitution}
+                  disabled={!canRequestSubstitution}
+                  className="rounded-md border border-emerald-300 px-3 py-1.5 text-sm font-semibold text-emerald-700 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-emerald-800 dark:text-emerald-300 dark:hover:bg-emerald-950/30"
+                >
+                  ⇄ 교체
+                </button>
+              )}
+              {sportId !== "soccer" && managedClub && (
+                <button
+                  onClick={callTimeout}
+                  disabled={!canCallTimeout}
+                  className="rounded-md border border-amber-300 px-3 py-1.5 text-sm font-semibold text-amber-700 hover:bg-amber-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-amber-800 dark:text-amber-300 dark:hover:bg-amber-950/30"
+                >
+                  ⏱ 작전타임 {timeoutsLeft}
+                </button>
+              )}
               <div className="ml-auto flex items-center gap-1">
                 <span className="mr-1 text-xs text-soft">{t("speed")}</span>
                 {SPEEDS.map((s) => (
@@ -383,9 +423,28 @@ export function MatchViewer({ result, home, away, players, sportId }: Props) {
                 <InlineTacticsPanel
                   tactics={managedClub.tactics}
                   formations={sport.formations.map((f) => f.key)}
+                  club={managedClub}
+                  players={players}
+                  calcOverall={sport.calcOverall}
+                  allowTactics={canAdjustTactics}
                   t={t}
                   onPatch={setTactics}
                   onAutoPick={autoPickLineup}
+                  onLineupChange={setLineup}
+                />
+              )}
+              {!canAdjustTactics && canManagePlayers && managedClub && (
+                <InlineTacticsPanel
+                  tactics={managedClub.tactics}
+                  formations={sport.formations.map((f) => f.key)}
+                  club={managedClub}
+                  players={players}
+                  calcOverall={sport.calcOverall}
+                  allowTactics={false}
+                  t={t}
+                  onPatch={setTactics}
+                  onAutoPick={autoPickLineup}
+                  onLineupChange={setLineup}
                 />
               )}
               <h4 className="mb-1 text-xs font-semibold uppercase text-zinc-400">{t("ratings")}</h4>
@@ -568,41 +627,95 @@ function MiniStat({ label, v }: { label: string; v: string }) {
 function InlineTacticsPanel({
   tactics,
   formations,
+  club,
+  players,
+  calcOverall,
+  allowTactics,
   t,
   onPatch,
   onAutoPick,
+  onLineupChange,
 }: {
   tactics: Tactics;
   formations: string[];
+  club: Club;
+  players: Record<string, Player>;
+  calcOverall: (player: Player) => number;
+  allowTactics: boolean;
   t: (k: never) => string;
   onPatch: (patch: Partial<Tactics>) => void;
   onAutoPick: () => void;
+  onLineupChange: (lineup: string[], bench: string[]) => void;
 }) {
+  const lineupIds = tactics.lineup.filter((id) => players[id]);
+  const benchIds = tactics.bench.filter((id) => players[id] && !lineupIds.includes(id));
+  const fallbackBenchIds = club.squad.filter((id) => players[id] && !lineupIds.includes(id) && !benchIds.includes(id));
+  const selectableBenchIds = benchIds.length > 0 ? benchIds : fallbackBenchIds;
+  const [outId, setOutId] = useState(lineupIds[0] ?? "");
+  const [inId, setInId] = useState(selectableBenchIds[0] ?? "");
+  const selectedOutId = lineupIds.includes(outId) ? outId : lineupIds[0] ?? "";
+  const selectedInId = selectableBenchIds.includes(inId) ? inId : selectableBenchIds[0] ?? "";
+
+  function labelFor(id: string) {
+    const player = players[id];
+    if (!player) return id;
+    return `${playerDisplayName(player)} · ${player.positions[0]} · ${calcOverall(player)}`;
+  }
+
+  function applySubstitution() {
+    if (!selectedOutId || !selectedInId || selectedOutId === selectedInId || !lineupIds.includes(selectedOutId)) return;
+    const nextLineup = tactics.lineup.map((id) => (id === selectedOutId ? selectedInId : id));
+    const nextBench = Array.from(new Set([...tactics.bench.filter((id) => id !== selectedInId), selectedOutId]))
+      .filter((id) => players[id] && !nextLineup.includes(id));
+    onLineupChange(nextLineup, nextBench);
+  }
+
   return (
     <div className="mb-3 rounded-lg border border-zinc-200 p-3 dark:border-zinc-800">
-      <div className="mb-2 flex items-center justify-between gap-2">
-        <h4 className="text-xs font-semibold uppercase text-zinc-400">{t("tactics" as never)}</h4>
-        <button onClick={onAutoPick} className="rounded-md border px-2 py-1 text-xs hover:bg-zinc-100 dark:hover:bg-zinc-900">
-          {t("autoPick" as never)}
-        </button>
-      </div>
-      <div className="mb-2 grid grid-cols-2 gap-1.5">
-        {TACTIC_PRESETS.map((preset) => (
+      {allowTactics && (
+        <>
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <h4 className="text-xs font-semibold uppercase text-zinc-400">{t("tactics" as never)}</h4>
+            <button onClick={onAutoPick} className="rounded-md border px-2 py-1 text-xs hover:bg-zinc-100 dark:hover:bg-zinc-900">
+              {t("autoPick" as never)}
+            </button>
+          </div>
+          <div className="mb-2 grid grid-cols-2 gap-1.5">
+            {TACTIC_PRESETS.map((preset) => (
+              <button
+                key={preset.name}
+                onClick={() => onPatch(preset.patch)}
+                className="rounded-md border border-zinc-200 px-2 py-1 text-xs font-semibold hover:bg-zinc-100 dark:border-zinc-800 dark:hover:bg-zinc-900"
+              >
+                {preset.name}
+              </button>
+            ))}
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <BreakSelect label={t("formation" as never)} value={tactics.formation} options={formations} onChange={(formation) => onPatch({ formation })} />
+            <BreakSelect label={t("mentality" as never)} value={tactics.mentality} options={MENTALITY} onChange={(mentality) => onPatch({ mentality: mentality as Tactics["mentality"] })} t={t} />
+            <BreakSelect label={t("tempo" as never)} value={tactics.tempo} options={TEMPO} onChange={(tempo) => onPatch({ tempo: tempo as Tactics["tempo"] })} t={t} />
+            <BreakSelect label={t("pressing" as never)} value={tactics.pressing} options={PRESSING} onChange={(pressing) => onPatch({ pressing: pressing as Tactics["pressing"] })} t={t} />
+            <BreakSelect label={t("width" as never)} value={tactics.width} options={WIDTH} onChange={(width) => onPatch({ width: width as Tactics["width"] })} t={t} />
+          </div>
+        </>
+      )}
+      <div className={allowTactics ? "mt-3 border-t border-zinc-200 pt-3 dark:border-zinc-800" : ""}>
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <h4 className="text-xs font-semibold uppercase text-zinc-400">선수 교체</h4>
+          <span className="text-[11px] text-soft">라인업 {lineupIds.length}명 · 후보 {selectableBenchIds.length}명</span>
+        </div>
+        <div className="grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
+          <BreakSelect label="OUT" value={selectedOutId} options={lineupIds} onChange={setOutId} formatter={labelFor} />
+          <BreakSelect label="IN" value={selectedInId} options={selectableBenchIds} onChange={setInId} formatter={labelFor} />
           <button
-            key={preset.name}
-            onClick={() => onPatch(preset.patch)}
-            className="rounded-md border border-zinc-200 px-2 py-1 text-xs font-semibold hover:bg-zinc-100 dark:border-zinc-800 dark:hover:bg-zinc-900"
+            onClick={applySubstitution}
+            disabled={!selectedOutId || !selectedInId || selectedOutId === selectedInId}
+            className="self-end rounded-md bg-emerald-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-40"
           >
-            {preset.name}
+            교체 적용
           </button>
-        ))}
-      </div>
-      <div className="grid gap-2 sm:grid-cols-2">
-        <BreakSelect label={t("formation" as never)} value={tactics.formation} options={formations} onChange={(formation) => onPatch({ formation })} />
-        <BreakSelect label={t("mentality" as never)} value={tactics.mentality} options={MENTALITY} onChange={(mentality) => onPatch({ mentality: mentality as Tactics["mentality"] })} t={t} />
-        <BreakSelect label={t("tempo" as never)} value={tactics.tempo} options={TEMPO} onChange={(tempo) => onPatch({ tempo: tempo as Tactics["tempo"] })} t={t} />
-        <BreakSelect label={t("pressing" as never)} value={tactics.pressing} options={PRESSING} onChange={(pressing) => onPatch({ pressing: pressing as Tactics["pressing"] })} t={t} />
-        <BreakSelect label={t("width" as never)} value={tactics.width} options={WIDTH} onChange={(width) => onPatch({ width: width as Tactics["width"] })} t={t} />
+        </div>
       </div>
     </div>
   );
@@ -614,12 +727,14 @@ function BreakSelect({
   options,
   onChange,
   t,
+  formatter,
 }: {
   label: string;
   value: string;
   options: readonly string[];
   onChange: (value: string) => void;
   t?: (k: never) => string;
+  formatter?: (value: string) => string;
 }) {
   return (
     <label className="flex flex-col gap-1 text-left text-xs text-zinc-500">
@@ -631,7 +746,7 @@ function BreakSelect({
       >
         {options.map((option) => (
           <option key={option} value={option}>
-            {t ? t(option as never) : option}
+            {formatter ? formatter(option) : t ? t(option as never) : option}
           </option>
         ))}
       </select>

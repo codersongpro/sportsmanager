@@ -77,6 +77,74 @@ describe("multi-sport modules", () => {
   }
 });
 
+describe("sport-specific match rules", () => {
+  it("volleyball resolves best-of-five sets with real point targets", () => {
+    const sport = getSport("volleyball");
+    const world = buildWorld(sport, createRng(61), 2026);
+    const [a, b] = getClubsForSport("volleyball").slice(0, 2);
+    const team = (cid: string) => ({ club: world.clubs[cid], lineup: world.clubs[cid].tactics.lineup.map((p) => world.players[p]) });
+    const result = sport.simulateMatch(team(a.id), team(b.id), createRng(31), { allowDraw: true });
+    const setWins = result.events.filter((event) => event.type === "setWon");
+
+    expect(result.homeScore + result.awayScore).toBe(setWins.length);
+    expect(Math.max(result.homeScore, result.awayScore)).toBe(3);
+    setWins.forEach((event, index) => {
+      const score = event.detail?.ko.match(/(\d+)-(\d+)/);
+      expect(score).not.toBeNull();
+      const points = score!.slice(1).map(Number);
+      const target = index === 4 ? 15 : 25;
+      expect(Math.max(...points)).toBeGreaterThanOrEqual(target);
+      expect(Math.abs(points[0] - points[1])).toBeGreaterThanOrEqual(2);
+    });
+  });
+
+  it("pickleball uses side-out scoring and best-of-three games to 11", () => {
+    const sport = getSport("pickleball");
+    const world = buildWorld(sport, createRng(62), 2026);
+    const [a, b] = getClubsForSport("pickleball").slice(0, 2);
+    const team = (cid: string) => ({ club: world.clubs[cid], lineup: world.clubs[cid].tactics.lineup.map((p) => world.players[p]) });
+    const result = sport.simulateMatch(team(a.id), team(b.id), createRng(32), { allowDraw: true });
+    const gameWins = result.events.filter((event) => event.type === "gameWon");
+
+    expect(result.homeScore + result.awayScore).toBe(gameWins.length);
+    expect(Math.max(result.homeScore, result.awayScore)).toBe(2);
+    expect(result.events.some((event) => event.type === "sideOut")).toBe(true);
+    gameWins.forEach((event) => {
+      const score = event.detail?.ko.match(/(\d+)-(\d+)/);
+      expect(score).not.toBeNull();
+      const points = score!.slice(1).map(Number);
+      expect(Math.max(...points)).toBeGreaterThanOrEqual(11);
+      expect(Math.abs(points[0] - points[1])).toBeGreaterThanOrEqual(2);
+    });
+  });
+
+  it("baseball plays at least nine innings and never ends tied", () => {
+    const sport = getSport("baseball");
+    const world = buildWorld(sport, createRng(63), 2026);
+    const [a, b] = getClubsForSport("baseball").slice(0, 2);
+    const team = (cid: string) => ({ club: world.clubs[cid], lineup: world.clubs[cid].tactics.lineup.map((p) => world.players[p]) });
+    const result = sport.simulateMatch(team(a.id), team(b.id), createRng(33), { allowDraw: true });
+
+    expect(Math.max(...result.events.map((event) => event.minute))).toBeGreaterThanOrEqual(8);
+    expect(result.homeScore).not.toBe(result.awayScore);
+    expect(result.winnerId).toBeTruthy();
+  });
+
+  it("basketball plays four 12-minute quarters and overtime only when needed", () => {
+    const sport = getSport("basketball");
+    const world = buildWorld(sport, createRng(64), 2026);
+    const [a, b] = getClubsForSport("basketball").slice(0, 2);
+    const team = (cid: string) => ({ club: world.clubs[cid], lineup: world.clubs[cid].tactics.lineup.map((p) => world.players[p]) });
+    const result = sport.simulateMatch(team(a.id), team(b.id), createRng(34), { allowDraw: true });
+    const maxMinute = Math.max(...result.events.map((event) => event.minute));
+
+    expect(result.homeScore).not.toBe(result.awayScore);
+    expect(maxMinute).toBeGreaterThanOrEqual(36);
+    if (result.decidedBy === "extra_time") expect(maxMinute).toBeGreaterThan(48);
+    else expect(maxMinute).toBeLessThanOrEqual(48);
+  });
+});
+
 describe("soccer presentation", () => {
   it("declares real match minutes and the football pitch venue", () => {
     const sport = getSport("soccer");

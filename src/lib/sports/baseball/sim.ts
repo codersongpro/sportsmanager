@@ -1,6 +1,6 @@
 import type { LocalizedText, MatchEvent, MatchResult, MatchTeam, Player, PitchZone, SimOptions } from "@/lib/types";
 import type { RNG } from "@/lib/sim/rng";
-import { avgAttr, buildPool, phrase, pick, poisson, type Pool } from "../common/simutil";
+import { avgAttr, buildPool, phrase, poisson, pick, type Pool } from "../common/simutil";
 import { BSB_POSITION_GROUP } from "./constants";
 
 type Pool2 = LocalizedText[];
@@ -34,17 +34,11 @@ function side(team: MatchTeam): Side {
   };
 }
 
-const HIT: Pool2 = [
-  { ko: "적시타! 주자가 홈을 밟습니다!", en: "RBI hit! A run scores!" },
-  { ko: "중전 안타로 득점!", en: "Base hit brings one home!" },
-];
-const HR: Pool2 = [
-  { ko: "홈런!! 담장을 넘깁니다!", en: "HOME RUN!! Gone!" },
-  { ko: "큼지막한 아치! 홈런입니다!", en: "A towering blast — home run!" },
-];
-const SO: Pool2 = [{ ko: "삼진 아웃! 헛스윙입니다.", en: "Strikeout! Sits him down." }];
-const BB: Pool2 = [{ ko: "볼넷으로 출루.", en: "Draws a walk." }];
-const DOUBLE: Pool2 = [{ ko: "2루타! 장타가 터집니다.", en: "Rips a double into the gap." }];
+const HIT: Pool2 = [{ ko: "적시타! 주자가 홈을 밟습니다.", en: "RBI hit! A run scores!" }, { ko: "중전 안타로 득점합니다.", en: "Base hit brings one home!" }];
+const HR: Pool2 = [{ ko: "홈런! 담장을 넘깁니다.", en: "HOME RUN! Gone!" }, { ko: "높게 뻗은 타구가 홈런이 됩니다.", en: "A towering blast, home run!" }];
+const SO: Pool2 = [{ ko: "삼진 아웃! 타자를 돌려세웁니다.", en: "Strikeout! Sits him down." }];
+const BB: Pool2 = [{ ko: "볼넷으로 출루합니다.", en: "Draws a walk." }];
+const DOUBLE: Pool2 = [{ ko: "2루타! 타구가 외야 깊숙이 향합니다.", en: "Rips a double into the gap." }];
 const ERR: Pool2 = [{ ko: "실책! 수비 실수가 나옵니다.", en: "Error! A misplay in the field." }];
 const STEAL: Pool2 = [{ ko: "도루 성공!", en: "Steals the base!" }];
 const DP: Pool2 = [{ ko: "병살타! 두 명을 잡아냅니다.", en: "Double play! Two down." }];
@@ -63,84 +57,104 @@ const EXTRA: { type: string; detail: Pool2 }[] = [
   { type: "basesLoaded", detail: [{ ko: "만루 위기에서 승부가 이어집니다.", en: "Bases loaded pressure builds." }] },
 ];
 
-function expectedRuns(bat: number, pitch: number, home: boolean, rng: RNG): number {
-  const r = 4.4 * Math.pow(bat / Math.max(28, pitch), 1.25) + (home ? 0.3 : -0.2);
-  return Math.max(0, Math.min(16, poisson(rng, Math.max(0.3, r))));
+function halfInningLambda(bat: number, pitch: number, homeBatting: boolean, inning: number): number {
+  const base = 0.48 * Math.pow(bat / Math.max(28, pitch), 1.22);
+  const leverage = inning >= 7 ? 1.08 : 1;
+  return Math.max(0.04, Math.min(2.4, base * leverage + (homeBatting ? 0.03 : 0)));
+}
+
+function halfMinute(inning: number, top: boolean, offset: number): number {
+  return inning - 1 + (top ? 0.08 : 0.58) + offset;
+}
+
+function emitHalfInning({
+  events,
+  rng,
+  batting,
+  pitching,
+  battingClub,
+  fieldingClub,
+  runs,
+  inning,
+  top,
+  hits,
+}: {
+  events: MatchEvent[];
+  rng: RNG;
+  batting: Side;
+  pitching: Side;
+  battingClub: string;
+  fieldingClub: string;
+  runs: number;
+  inning: number;
+  top: boolean;
+  hits: Record<string, number>;
+}) {
+  const zone: PitchZone = top ? "left" : "right";
+  const fieldZone: PitchZone = top ? "right" : "left";
+  for (let i = 0; i < runs; i++) {
+    const homer = rng.bool(0.16);
+    const batter = pick(rng, homer ? batting.powerHitters : batting.batters);
+    if (batter) hits[batter.id] = (hits[batter.id] ?? 0) + 1;
+    events.push({
+      minute: halfMinute(inning, top, rng.range(0.02, 0.34)),
+      type: homer ? "homeRun" : "run",
+      clubId: battingClub,
+      playerId: batter?.id,
+      detail: phrase(rng, homer ? HR : HIT),
+      zone,
+    });
+  }
+
+  const strikeouts = Math.min(2, poisson(rng, 0.9 + pitching.pitchRating / 120));
+  for (let i = 0; i < strikeouts; i++) {
+    events.push({ minute: halfMinute(inning, top, rng.range(0.02, 0.4)), type: "strikeout", clubId: fieldingClub, playerId: pitching.pitcher?.id, detail: phrase(rng, SO), zone: "mid" });
+  }
+  if (rng.bool(0.32)) {
+    const b = pick(rng, batting.batters);
+    events.push({ minute: halfMinute(inning, top, rng.range(0.05, 0.38)), type: "walk", clubId: battingClub, playerId: b?.id, detail: phrase(rng, BB), zone });
+  }
+  if (rng.bool(0.24)) {
+    const b = pick(rng, batting.batters);
+    events.push({ minute: halfMinute(inning, top, rng.range(0.05, 0.38)), type: "double", clubId: battingClub, playerId: b?.id, detail: phrase(rng, DOUBLE), zone });
+  }
+  if (rng.bool(0.08)) events.push({ minute: halfMinute(inning, top, rng.range(0.05, 0.38)), type: "error", clubId: fieldingClub, detail: phrase(rng, ERR), zone: fieldZone });
+  if (rng.bool(0.08)) {
+    const b = pick(rng, batting.batters);
+    events.push({ minute: halfMinute(inning, top, rng.range(0.05, 0.38)), type: "steal", clubId: battingClub, playerId: b?.id, detail: phrase(rng, STEAL), zone: "mid" });
+  }
+  if (rng.bool(0.09)) events.push({ minute: halfMinute(inning, top, rng.range(0.05, 0.38)), type: "doublePlay", clubId: fieldingClub, detail: phrase(rng, DP), zone: "mid" });
+  if (rng.bool(0.28)) {
+    const item = EXTRA[rng.int(0, EXTRA.length - 1)];
+    const b = pick(rng, batting.batters);
+    events.push({ minute: halfMinute(inning, top, rng.range(0.05, 0.38)), type: item.type, clubId: battingClub, playerId: b?.id, detail: phrase(rng, item.detail), zone });
+  }
 }
 
 export function simulateMatch(home: MatchTeam, away: MatchTeam, rng: RNG, opts: SimOptions = {}): MatchResult {
   const neutral = opts.neutralVenue ?? false;
   const hs = side(home);
   const as = side(away);
-
-  let hr = expectedRuns(hs.batRating, as.pitchRating, !neutral, rng);
-  let ar = expectedRuns(as.batRating, hs.pitchRating, false, rng);
-  while (hr === ar) {
-    // extra innings — never a tie
-    if (rng.bool(hs.batRating >= as.batRating ? 0.55 : 0.45)) hr += 1;
-    else ar += 1;
-  }
+  const homeBat = { ...hs, batRating: hs.batRating + (neutral ? 0 : 1.5) };
 
   const events: MatchEvent[] = [];
   const hits: Record<string, number> = {};
+  let homeScore = 0;
+  let awayScore = 0;
+  let inning = 1;
 
-  function scoreTeam(s: Side, clubId: string, runs: number, home: boolean) {
-    const zone: PitchZone = home ? "right" : "left";
-    for (let i = 0; i < runs; i++) {
-      const homer = rng.bool(0.14);
-      const batter = pick(rng, homer ? s.powerHitters : s.batters);
-      if (batter) hits[batter.id] = (hits[batter.id] ?? 0) + 1;
-      events.push({
-        minute: rng.int(1, 9),
-        type: homer ? "homeRun" : "run",
-        clubId,
-        playerId: batter?.id,
-        detail: phrase(rng, homer ? HR : HIT),
-        zone,
-      });
-    }
-  }
-  scoreTeam(hs, home.club.id, hr, true);
-  scoreTeam(as, away.club.id, ar, false);
+  while (inning <= 9 || homeScore === awayScore) {
+    const awayRuns = poisson(rng, halfInningLambda(as.batRating, hs.pitchRating, false, inning));
+    awayScore += awayRuns;
+    emitHalfInning({ events, rng, batting: as, pitching: hs, battingClub: away.club.id, fieldingClub: home.club.id, runs: awayRuns, inning, top: true, hits });
 
-  // flavour / non-scoring plays
-  function flavour(batSide: Side, pitchSide: Side, batClub: string, fieldClub: string, home: boolean) {
-    const zone: PitchZone = home ? "right" : "left";
-    for (let i = 0; i < Math.min(11, poisson(rng, 7)); i++) {
-      events.push({ minute: rng.int(1, 9), type: "strikeout", clubId: fieldClub, playerId: pitchSide.pitcher?.id, detail: phrase(rng, SO), zone: "mid" });
+    const skipBottomNinth = inning >= 9 && homeScore > awayScore;
+    if (!skipBottomNinth) {
+      const homeRuns = poisson(rng, halfInningLambda(homeBat.batRating, as.pitchRating, true, inning));
+      homeScore += homeRuns;
+      emitHalfInning({ events, rng, batting: homeBat, pitching: as, battingClub: home.club.id, fieldingClub: away.club.id, runs: homeRuns, inning, top: false, hits });
     }
-    for (let i = 0; i < Math.min(5, poisson(rng, 3)); i++) {
-      const b = pick(rng, batSide.batters);
-      events.push({ minute: rng.int(1, 9), type: "walk", clubId: batClub, playerId: b?.id, detail: phrase(rng, BB), zone });
-    }
-    for (let i = 0; i < Math.min(4, poisson(rng, 2)); i++) {
-      const b = pick(rng, batSide.batters);
-      events.push({ minute: rng.int(1, 9), type: "double", clubId: batClub, playerId: b?.id, detail: phrase(rng, DOUBLE), zone });
-    }
-    if (rng.bool(0.5)) events.push({ minute: rng.int(1, 9), type: "error", clubId: fieldClub, detail: phrase(rng, ERR), zone: "mid" });
-    if (rng.bool(0.45)) {
-      const b = pick(rng, batSide.batters);
-      events.push({ minute: rng.int(1, 9), type: "steal", clubId: batClub, playerId: b?.id, detail: phrase(rng, STEAL), zone: "mid" });
-    }
-    if (rng.bool(0.4)) events.push({ minute: rng.int(1, 9), type: "doublePlay", clubId: fieldClub, detail: phrase(rng, DP), zone: "mid" });
-  }
-  flavour(hs, as, home.club.id, away.club.id, true);
-  flavour(as, hs, away.club.id, home.club.id, false);
-
-  for (let i = 0; i < 16; i++) {
-    const homeEvent = rng.bool(0.5);
-    const batSide = homeEvent ? hs : as;
-    const clubId = homeEvent ? home.club.id : away.club.id;
-    const item = EXTRA[rng.int(0, EXTRA.length - 1)];
-    const b = pick(rng, batSide.batters);
-    events.push({
-      minute: rng.int(1, 9),
-      type: item.type,
-      clubId,
-      playerId: b?.id,
-      detail: phrase(rng, item.detail),
-      zone: homeEvent ? "right" : "left",
-    });
+    inning++;
   }
 
   events.sort((a, b) => a.minute - b.minute);
@@ -158,17 +172,17 @@ export function simulateMatch(home: MatchTeam, away: MatchTeam, rng: RNG, opts: 
     const r = 7.4 - runsAllowed * 0.35 + (win ? 0.3 : 0) + rng.range(-0.2, 0.2);
     playerRatings[s.pitcher.id] = Math.max(4, Math.min(10, Math.round(r * 10) / 10));
   };
-  rateBatters(home, hr > ar);
-  rateBatters(away, ar > hr);
-  ratePitcher(hs, ar, hr > ar);
-  ratePitcher(as, hr, ar > hr);
+  rateBatters(home, homeScore > awayScore);
+  rateBatters(away, awayScore > homeScore);
+  ratePitcher(hs, awayScore, homeScore > awayScore);
+  ratePitcher(as, homeScore, awayScore > homeScore);
 
   return {
     fixtureId: "",
     homeId: home.club.id,
     awayId: away.club.id,
-    homeScore: hr,
-    awayScore: ar,
+    homeScore,
+    awayScore,
     events,
     playerRatings,
     stats: {
@@ -178,7 +192,7 @@ export function simulateMatch(home: MatchTeam, away: MatchTeam, rng: RNG, opts: 
       homeShotsOnTarget: 0,
       awayShotsOnTarget: 0,
     },
-    winnerId: hr > ar ? home.club.id : away.club.id,
-    decidedBy: "normal",
+    winnerId: homeScore > awayScore ? home.club.id : away.club.id,
+    decidedBy: inning > 10 ? "extra_time" : "normal",
   };
 }

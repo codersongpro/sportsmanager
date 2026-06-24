@@ -32,25 +32,16 @@ function side(team: MatchTeam): Side {
   return { off, def, scorers, assisters, rebounders, stealers, blockers, threeSkill: avgAttr(l, "three") };
 }
 
-const THREE: Pool2 = [
-  { ko: "3점 성공! 림을 가르는 외곽포!", en: "Splash! Drains the three!" },
-  { ko: "코너에서 3점! 정확합니다!", en: "Corner three — bullseye!" },
-];
-const DUNK: Pool2 = [
-  { ko: "강력한 덩크! 림이 흔들립니다!", en: "Thunderous slam!" },
-  { ko: "앨리웁 덩크 성공!", en: "Alley-oop jam!" },
-];
-const TWO: Pool2 = [
-  { ko: "득점! 미드레인지 점퍼가 들어갑니다.", en: "Buckets — smooth mid-range jumper." },
-  { ko: "레이업 성공!", en: "Finishes at the rim." },
-];
-const FT: Pool2 = [{ ko: "자유투 성공.", en: "Knocks down the free throw." }];
-const STEAL: Pool2 = [{ ko: "스틸! 공을 가로챕니다!", en: "Steal! Picks his pocket!" }];
-const BLOCK: Pool2 = [{ ko: "블록! 슛을 거부합니다!", en: "Blocked! Sent away!" }];
-const TO: Pool2 = [{ ko: "턴오버. 공격권을 넘겨줍니다.", en: "Turnover — coughs it up." }];
-const REB: Pool2 = [{ ko: "공격 리바운드 쟁취!", en: "Grabs the offensive board!" }];
+const THREE: Pool2 = [{ ko: "3점슛 성공! 림을 가릅니다.", en: "Splash! Drains the three!" }, { ko: "코너에서 3점이 정확합니다.", en: "Corner three, bullseye!" }];
+const DUNK: Pool2 = [{ ko: "강력한 덩크! 림이 흔들립니다.", en: "Thunderous slam!" }, { ko: "앨리웁 덩크 성공!", en: "Alley-oop jam!" }];
+const TWO: Pool2 = [{ ko: "야투 성공! 미드레인지 점퍼가 들어갑니다.", en: "Smooth mid-range jumper." }, { ko: "골밑 마무리 성공!", en: "Finishes at the rim." }];
+const FT: Pool2 = [{ ko: "자유투를 침착하게 넣습니다.", en: "Knocks down the free throw." }];
+const STEAL: Pool2 = [{ ko: "스틸! 공을 가로챕니다.", en: "Steal! Picks his pocket!" }];
+const BLOCK: Pool2 = [{ ko: "블록! 슛을 걷어냅니다.", en: "Blocked! Sent away!" }];
+const TO: Pool2 = [{ ko: "턴오버. 공격권을 넘겨줍니다.", en: "Turnover, coughs it up." }];
+const REB: Pool2 = [{ ko: "리바운드를 따냅니다.", en: "Grabs the board!" }];
 const EXTRA: { type: string; detail: Pool2 }[] = [
-  { type: "fastBreak", detail: [{ ko: "스틸 이후 속공으로 분위기를 끌어올립니다.", en: "Turns defense into an open-court break." }] },
+  { type: "fastBreak", detail: [{ ko: "수비 리바운드 이후 빠르게 속공을 전개합니다.", en: "Turns the rebound into an open-court break." }] },
   { type: "pickAndRoll", detail: [{ ko: "픽앤롤로 수비 스위치를 강요합니다.", en: "Forces a switch with the pick and roll." }] },
   { type: "isolation", detail: [{ ko: "클러치 구간 아이솔레이션을 선택합니다.", en: "Clears out for an isolation." }] },
   { type: "postUp", detail: [{ ko: "로우 포스트에서 미스매치를 공략합니다.", en: "Attacks the mismatch on the block." }] },
@@ -66,93 +57,104 @@ const EXTRA: { type: string; detail: Pool2 }[] = [
   { type: "mismatch", detail: [{ ko: "작은 수비수를 상대로 계속 공략합니다.", en: "Keeps targeting the smaller defender." }] },
 ];
 
-function targetPoints(off: number, def: number, home: boolean): number {
-  const base = 104 * Math.pow(off / Math.max(30, def), 1.05);
-  return Math.max(82, Math.min(138, Math.round(base + (home ? 2.5 : -2.5))));
+function targetPoints(off: number, def: number, home: boolean, minutes = 48): number {
+  const base = 104 * Math.pow(off / Math.max(30, def), 1.05) * (minutes / 48);
+  return Math.max(minutes === 48 ? 82 : 4, Math.min(minutes === 48 ? 138 : 20, Math.round(base + (home ? 2.5 : -2.5))));
 }
 
-/** Decompose total points into made 3s, 2s and free throws (sums exactly). */
+function splitTotal(total: number, parts: number, rng: RNG): number[] {
+  const weights = Array.from({ length: parts }, () => rng.range(0.85, 1.15));
+  const sum = weights.reduce((s, w) => s + w, 0);
+  const values = weights.map((w) => Math.max(0, Math.floor((total * w) / sum)));
+  while (values.reduce((s, v) => s + v, 0) < total) values[rng.int(0, parts - 1)]++;
+  return values;
+}
+
 function decompose(total: number, threeSkill: number, rng: RNG): { threes: number; twos: number; fts: number } {
   const threeShare = 0.26 + (threeSkill - 50) / 250 + rng.range(-0.04, 0.04);
-  let threes = Math.max(3, Math.round((total * Math.max(0.12, threeShare)) / 3));
+  let threes = Math.max(0, Math.round((total * Math.max(0.12, threeShare)) / 3));
   if (threes * 3 > total) threes = Math.floor(total / 3);
   let rem = total - threes * 3;
   let fts = Math.round(rem * 0.18);
   rem -= fts;
   const twos = Math.floor(rem / 2);
-  fts += rem - twos * 2; // absorb parity into FTs
+  fts += rem - twos * 2;
   return { threes, twos, fts };
+}
+
+function emitPoints(events: MatchEvent[], rng: RNG, s: Side, clubId: string, total: number, start: number, duration: number, homeSide: boolean, pts: Record<string, number>) {
+  const zone: PitchZone = homeSide ? "right" : "left";
+  const addPts = (id: string | undefined, n: number) => { if (id) pts[id] = (pts[id] ?? 0) + n; };
+  const { threes, twos, fts } = decompose(total, s.threeSkill, rng);
+  const emit = (type: string, detailPool: Pool2, value: number, withAssist: boolean) => {
+    const scorer = pick(rng, s.scorers);
+    addPts(scorer?.id, value);
+    const assist = withAssist && rng.bool(0.55) ? pick(rng, s.assisters, scorer) : undefined;
+    events.push({ minute: start + rng.range(0.1, duration - 0.1), type, clubId, playerId: scorer?.id, assistId: assist?.id, detail: phrase(rng, detailPool), zone });
+  };
+  for (let i = 0; i < threes; i++) emit("three", THREE, 3, true);
+  for (let i = 0; i < twos; i++) emit(rng.bool(0.22) ? "dunk" : "two", rng.bool(0.22) ? DUNK : TWO, 2, true);
+  for (let i = 0; i < fts; i++) emit("freeThrow", FT, 1, false);
+}
+
+function emitNonScoring(events: MatchEvent[], rng: RNG, s: Side, clubId: string, oppId: string, start: number, duration: number, homeSide: boolean) {
+  const zone: PitchZone = homeSide ? "right" : "left";
+  for (let i = 0; i < Math.min(3, poisson(rng, 1.7)); i++) {
+    const p = pick(rng, s.stealers);
+    events.push({ minute: start + rng.range(0.1, duration - 0.1), type: "steal", clubId, playerId: p?.id, detail: phrase(rng, STEAL), zone: "mid" });
+  }
+  for (let i = 0; i < Math.min(3, poisson(rng, 1.2)); i++) {
+    const p = pick(rng, s.blockers);
+    events.push({ minute: start + rng.range(0.1, duration - 0.1), type: "block", clubId, playerId: p?.id, detail: phrase(rng, BLOCK), zone });
+  }
+  for (let i = 0; i < Math.min(3, poisson(rng, 1.4)); i++) {
+    events.push({ minute: start + rng.range(0.1, duration - 0.1), type: "turnover", clubId: oppId, detail: phrase(rng, TO), zone: "mid" });
+  }
+  for (let i = 0; i < Math.min(3, poisson(rng, 1.6)); i++) {
+    const p = pick(rng, s.rebounders);
+    events.push({ minute: start + rng.range(0.1, duration - 0.1), type: "rebound", clubId, playerId: p?.id, detail: phrase(rng, REB), zone });
+  }
+  for (let i = 0; i < 2; i++) {
+    const item = EXTRA[rng.int(0, EXTRA.length - 1)];
+    const p = pick(rng, rng.bool(0.5) ? s.scorers : s.assisters);
+    events.push({ minute: start + rng.range(0.1, duration - 0.1), type: item.type, clubId, playerId: p?.id, detail: phrase(rng, item.detail), zone });
+  }
 }
 
 export function simulateMatch(home: MatchTeam, away: MatchTeam, rng: RNG, opts: SimOptions = {}): MatchResult {
   const neutral = opts.neutralVenue ?? false;
   const hs = side(home);
   const as = side(away);
-
-  let hp = targetPoints(hs.off, as.def, !neutral);
-  const ap = targetPoints(as.off, hs.def, false);
-  if (hp === ap) hp += rng.bool(hs.off >= as.off ? 0.6 : 0.4) ? 3 : -3; // no ties
-
   const events: MatchEvent[] = [];
   const pts: Record<string, number> = {};
-  const addPts = (id: string | undefined, n: number) => { if (id) pts[id] = (pts[id] ?? 0) + n; };
+  let decidedBy: MatchResult["decidedBy"] = "normal";
 
-  function scoreTeam(s: Side, clubId: string, total: number, home: boolean) {
-    const zone: PitchZone = home ? "right" : "left";
-    const { threes, twos, fts } = decompose(total, s.threeSkill, rng);
-    const emit = (type: string, detailPool: Pool2, value: number, withAssist: boolean) => {
-      const scorer = pick(rng, s.scorers);
-      addPts(scorer?.id, value);
-      const assist = withAssist && rng.bool(0.55) ? pick(rng, s.assisters, scorer) : undefined;
-      events.push({ minute: rng.int(1, 48), type, clubId, playerId: scorer?.id, assistId: assist?.id, detail: phrase(rng, detailPool), zone });
-    };
-    for (let i = 0; i < threes; i++) emit("three", THREE, 3, true);
-    for (let i = 0; i < twos; i++) {
-      const dunk = rng.bool(0.22);
-      emit(dunk ? "dunk" : "two", dunk ? DUNK : TWO, 2, true);
-    }
-    for (let i = 0; i < fts; i++) emit("freeThrow", FT, 1, false);
+  let homeTotal = targetPoints(hs.off, as.def, !neutral);
+  let awayTotal = targetPoints(as.off, hs.def, false);
+  const hQuarters = splitTotal(homeTotal, 4, rng);
+  const aQuarters = splitTotal(awayTotal, 4, rng);
+
+  for (let q = 0; q < 4; q++) {
+    const start = q * 12;
+    emitPoints(events, rng, hs, home.club.id, hQuarters[q], start, 12, true, pts);
+    emitPoints(events, rng, as, away.club.id, aQuarters[q], start, 12, false, pts);
+    emitNonScoring(events, rng, hs, home.club.id, away.club.id, start, 12, true);
+    emitNonScoring(events, rng, as, away.club.id, home.club.id, start, 12, false);
   }
 
-  scoreTeam(hs, home.club.id, hp, true);
-  scoreTeam(as, away.club.id, ap, false);
-
-  // highlights (defensive plays, for flavor + stats)
-  function highlights(s: Side, oppId: string, clubId: string, home: boolean) {
-    const zone: PitchZone = home ? "right" : "left";
-    for (let i = 0; i < Math.min(8, poisson(rng, 7)); i++) {
-      const p = pick(rng, s.stealers);
-      events.push({ minute: rng.int(1, 48), type: "steal", clubId, playerId: p?.id, detail: phrase(rng, STEAL), zone: "mid" });
-    }
-    for (let i = 0; i < Math.min(7, poisson(rng, 5)); i++) {
-      const p = pick(rng, s.blockers);
-      events.push({ minute: rng.int(1, 48), type: "block", clubId, playerId: p?.id, detail: phrase(rng, BLOCK), zone });
-    }
-    for (let i = 0; i < Math.min(6, poisson(rng, 4)); i++) {
-      events.push({ minute: rng.int(1, 48), type: "turnover", clubId: oppId, detail: phrase(rng, TO), zone: "mid" });
-    }
-    for (let i = 0; i < Math.min(6, poisson(rng, 5)); i++) {
-      const p = pick(rng, s.rebounders);
-      events.push({ minute: rng.int(1, 48), type: "rebound", clubId, playerId: p?.id, detail: phrase(rng, REB), zone });
-    }
-  }
-  highlights(hs, away.club.id, home.club.id, true);
-  highlights(as, home.club.id, away.club.id, false);
-
-  for (let i = 0; i < 18; i++) {
-    const homeEvent = rng.bool(0.5);
-    const s = homeEvent ? hs : as;
-    const clubId = homeEvent ? home.club.id : away.club.id;
-    const item = EXTRA[rng.int(0, EXTRA.length - 1)];
-    const p = pick(rng, rng.bool(0.5) ? s.scorers : s.assisters);
-    events.push({
-      minute: rng.int(1, 48),
-      type: item.type,
-      clubId,
-      playerId: p?.id,
-      detail: phrase(rng, item.detail),
-      zone: homeEvent ? "right" : "left",
-    });
+  let overtime = 0;
+  while (homeTotal === awayTotal) {
+    decidedBy = "extra_time";
+    overtime++;
+    const start = 48 + (overtime - 1) * 5;
+    const hOt = targetPoints(hs.off, as.def, false, 5) + rng.int(0, 4);
+    const aOt = targetPoints(as.off, hs.def, false, 5) + rng.int(0, 4);
+    homeTotal += hOt;
+    awayTotal += aOt;
+    emitPoints(events, rng, hs, home.club.id, hOt, start, 5, true, pts);
+    emitPoints(events, rng, as, away.club.id, aOt, start, 5, false, pts);
+    emitNonScoring(events, rng, hs, home.club.id, away.club.id, start, 5, true);
+    emitNonScoring(events, rng, as, away.club.id, home.club.id, start, 5, false);
   }
 
   events.sort((a, b) => a.minute - b.minute);
@@ -164,15 +166,15 @@ export function simulateMatch(home: MatchTeam, away: MatchTeam, rng: RNG, opts: 
       playerRatings[p.id] = Math.max(4, Math.min(10, Math.round(r * 10) / 10));
     }
   };
-  rate(home, hp > ap);
-  rate(away, ap > hp);
+  rate(home, homeTotal > awayTotal);
+  rate(away, awayTotal > homeTotal);
 
   return {
     fixtureId: "",
     homeId: home.club.id,
     awayId: away.club.id,
-    homeScore: hp,
-    awayScore: ap,
+    homeScore: homeTotal,
+    awayScore: awayTotal,
     events,
     playerRatings,
     stats: {
@@ -182,7 +184,7 @@ export function simulateMatch(home: MatchTeam, away: MatchTeam, rng: RNG, opts: 
       homeShotsOnTarget: 0,
       awayShotsOnTarget: 0,
     },
-    winnerId: hp > ap ? home.club.id : away.club.id,
-    decidedBy: "normal",
+    winnerId: homeTotal > awayTotal ? home.club.id : away.club.id,
+    decidedBy,
   };
 }
