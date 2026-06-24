@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { useI18n } from "@/lib/i18n/I18nProvider";
 import { useGameStore } from "@/lib/store/gameStore";
 import { BracketView } from "@/components/BracketView";
@@ -16,6 +17,7 @@ export default function WorldCupPage() {
   const [nationCode, setNationCode] = useState(COUNTRIES[0]?.code ?? "");
 
   if (!state) return null;
+  if (state.sportId !== "soccer") redirect("/game/competition");
   const wc = state.worldCup;
 
   if (!wc) {

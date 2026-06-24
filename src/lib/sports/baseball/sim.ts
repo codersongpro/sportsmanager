@@ -48,6 +48,20 @@ const DOUBLE: Pool2 = [{ ko: "2루타! 장타가 터집니다.", en: "Rips a dou
 const ERR: Pool2 = [{ ko: "실책! 수비 실수가 나옵니다.", en: "Error! A misplay in the field." }];
 const STEAL: Pool2 = [{ ko: "도루 성공!", en: "Steals the base!" }];
 const DP: Pool2 = [{ ko: "병살타! 두 명을 잡아냅니다.", en: "Double play! Two down." }];
+const EXTRA: { type: string; detail: Pool2 }[] = [
+  { type: "single", detail: [{ ko: "깔끔한 안타로 출루합니다.", en: "Punches a clean single." }] },
+  { type: "triple", detail: [{ ko: "외야 깊숙한 타구로 3루까지 내달립니다.", en: "Races into third with a triple." }] },
+  { type: "bunt", detail: [{ ko: "번트로 주자를 진루시킵니다.", en: "Lays down a useful bunt." }] },
+  { type: "hitByPitch", detail: [{ ko: "몸에 맞는 공으로 출루합니다.", en: "Takes one off the body." }] },
+  { type: "wildPitch", detail: [{ ko: "폭투가 나오며 주자가 움직입니다.", en: "A wild pitch lets the runner advance." }] },
+  { type: "moundVisit", detail: [{ ko: "포수가 마운드에 올라 흐름을 끊습니다.", en: "The catcher heads out for a mound visit." }] },
+  { type: "pitchingChange", detail: [{ ko: "불펜에서 새 투수가 올라옵니다.", en: "A new arm comes in from the bullpen." }] },
+  { type: "defensiveShift", detail: [{ ko: "타구 성향에 맞춰 수비 시프트를 겁니다.", en: "The defense shifts for the hitter." }] },
+  { type: "pickoff", detail: [{ ko: "빠른 견제로 주자를 묶어둡니다.", en: "A sharp pickoff move keeps the runner close." }] },
+  { type: "divingCatch", detail: [{ ko: "다이빙 캐치로 장타를 지웁니다.", en: "A diving catch steals extra bases." }] },
+  { type: "review", detail: [{ ko: "비디오 판독으로 판정이 확인됩니다.", en: "Replay review confirms the call." }] },
+  { type: "basesLoaded", detail: [{ ko: "만루 위기에서 승부가 이어집니다.", en: "Bases loaded pressure builds." }] },
+];
 
 function expectedRuns(bat: number, pitch: number, home: boolean, rng: RNG): number {
   const r = 4.4 * Math.pow(bat / Math.max(28, pitch), 1.25) + (home ? 0.3 : -0.2);
@@ -112,6 +126,22 @@ export function simulateMatch(home: MatchTeam, away: MatchTeam, rng: RNG, opts: 
   }
   flavour(hs, as, home.club.id, away.club.id, true);
   flavour(as, hs, away.club.id, home.club.id, false);
+
+  for (let i = 0; i < 16; i++) {
+    const homeEvent = rng.bool(0.5);
+    const batSide = homeEvent ? hs : as;
+    const clubId = homeEvent ? home.club.id : away.club.id;
+    const item = EXTRA[rng.int(0, EXTRA.length - 1)];
+    const b = pick(rng, batSide.batters);
+    events.push({
+      minute: rng.int(1, 9),
+      type: item.type,
+      clubId,
+      playerId: b?.id,
+      detail: phrase(rng, item.detail),
+      zone: homeEvent ? "right" : "left",
+    });
+  }
 
   events.sort((a, b) => a.minute - b.minute);
 

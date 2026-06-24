@@ -11,6 +11,14 @@ const MENTALITY: Tactics["mentality"][] = ["defensive", "balanced", "attacking"]
 const TEMPO: Tactics["tempo"][] = ["slow", "normal", "fast"];
 const PRESSING: Tactics["pressing"][] = ["low", "medium", "high"];
 const WIDTH: Tactics["width"][] = ["narrow", "normal", "wide"];
+const TACTIC_PRESETS: { name: string; patch: Partial<Tactics> }[] = [
+  { name: "점유 안정", patch: { mentality: "balanced", tempo: "slow", pressing: "medium", width: "narrow" } },
+  { name: "강한 압박", patch: { mentality: "attacking", tempo: "fast", pressing: "high", width: "normal" } },
+  { name: "측면 공략", patch: { mentality: "attacking", tempo: "normal", pressing: "medium", width: "wide" } },
+  { name: "역습 대기", patch: { mentality: "defensive", tempo: "fast", pressing: "low", width: "wide" } },
+  { name: "잠그기", patch: { mentality: "defensive", tempo: "slow", pressing: "low", width: "narrow" } },
+  { name: "균형 운영", patch: { mentality: "balanced", tempo: "normal", pressing: "medium", width: "normal" } },
+];
 
 function ovrPill(ovr: number): string {
   if (ovr >= 80) return "bg-emerald-600 text-white";
@@ -90,6 +98,17 @@ export default function TacticsPage() {
         {/* Instructions panel (left) */}
         <Tile title={t("mentality")}>
           <div className="flex flex-col gap-3">
+            <div className="grid grid-cols-2 gap-2">
+              {TACTIC_PRESETS.map((preset) => (
+                <button
+                  key={preset.name}
+                  onClick={() => setTactics(preset.patch)}
+                  className="rounded-md border border-[var(--line)] px-2 py-1.5 text-xs font-semibold hover:bg-zinc-100 dark:hover:bg-zinc-900"
+                >
+                  {preset.name}
+                </button>
+              ))}
+            </div>
             <Field label={t("mentality")}>
               <Select value={tactics.mentality} options={MENTALITY} onChange={(v) => setTactics({ mentality: v as Tactics["mentality"] })} t={t} />
             </Field>

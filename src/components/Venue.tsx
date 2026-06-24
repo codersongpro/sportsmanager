@@ -12,7 +12,7 @@ interface Props {
 /** Per-sport playing surface for the live match viewer. */
 export function Venue({ venue, ballX, ballY, homeShort, awayShort, flash }: Props) {
   return (
-    <div className={`relative aspect-[16/10] w-full overflow-hidden rounded-lg border ${BG[venue]}`}>
+    <div className={`relative aspect-[16/10] w-full overflow-hidden rounded-lg border ${venueFrameClass(venue)}`}>
       <VenueSurface venue={venue} />
 
       {/* ball / play marker */}
@@ -35,6 +35,10 @@ export function Venue({ venue, ballX, ballY, homeShort, awayShort, flash }: Prop
 
 export function VenueSurface({ venue }: { venue: Props["venue"] }) {
   return <>{SURFACE[venue]}</>;
+}
+
+export function venueFrameClass(venue: Props["venue"]): string {
+  return BG[venue];
 }
 
 const BG: Record<Props["venue"], string> = {

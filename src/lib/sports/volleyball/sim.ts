@@ -36,6 +36,23 @@ const BLOCK: Pool2 = [{ ko: "블로킹 성공! 상대 공격을 막아냅니다!
 const DIG: Pool2 = [{ ko: "환상적인 디그!", en: "Incredible dig keeps it alive!" }];
 const ERR: Pool2 = [{ ko: "범실. 공격이 아웃됩니다.", en: "Unforced error — hits it out." }];
 const SETWON: Pool2 = [{ ko: "세트를 가져갑니다!", en: "Takes the set!" }];
+const EXTRA: { type: string; detail: Pool2 }[] = [
+  { type: "quickAttack", detail: [{ ko: "세터가 중앙 속공을 빠르게 엽니다.", en: "The setter opens a quick middle attack." }] },
+  { type: "pipeAttack", detail: [{ ko: "후위 파이프 공격으로 블로커를 흔듭니다.", en: "A back-row pipe attack splits the block." }] },
+  { type: "tip", detail: [{ ko: "강타 대신 연타로 빈 곳을 찌릅니다.", en: "A soft tip drops into space." }] },
+  { type: "receiveAce", detail: [{ ko: "강서브에 리시브 라인이 흔들립니다.", en: "The serve knocks the receive line out of shape." }] },
+  { type: "setterDump", detail: [{ ko: "세터가 기습 페인트로 허를 찌릅니다.", en: "The setter dumps on the second touch." }] },
+  { type: "doubleContact", detail: [{ ko: "토스 과정에서 더블 컨택이 선언됩니다.", en: "Double contact is called on the set." }] },
+  { type: "netTouch", detail: [{ ko: "네트 터치로 흐름이 끊깁니다.", en: "A net touch stops the rally." }] },
+  { type: "rotationFault", detail: [{ ko: "로테이션 위치가 어긋났습니다.", en: "The rotation is out of order." }] },
+  { type: "challenge", detail: [{ ko: "벤치가 비디오 판독을 요청합니다.", en: "The bench asks for a video challenge." }] },
+  { type: "timeout", detail: [{ ko: "감독이 작전타임으로 서브 흐름을 끊습니다.", en: "The coach calls timeout to stop the serve run." }] },
+  { type: "substitution", detail: [{ ko: "원포인트 서버가 투입됩니다.", en: "A serving specialist checks in." }] },
+  { type: "serveRun", detail: [{ ko: "연속 서브로 점수 차를 벌립니다.", en: "A serve run stretches the lead." }] },
+  { type: "joust", detail: [{ ko: "네트 위에서 공을 두고 힘겨루기가 벌어집니다.", en: "Both sides joust above the net." }] },
+  { type: "pancake", detail: [{ ko: "손등을 깔아 극적인 디그를 성공합니다.", en: "A pancake save keeps the rally alive." }] },
+  { type: "overpass", detail: [{ ko: "리시브가 길어져 바로 공격 기회를 줍니다.", en: "An overpass gifts a free swing." }] },
+];
 
 function setWinProb(h: number, a: number): number {
   const p = 1 / (1 + Math.exp(-(h - a) / 8));
@@ -91,6 +108,21 @@ export function simulateMatch(home: MatchTeam, away: MatchTeam, rng: RNG, opts: 
       events.push({ minute: at(rng.range(0.1, 0.9)), type: "dig", clubId: lClub, playerId: p?.id, detail: phrase(rng, DIG), zone: lz });
     }
     if (rng.bool(0.6)) events.push({ minute: at(rng.range(0.2, 0.9)), type: "error", clubId: lClub, detail: phrase(rng, ERR), zone: lz });
+    for (let i = 0; i < 4; i++) {
+      const item = EXTRA[rng.int(0, EXTRA.length - 1)];
+      const homeEvent = rng.bool(0.5);
+      const side = homeEvent ? (homeWins ? wSide : lSide) : (homeWins ? lSide : wSide);
+      const clubId = homeEvent ? home.club.id : away.club.id;
+      const p = pick(rng, rng.bool(0.45) ? side.spikers : rng.bool(0.5) ? side.servers : side.diggers);
+      events.push({
+        minute: at(rng.range(0.08, 0.92)),
+        type: item.type,
+        clubId,
+        playerId: p?.id,
+        detail: phrase(rng, item.detail),
+        zone: homeEvent ? "right" : "left",
+      });
+    }
 
     events.push({ minute: set, type: "setWon", clubId: wClub, detail: phrase(rng, SETWON), zone: wz });
     if (homeWins) hSets++; else aSets++;

@@ -186,6 +186,20 @@ const CHANCE: Pool2 = [
   { ko: "날카로운 침투 패스가 수비를 흔듭니다!", en: "A slicing through-ball splits the defense!" },
 ];
 const INJURY: Pool2 = [{ ko: "부상으로 그라운드에 쓰러집니다.", en: "Down injured on the turf." }];
+const EXTRA: { type: string; detail: Pool2 }[] = [
+  { type: "pressWin", detail: [{ ko: "강한 압박으로 높은 위치에서 공을 되찾습니다.", en: "The press wins it high up the pitch." }] },
+  { type: "throughBall", detail: [{ ko: "스루패스가 수비 라인을 가릅니다.", en: "A through ball splits the back line." }] },
+  { type: "cross", detail: [{ ko: "측면에서 날카로운 크로스가 올라옵니다.", en: "A dangerous cross is whipped in." }] },
+  { type: "counter", detail: [{ ko: "빠른 역습으로 상대 수비가 흔들립니다.", en: "A quick counter stretches the defense." }] },
+  { type: "varCheck", detail: [{ ko: "VAR 판독으로 장면을 확인합니다.", en: "VAR checks the incident." }] },
+  { type: "substitution", detail: [{ ko: "벤치에서 교체 카드를 준비합니다.", en: "The bench prepares a substitution." }] },
+  { type: "tacticalShift", detail: [{ ko: "감독이 전술 지시를 바꿉니다.", en: "The manager changes the tactical instruction." }] },
+  { type: "longShot", detail: [{ ko: "중거리 슛으로 골문을 노립니다.", en: "Tries his luck from distance." }] },
+  { type: "dribble", detail: [{ ko: "개인기로 압박을 벗겨냅니다.", en: "Dribbles away from pressure." }] },
+  { type: "clearance", detail: [{ ko: "수비가 가까스로 걷어냅니다.", en: "The defense scrambles it clear." }] },
+  { type: "throughPress", detail: [{ ko: "중원 압박을 풀고 전진합니다.", en: "Plays through the midfield press." }] },
+  { type: "setPiece", detail: [{ ko: "세트피스 상황에서 약속된 움직임을 가져갑니다.", en: "Runs a rehearsed set-piece pattern." }] },
+];
 
 function phrase(rng: RNG, pool: Pool2): LocalizedText {
   return pool[rng.int(0, pool.length - 1)];
@@ -475,6 +489,22 @@ export function simulateMatch(home: MatchTeam, away: MatchTeam, rng: RNG, opts: 
   const aStat = genAttack(ctx, ap, hp, awayXg, awayScore, false, away.club.id, home.club.id, 1, 90);
   genDiscipline(ctx, hp, home.club.id, 8, 90);
   genDiscipline(ctx, ap, away.club.id, 8, 90);
+  for (let i = 0; i < 16; i++) {
+    const homeEvent = rng.bool(0.5);
+    const power = homeEvent ? hp : ap;
+    const clubId = homeEvent ? home.club.id : away.club.id;
+    const item = EXTRA[rng.int(0, EXTRA.length - 1)];
+    const pool = rng.bool(0.45) ? power.assisters : rng.bool(0.5) ? power.pacey : power.crossers;
+    const p = pick(rng, pool);
+    ctx.events.push({
+      minute: rng.int(1, 90),
+      type: item.type,
+      clubId,
+      playerId: p?.id,
+      detail: phrase(rng, item.detail),
+      zone: homeEvent ? "right" : "left",
+    });
+  }
 
   let decidedBy: MatchResult["decidedBy"] = "normal";
   let winnerId: string | undefined;

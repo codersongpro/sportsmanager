@@ -57,6 +57,19 @@ describe("multi-sport modules", () => {
       expect(pres.scoreOf(r.events, b.id)).toBe(r.awayScore);
     });
 
+    it(`${id}: match feed exposes a broad Korean event vocabulary`, () => {
+      const world = buildWorld(sport, createRng(51), 2026);
+      const [a, b] = getClubsForSport(id).slice(0, 2);
+      const team = (cid: string) => ({ club: world.clubs[cid], lineup: world.clubs[cid].tactics.lineup.map((p) => world.players[p]) });
+      const r = sport.simulateMatch(team(a.id), team(b.id), createRng(19), { allowDraw: true });
+      const types = new Set(r.events.map((e) => e.type));
+
+      expect(types.size).toBeGreaterThanOrEqual(12);
+      for (const type of types) {
+        expect(/[가-힣]/.test(sport.matchPresentation.eventMeta(type).label.ko)).toBe(true);
+      }
+    });
+
     it(`${id}: presentation declares real match minutes and a sport-specific venue`, () => {
       expect(sport.matchPresentation.regulationMinutes).toBeGreaterThan(0);
       expect(sport.matchPresentation.venue).toBe(VENUES[id]);
@@ -69,5 +82,19 @@ describe("soccer presentation", () => {
     const sport = getSport("soccer");
     expect(sport.matchPresentation.regulationMinutes).toBe(90);
     expect(sport.matchPresentation.venue).toBe("pitch");
+  });
+
+  it("emits Korean-labelled football broadcast events beyond scoring", () => {
+    const sport = getSport("soccer");
+    const world = buildWorld(sport, createRng(52), 2026);
+    const [a, b] = getClubsForSport("soccer").slice(0, 2);
+    const team = (cid: string) => ({ club: world.clubs[cid], lineup: world.clubs[cid].tactics.lineup.map((p) => world.players[p]) });
+    const r = sport.simulateMatch(team(a.id), team(b.id), createRng(20), { allowDraw: true });
+    const types = new Set(r.events.map((e) => e.type));
+
+    expect(types.size).toBeGreaterThanOrEqual(12);
+    for (const type of types) {
+      expect(/[가-힣]/.test(sport.matchPresentation.eventMeta(type).label.ko)).toBe(true);
+    }
   });
 });

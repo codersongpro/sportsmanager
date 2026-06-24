@@ -46,13 +46,15 @@ export default function CompetitionPage() {
         </div>
       )}
 
-      <div className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
-        <h2 className="mb-1 font-semibold text-zinc-500">{t("worldCup")}</h2>
-        <p className="mb-2 text-sm text-zinc-500">{t("worldCupDesc")}</p>
-        <Link href="/game/worldcup" className="inline-block text-sm text-blue-600 hover:underline">
-          {t("worldCup")} →
-        </Link>
-      </div>
+      {state.sportId === "soccer" && (
+        <div className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
+          <h2 className="mb-1 font-semibold text-zinc-500">{t("worldCup")}</h2>
+          <p className="mb-2 text-sm text-zinc-500">{t("worldCupDesc")}</p>
+          <Link href="/game/worldcup" className="inline-block text-sm text-blue-600 hover:underline">
+            {t("worldCup")} →
+          </Link>
+        </div>
+      )}
     </div>
   );
 }

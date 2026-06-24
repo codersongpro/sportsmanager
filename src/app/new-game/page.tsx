@@ -7,6 +7,7 @@ import { SPORT_ORDER, getSport } from "@/lib/sports";
 import { getClubsForSport, getLeaguesForSport } from "@/data/clubs";
 import { useI18n } from "@/lib/i18n/I18nProvider";
 import { useGameStore } from "@/lib/store/gameStore";
+import { localizedDisplayName } from "@/lib/utils/format";
 
 type Step = "sport" | "mode" | "league" | "club" | "manager";
 
@@ -70,7 +71,7 @@ export default function NewGamePage() {
                   disabled={!sport.available}
                   onClick={() => chooseSport(id)}
                   className={`surface-panel flex min-h-24 flex-col items-start gap-1 rounded-lg border p-4 text-left disabled:cursor-not-allowed disabled:opacity-40 ${
-                    selected ? "border-blue-500 bg-blue-50 dark:bg-blue-950/40" : ""
+                    selected ? "surface-selected" : ""
                   }`}
                 >
                   <span className="font-semibold">{tl(sport.name)}</span>
@@ -94,7 +95,7 @@ export default function NewGamePage() {
                 key={f}
                 onClick={() => setFormat(f)}
                 className={`surface-panel flex flex-col items-start gap-1 rounded-lg border p-4 text-left ${
-                  format === f ? "border-blue-500 bg-blue-50 dark:bg-blue-950/40" : ""
+                  format === f ? "surface-selected" : ""
                 }`}
               >
                 <span className="font-semibold">{f === "league" ? t("leagueMode") : t("tournamentMode")}</span>
@@ -125,10 +126,10 @@ export default function NewGamePage() {
                   setClubId("");
                 }}
                 className={`surface-panel rounded-md border px-3 py-2 text-sm font-medium ${
-                  activeLeagueId === l.id ? "border-blue-500 bg-blue-50 dark:bg-blue-950/40" : ""
+                  activeLeagueId === l.id ? "surface-selected" : ""
                 }`}
               >
-                {tl(l.name)}
+                {localizedDisplayName(l.name)}
               </button>
             ))}
           </div>
@@ -152,12 +153,12 @@ export default function NewGamePage() {
                 key={c.id}
                 onClick={() => setClubId(c.id)}
                 className={`surface-panel flex min-h-20 flex-col gap-1 rounded-md border px-3 py-2 text-left text-sm ${
-                  clubId === c.id ? "border-blue-500 bg-blue-50 dark:bg-blue-950/40" : ""
+                  clubId === c.id ? "surface-selected" : ""
                 }`}
               >
                 <span className="flex items-center gap-2 font-semibold">
                   <span className="h-3 w-3 shrink-0 rounded-full" style={{ backgroundColor: c.color }} />
-                  <span className="truncate">{tl(c.name)}</span>
+                  <span className="truncate">{localizedDisplayName(c.name)}</span>
                 </span>
                 <span className="text-xs text-zinc-500">REP {c.reputation}</span>
               </button>

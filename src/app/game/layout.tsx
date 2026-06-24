@@ -49,8 +49,9 @@ export default function GameLayout({ children }: { children: React.ReactNode }) 
   const myClub = state.clubs[state.manager.clubId];
   const sport = getSport(state.sportId);
   const matchView = pathname.startsWith("/game/match/");
-  const primaryNav = NAV.slice(0, 4);
-  const secondaryNav = NAV.slice(4);
+  const navItems = state.sportId === "soccer" ? NAV : NAV.filter((item) => item.href !== "/game/worldcup");
+  const primaryNav = navItems.slice(0, 4);
+  const secondaryNav = navItems.slice(4);
 
   return (
     <div className={`flex min-h-screen flex-1 ${matchView ? "overflow-hidden" : ""}`}>
@@ -66,7 +67,7 @@ export default function GameLayout({ children }: { children: React.ReactNode }) 
           </div>
         </Link>
         <nav className="mt-4 flex flex-col gap-1">
-          {NAV.map((item) => (
+          {navItems.map((item) => (
             <NavLink key={item.href} href={item.href} active={pathname === item.href}>
               {t(item.key)}
             </NavLink>

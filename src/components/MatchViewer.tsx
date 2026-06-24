@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import type { Club, LocalizedText, MatchEvent, MatchPresentation, MatchResult, Player, SportId, Tactics } from "@/lib/types";
 import { useI18n } from "@/lib/i18n/I18nProvider";
 import { getSport } from "@/lib/sports";
@@ -8,13 +9,21 @@ import { progressPerSecond } from "@/lib/sports/playback";
 import { useGameStore } from "@/lib/store/gameStore";
 import { playerDisplayName, clubDisplayName } from "@/lib/utils/format";
 import { Tile, conditionColor, ratingColor } from "./Tile";
-import { Venue, VenueSurface } from "./Venue";
+import { Venue, VenueSurface, venueFrameClass } from "./Venue";
 
 const SPEEDS = [0.5, 1, 2, 4, 8, 16];
 const MENTALITY: Tactics["mentality"][] = ["defensive", "balanced", "attacking"];
 const TEMPO: Tactics["tempo"][] = ["slow", "normal", "fast"];
 const PRESSING: Tactics["pressing"][] = ["low", "medium", "high"];
 const WIDTH: Tactics["width"][] = ["narrow", "normal", "wide"];
+const TACTIC_PRESETS: { name: string; patch: Partial<Tactics> }[] = [
+  { name: "점유 안정", patch: { mentality: "balanced", tempo: "slow", pressing: "medium", width: "narrow" } },
+  { name: "강한 압박", patch: { mentality: "attacking", tempo: "fast", pressing: "high", width: "normal" } },
+  { name: "측면 공략", patch: { mentality: "attacking", tempo: "normal", pressing: "medium", width: "wide" } },
+  { name: "역습 대기", patch: { mentality: "defensive", tempo: "fast", pressing: "low", width: "wide" } },
+  { name: "잠그기", patch: { mentality: "defensive", tempo: "slow", pressing: "low", width: "narrow" } },
+  { name: "균형 운영", patch: { mentality: "balanced", tempo: "normal", pressing: "medium", width: "normal" } },
+];
 
 interface Props {
   result: MatchResult;
@@ -197,11 +206,6 @@ export function MatchViewer({ result, home, away, players, sportId }: Props) {
     return items;
   }, [result.events, pres.breaks, clock, finished, endMinute]);
 
-  const keyEvents = revealed.filter((e) => {
-    const tone = pres.eventMeta(e.type).tone;
-    return tone === "score" || tone === "danger";
-  });
-
   const topPerformers = useMemo(
     () =>
       [...homeSlots, ...awaySlots]
@@ -243,21 +247,23 @@ export function MatchViewer({ result, home, away, players, sportId }: Props) {
         </p>
       )}
 
-      <div className="grid min-h-0 flex-1 gap-3 overflow-hidden xl:grid-cols-[minmax(180px,0.75fr)_minmax(0,1.7fr)_minmax(180px,0.75fr)]">
-        <div className="hidden min-h-0 overflow-hidden xl:block">
+      <div className="grid min-h-0 flex-1 gap-3 overflow-hidden lg:grid-cols-[minmax(0,1fr)_minmax(320px,0.72fr)]">
+        <div className="hidden">
           <FormationTile title={`${home.shortName} · ${t("formation")}`} slots={homeSlots} attackUp ratingOf={ratingOf} t={t} venue={pres.venue} />
         </div>
 
         <div className="flex min-h-0 flex-col gap-3 overflow-hidden">
           <Tile title={t("watchMatch")} action={<span className="font-mono text-xs text-soft">{clockLabel}</span>} className="min-h-0 shrink-0">
-            <Venue
-              venue={pres.venue}
-              ballX={ballX}
-              ballY={ballY}
-              homeShort={home.shortName}
-              awayShort={away.shortName}
-              flash={scoreFlash ? tl(scoreFlash) : null}
-            />
+            <div className="mx-auto w-full max-w-3xl">
+              <Venue
+                venue={pres.venue}
+                ballX={ballX}
+                ballY={ballY}
+                homeShort={home.shortName}
+                awayShort={away.shortName}
+                flash={scoreFlash ? tl(scoreFlash) : null}
+              />
+            </div>
             <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
               <div className="h-full bg-blue-500 transition-[width] duration-200" style={{ width: `${(clock / endMinute) * 100}%` }} />
             </div>
@@ -291,27 +297,21 @@ export function MatchViewer({ result, home, away, players, sportId }: Props) {
                 {liveStats.length === 0 && <p className="text-sm text-zinc-400">—</p>}
               </div>
             </Tile>
-            <Tile title={t("matchEvents")}>
-              <div className="flex max-h-[22vh] flex-col gap-1 overflow-y-auto text-sm">
-                {keyEvents.length === 0 && <p className="text-zinc-400">—</p>}
-                {keyEvents.map((e, i) => {
-                  const p = e.playerId ? players[e.playerId] : null;
-                  const meta = pres.eventMeta(e.type);
-                  return (
-                    <div key={i} className="flex items-center gap-2">
-                      <span className="w-8 shrink-0 text-right font-mono text-xs text-soft">{e.minute}</span>
-                      <span>{meta.emoji}</span>
-                      <span className="truncate">{p ? playerDisplayName(p) : clubDisplayName(home.id === e.clubId ? home : away)}</span>
-                    </div>
-                  );
-                })}
-              </div>
-            </Tile>
+            <RatingsPanel title={t("ratings")} ratings={topPerformers} />
           </div>
         </div>
 
-        <div className="hidden min-h-0 overflow-hidden xl:block">
-          <FormationTile title={`${away.shortName} · ${t("formation")}`} slots={awaySlots} attackUp={false} ratingOf={ratingOf} t={t} venue={pres.venue} />
+        <div className="min-h-0 overflow-hidden">
+          <BroadcastFeed
+            title={t("matchEvents")}
+            feed={feed}
+            players={players}
+            home={home}
+            away={away}
+            pres={pres}
+            tl={tl}
+            t={t}
+          />
         </div>
       </div>
 
@@ -392,7 +392,7 @@ export function MatchViewer({ result, home, away, players, sportId }: Props) {
               <div className="flex flex-col gap-1">
                 {topPerformers.map(({ p, r }) => (
                   <div key={p.id} className="flex items-center justify-between text-sm">
-                    <span>{playerDisplayName(p)}</span>
+                    <PlayerNameLink player={p} />
                     <span className={`rounded px-1.5 text-xs font-bold ${ratingColor(r)}`}>{r.toFixed(1)}</span>
                   </div>
                 ))}
@@ -405,25 +405,94 @@ export function MatchViewer({ result, home, away, players, sportId }: Props) {
         </div>
       )}
 
-      {finished && (
-        <Tile title={t("ratings")}>
-          <div className="grid gap-1 sm:grid-cols-2">
-            {Object.entries(result.playerRatings)
-              .sort((a, b) => b[1] - a[1])
-              .map(([pid, rating]) => {
-                const p = players[pid];
-                if (!p) return null;
-                return (
-                  <div key={pid} className="flex items-center justify-between rounded-md border border-zinc-100 px-3 py-1.5 text-sm dark:border-zinc-800">
-                    <span>{playerDisplayName(p)}</span>
-                    <span className={`rounded px-1.5 font-bold tabular-nums ${ratingColor(rating)}`}>{rating.toFixed(1)}</span>
-                  </div>
-                );
-              })}
-          </div>
-        </Tile>
-      )}
     </div>
+  );
+}
+
+function PlayerNameLink({ player, className = "font-medium text-foreground hover:text-[var(--accent)]", label }: { player: Player; className?: string; label?: string }) {
+  return (
+    <Link href={`/game/squad/${player.id}`} className={className} title={playerDisplayName(player)}>
+      {label ?? playerDisplayName(player)}
+    </Link>
+  );
+}
+
+function RatingsPanel({ title, ratings }: { title: string; ratings: { p: Player; r: number }[] }) {
+  return (
+    <Tile title={title}>
+      <div className="flex flex-col gap-1.5">
+        {ratings.map(({ p, r }) => (
+          <div key={p.id} className="flex items-center justify-between gap-2 rounded-md border border-[var(--line)] px-3 py-2 text-sm">
+            <PlayerNameLink player={p} className="min-w-0 truncate font-medium hover:text-[var(--accent)]" />
+            <span className={`shrink-0 rounded px-1.5 font-bold tabular-nums ${ratingColor(r)}`}>{r.toFixed(1)}</span>
+          </div>
+        ))}
+      </div>
+    </Tile>
+  );
+}
+
+function BroadcastFeed({
+  title,
+  feed,
+  players,
+  home,
+  away,
+  pres,
+  tl,
+  t,
+}: {
+  title: string;
+  feed: FeedItem[];
+  players: Record<string, Player>;
+  home: Club;
+  away: Club;
+  pres: MatchPresentation;
+  tl: (text: LocalizedText) => string;
+  t: (key: never) => string;
+}) {
+  return (
+    <Tile title={title} className="flex h-full min-h-0 flex-col" bodyClassName="min-h-0">
+      <div className="flex h-full min-h-0 flex-col-reverse gap-2 overflow-y-auto pr-1 text-sm">
+        {feed.length === 0 && <p className="text-zinc-400">—</p>}
+        {feed.map((item, i) => {
+          if (item.kind === "marker") {
+            return (
+              <div key={`m${i}`} className="my-1 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-soft">
+                <span className="h-px flex-1 bg-[var(--line)]" />
+                {tl(item.label)}
+                <span className="h-px flex-1 bg-[var(--line)]" />
+              </div>
+            );
+          }
+          const ev = item.ev;
+          const meta = pres.eventMeta(ev.type);
+          const player = ev.playerId ? players[ev.playerId] : null;
+          const assist = ev.assistId ? players[ev.assistId] : null;
+          const club = home.id === ev.clubId ? home : away;
+          const important = meta.tone === "score" || meta.tone === "danger";
+          return (
+            <div key={`e${i}`} className={`rounded-lg border px-3 py-2 ${toneRing(meta.tone)} ${important ? "shadow-sm" : ""}`}>
+              <div className="flex items-center gap-2">
+                <span className="w-10 shrink-0 text-right font-mono text-xs text-soft">{ev.minute}</span>
+                <span className="shrink-0">{meta.emoji}</span>
+                <span className={`truncate ${important ? "font-bold" : "font-semibold"}`}>{tl(meta.label)}</span>
+                <span className="ml-auto max-w-[35%] truncate text-xs text-soft">{club.shortName}</span>
+              </div>
+              <div className="mt-1 pl-14 text-sm leading-snug">
+                {ev.detail ? <span className="text-zinc-700 dark:text-zinc-200">{tl(ev.detail)}</span> : null}
+                {player && (
+                  <span className="ml-1">
+                    <PlayerNameLink player={player} />
+                  </span>
+                )}
+                {assist && <span className="text-xs text-soft"> ({t("assist" as never)}: <PlayerNameLink player={assist} className="hover:text-[var(--accent)]" />)</span>}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </Tile>
   );
 }
 
@@ -444,7 +513,7 @@ function FormationTile({
 }) {
   return (
     <Tile title={title}>
-      <div className="relative aspect-[3/4] w-full overflow-hidden rounded-lg border border-white/10 bg-zinc-800">
+      <div className={`relative aspect-[3/4] w-full overflow-hidden rounded-lg border ${venueFrameClass(venue)}`}>
         <VenueSurface venue={venue} />
         {slots.map((s, i) => {
           if (!s.player) return null;
@@ -459,7 +528,7 @@ function FormationTile({
               title={p.nameKo ? `${p.nameKo} (${p.name})` : p.name}
             >
               <div className="flex h-6 w-6 items-center justify-center rounded-full bg-white text-[9px] font-bold text-zinc-900 shadow ring-1 ring-black/20">{s.pos}</div>
-              <span className="mt-0.5 max-w-[52px] truncate rounded bg-black/40 px-1 text-[9px] text-white">{shortName(p)}</span>
+              <PlayerNameLink player={p} className="mt-0.5 max-w-[52px] truncate rounded bg-black/40 px-1 text-[9px] text-white hover:bg-black/60" label={shortName(p)} />
               <span className={`rounded px-1 text-[9px] font-bold ${ratingColor(r)}`}>{r.toFixed(1)}</span>
               <span className={`text-[9px] ${conditionColor(p.condition)}`} title={t("condition")}>♥{Math.round(p.condition)}</span>
             </div>
@@ -516,6 +585,17 @@ function InlineTacticsPanel({
         <button onClick={onAutoPick} className="rounded-md border px-2 py-1 text-xs hover:bg-zinc-100 dark:hover:bg-zinc-900">
           {t("autoPick" as never)}
         </button>
+      </div>
+      <div className="mb-2 grid grid-cols-2 gap-1.5">
+        {TACTIC_PRESETS.map((preset) => (
+          <button
+            key={preset.name}
+            onClick={() => onPatch(preset.patch)}
+            className="rounded-md border border-zinc-200 px-2 py-1 text-xs font-semibold hover:bg-zinc-100 dark:border-zinc-800 dark:hover:bg-zinc-900"
+          >
+            {preset.name}
+          </button>
+        ))}
       </div>
       <div className="grid gap-2 sm:grid-cols-2">
         <BreakSelect label={t("formation" as never)} value={tactics.formation} options={formations} onChange={(formation) => onPatch({ formation })} />

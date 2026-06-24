@@ -230,6 +230,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
   startWorldCup: (userNationId) => {
     const cur = get().state;
     if (!cur) return;
+    if (cur.sportId !== "soccer") return;
     const sport = getSport(cur.sportId);
     const worldCup = createWorldCup(cur.players, sport, cur.season, userNationId);
     const next: GameState = { ...cur, worldCup, updatedAt: Date.now() };
@@ -240,6 +241,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
   simulateWorldCupRound: () => {
     const cur = get().state;
     if (!cur || !cur.worldCup) return;
+    if (cur.sportId !== "soccer") return;
     const sport = getSport(cur.sportId);
     const { worldCup } = simulateWorldCupRound(cur.worldCup, cur.players, sport);
     const next: GameState = { ...cur, worldCup, updatedAt: Date.now() };
