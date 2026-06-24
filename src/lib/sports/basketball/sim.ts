@@ -74,7 +74,7 @@ export function simulateMatch(home: MatchTeam, away: MatchTeam, rng: RNG, opts: 
   const as = side(away);
 
   let hp = targetPoints(hs.off, as.def, !neutral);
-  let ap = targetPoints(as.off, hs.def, false);
+  const ap = targetPoints(as.off, hs.def, false);
   if (hp === ap) hp += rng.bool(hs.off >= as.off ? 0.6 : 0.4) ? 3 : -3; // no ties
 
   const events: MatchEvent[] = [];

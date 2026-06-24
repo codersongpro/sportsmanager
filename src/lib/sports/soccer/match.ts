@@ -19,6 +19,7 @@ const META: Record<string, MatchEventMeta> = {
 
 export const soccerPresentation: MatchPresentation = {
   venue: "pitch",
+  regulationMinutes: 90,
   endProgress: 90,
   breaks: [{ at: 45, label: { ko: "하프타임", en: "Half Time" } }],
   clockLabel: (p, end, finished) => (finished ? `${end}'` : `${Math.min(Math.floor(p), end)}'`),

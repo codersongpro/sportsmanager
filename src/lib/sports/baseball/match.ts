@@ -13,6 +13,7 @@ const META: Record<string, MatchEventMeta> = {
 
 export const baseballPresentation: MatchPresentation = {
   venue: "diamond",
+  regulationMinutes: 180,
   endProgress: 9,
   breaks: [{ at: 7, label: { ko: "7회 스트레치", en: "7th-Inning Stretch" } }],
   clockLabel: (p, end, finished) => {

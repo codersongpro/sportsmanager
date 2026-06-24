@@ -13,7 +13,7 @@ interface Props {
 export function Venue({ venue, ballX, ballY, homeShort, awayShort, flash }: Props) {
   return (
     <div className={`relative aspect-[16/10] w-full overflow-hidden rounded-lg border ${BG[venue]}`}>
-      {SURFACE[venue]}
+      <VenueSurface venue={venue} />
 
       {/* ball / play marker */}
       <div
@@ -33,11 +33,16 @@ export function Venue({ venue, ballX, ballY, homeShort, awayShort, flash }: Prop
   );
 }
 
+export function VenueSurface({ venue }: { venue: Props["venue"] }) {
+  return <>{SURFACE[venue]}</>;
+}
+
 const BG: Record<Props["venue"], string> = {
   pitch: "border-emerald-900/30 bg-gradient-to-r from-green-600 to-green-700",
   hardwood: "border-amber-900/40 bg-gradient-to-r from-amber-500 to-amber-600",
-  net: "border-orange-900/30 bg-gradient-to-r from-orange-400 to-orange-500",
   diamond: "border-emerald-900/30 bg-gradient-to-br from-green-600 to-green-700",
+  volleyballCourt: "border-sky-900/30 bg-gradient-to-r from-sky-500 to-orange-400",
+  pickleballCourt: "border-teal-900/30 bg-gradient-to-r from-teal-500 to-blue-500",
 };
 
 const line = "absolute bg-white/40";
@@ -65,15 +70,28 @@ const SURFACE: Record<Props["venue"], React.ReactNode> = {
       <div className={`${ring} right-[3%] top-1/2 h-[10%] w-[5%] -translate-y-1/2 !border-orange-200`} />
     </>
   ),
-  net: (
+  volleyballCourt: (
     <>
       {/* center net */}
       <div className="absolute left-1/2 top-0 h-full w-1 -translate-x-1/2 bg-white/70" />
       <div className="absolute left-1/2 top-0 h-full w-[14%] -translate-x-1/2 bg-[repeating-linear-gradient(0deg,transparent,transparent_6px,rgba(255,255,255,0.25)_6px,rgba(255,255,255,0.25)_8px)]" />
-      {/* attack / kitchen lines */}
-      <div className={`${line} left-[32%] top-0 h-full w-px`} />
-      <div className={`${line} right-[32%] top-0 h-full w-px`} />
+      {/* attack lines */}
+      <div className={`${line} left-[35%] top-0 h-full w-px`} />
+      <div className={`${line} right-[35%] top-0 h-full w-px`} />
       <div className="absolute inset-2 border border-white/40" />
+    </>
+  ),
+  pickleballCourt: (
+    <>
+      {/* center net */}
+      <div className="absolute left-1/2 top-0 h-full w-1 -translate-x-1/2 bg-white/75" />
+      <div className="absolute inset-3 border border-white/45" />
+      {/* non-volley zones */}
+      <div className={`${line} left-[42%] top-3 h-[calc(100%-1.5rem)] w-px`} />
+      <div className={`${line} right-[42%] top-3 h-[calc(100%-1.5rem)] w-px`} />
+      {/* service boxes */}
+      <div className={`${line} left-3 top-1/2 h-px w-[39%]`} />
+      <div className={`${line} right-3 top-1/2 h-px w-[39%]`} />
     </>
   ),
   diamond: (

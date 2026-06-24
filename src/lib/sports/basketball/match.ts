@@ -15,6 +15,7 @@ const PTS: Record<string, number> = { three: 3, two: 2, dunk: 2, freeThrow: 1 };
 
 export const basketballPresentation: MatchPresentation = {
   venue: "hardwood",
+  regulationMinutes: 48,
   endProgress: 48,
   breaks: [
     { at: 12, label: { ko: "1쿼터 종료", en: "End Q1" } },

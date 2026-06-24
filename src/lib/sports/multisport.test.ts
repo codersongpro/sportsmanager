@@ -6,6 +6,12 @@ import { getSport } from "@/lib/sports";
 import type { SportId } from "@/lib/types";
 
 const SPORTS: SportId[] = ["basketball", "baseball", "volleyball", "pickleball"];
+const VENUES: Record<(typeof SPORTS)[number], string> = {
+  basketball: "hardwood",
+  baseball: "diamond",
+  volleyball: "volleyballCourt",
+  pickleball: "pickleballCourt",
+};
 
 describe("multi-sport modules", () => {
   for (const id of SPORTS) {
@@ -50,5 +56,18 @@ describe("multi-sport modules", () => {
       expect(pres.scoreOf(r.events, a.id)).toBe(r.homeScore);
       expect(pres.scoreOf(r.events, b.id)).toBe(r.awayScore);
     });
+
+    it(`${id}: presentation declares real match minutes and a sport-specific venue`, () => {
+      expect(sport.matchPresentation.regulationMinutes).toBeGreaterThan(0);
+      expect(sport.matchPresentation.venue).toBe(VENUES[id]);
+    });
   }
+});
+
+describe("soccer presentation", () => {
+  it("declares real match minutes and the football pitch venue", () => {
+    const sport = getSport("soccer");
+    expect(sport.matchPresentation.regulationMinutes).toBe(90);
+    expect(sport.matchPresentation.venue).toBe("pitch");
+  });
 });

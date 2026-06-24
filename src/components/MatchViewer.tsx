@@ -1,16 +1,20 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { Club, LocalizedText, MatchEvent, MatchResult, Player, SportId } from "@/lib/types";
+import type { Club, LocalizedText, MatchEvent, MatchPresentation, MatchResult, Player, SportId, Tactics } from "@/lib/types";
 import { useI18n } from "@/lib/i18n/I18nProvider";
 import { getSport } from "@/lib/sports";
+import { progressPerSecond } from "@/lib/sports/playback";
+import { useGameStore } from "@/lib/store/gameStore";
 import { playerDisplayName, clubDisplayName } from "@/lib/utils/format";
 import { Tile, conditionColor, ratingColor } from "./Tile";
-import { Venue } from "./Venue";
+import { Venue, VenueSurface } from "./Venue";
 
-// One "period" of progress (e.g. a soccer half = 45) plays in 10 real seconds at 1x.
-const PROGRESS_PER_SEC = 4.5;
-const SPEEDS = [0.5, 1, 2, 4];
+const SPEEDS = [0.5, 1, 2, 4, 8, 16];
+const MENTALITY: Tactics["mentality"][] = ["defensive", "balanced", "attacking"];
+const TEMPO: Tactics["tempo"][] = ["slow", "normal", "fast"];
+const PRESSING: Tactics["pressing"][] = ["low", "medium", "high"];
+const WIDTH: Tactics["width"][] = ["narrow", "normal", "wide"];
 
 interface Props {
   result: MatchResult;
@@ -49,6 +53,9 @@ function shortName(p: Player): string {
 
 export function MatchViewer({ result, home, away, players, sportId }: Props) {
   const { t, tl } = useI18n();
+  const gameState = useGameStore((s) => s.state);
+  const setTactics = useGameStore((s) => s.setTactics);
+  const autoPickLineup = useGameStore((s) => s.autoPickLineup);
   const sport = getSport(sportId);
   const pres = sport.matchPresentation;
 
@@ -71,6 +78,8 @@ export function MatchViewer({ result, home, away, players, sportId }: Props) {
   const [playing, setPlaying] = useState(true);
   const [speed, setSpeed] = useState(1);
   const [activeBreak, setActiveBreak] = useState<LocalizedText | null>(null);
+  const managedClub = gameState?.manager.clubId === home.id ? home : gameState?.manager.clubId === away.id ? away : null;
+  const canAdjustTactics = Boolean(activeBreak && managedClub);
 
   const clockRef = useRef(0);
   const lastRef = useRef<number | null>(null);
@@ -85,7 +94,7 @@ export function MatchViewer({ result, home, away, players, sportId }: Props) {
       if (lastRef.current == null) lastRef.current = now;
       const dt = now - lastRef.current;
       lastRef.current = now;
-      let nc = clockRef.current + (dt / 1000) * PROGRESS_PER_SEC * speed;
+      let nc = clockRef.current + (dt / 1000) * progressPerSecond(pres, speed);
 
       for (let bi = 0; bi < pres.breaks.length; bi++) {
         const b = pres.breaks[bi];
@@ -96,10 +105,12 @@ export function MatchViewer({ result, home, away, players, sportId }: Props) {
           setClock(nc);
           setPlaying(false);
           setActiveBreak(b.label);
-          breakTimer.current = window.setTimeout(() => {
-            setActiveBreak(null);
-            setPlaying(true);
-          }, 2200);
+          if (!managedClub) {
+            breakTimer.current = window.setTimeout(() => {
+              setActiveBreak(null);
+              setPlaying(true);
+            }, 2200);
+          }
           return;
         }
       }
@@ -119,7 +130,7 @@ export function MatchViewer({ result, home, away, players, sportId }: Props) {
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [playing, speed, endMinute, pres.breaks]);
+  }, [playing, speed, endMinute, pres, managedClub]);
 
   useEffect(() => () => { if (breakTimer.current) clearTimeout(breakTimer.current); }, []);
 
@@ -233,7 +244,7 @@ export function MatchViewer({ result, home, away, players, sportId }: Props) {
       )}
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)_minmax(0,1fr)]">
-        <FormationTile title={`${home.shortName} · ${t("formation")}`} slots={homeSlots} attackUp ratingOf={ratingOf} t={t} />
+        <FormationTile title={`${home.shortName} · ${t("formation")}`} slots={homeSlots} attackUp ratingOf={ratingOf} t={t} venue={pres.venue} />
 
         <div className="flex flex-col gap-4">
           <Tile title={t("watchMatch")} action={<span className="font-mono text-xs text-zinc-400">{clockLabel}</span>}>
@@ -297,7 +308,7 @@ export function MatchViewer({ result, home, away, players, sportId }: Props) {
           </div>
         </div>
 
-        <FormationTile title={`${away.shortName} · ${t("formation")}`} slots={awaySlots} attackUp={false} ratingOf={ratingOf} t={t} />
+        <FormationTile title={`${away.shortName} · ${t("formation")}`} slots={awaySlots} attackUp={false} ratingOf={ratingOf} t={t} venue={pres.venue} />
       </div>
 
       <Tile title={`${clubDisplayName(home)} · ${t("squad")}`} bodyClassName="overflow-x-auto">
@@ -364,6 +375,15 @@ export function MatchViewer({ result, home, away, players, sportId }: Props) {
                   ))}
                 </div>
               )}
+              {canAdjustTactics && managedClub && (
+                <InlineTacticsPanel
+                  tactics={managedClub.tactics}
+                  formations={sport.formations.map((f) => f.key)}
+                  t={t}
+                  onPatch={setTactics}
+                  onAutoPick={autoPickLineup}
+                />
+              )}
               <h4 className="mb-1 text-xs font-semibold uppercase text-zinc-400">{t("ratings")}</h4>
               <div className="flex flex-col gap-1">
                 {topPerformers.map(({ p, r }) => (
@@ -409,18 +429,19 @@ function FormationTile({
   attackUp,
   ratingOf,
   t,
+  venue,
 }: {
   title: string;
   slots: SlotPlayer[];
   attackUp: boolean;
   ratingOf: (id: string) => number;
   t: (k: "condition") => string;
+  venue: MatchPresentation["venue"];
 }) {
   return (
     <Tile title={title}>
-      <div className="relative aspect-[3/4] w-full overflow-hidden rounded-lg bg-gradient-to-b from-green-700 to-green-600">
-        <div className="absolute left-0 top-1/2 h-px w-full bg-white/30" />
-        <div className="absolute left-1/2 top-1/2 h-[14%] w-[26%] -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/30" />
+      <div className="relative aspect-[3/4] w-full overflow-hidden rounded-lg border border-white/10 bg-zinc-800">
+        <VenueSurface venue={venue} />
         {slots.map((s, i) => {
           if (!s.player) return null;
           const p = s.player;
@@ -468,5 +489,68 @@ function MiniStat({ label, v }: { label: string; v: string }) {
       <div className="text-sm font-bold tabular-nums">{v}</div>
       <div className="text-[10px] text-zinc-500">{label}</div>
     </div>
+  );
+}
+
+function InlineTacticsPanel({
+  tactics,
+  formations,
+  t,
+  onPatch,
+  onAutoPick,
+}: {
+  tactics: Tactics;
+  formations: string[];
+  t: (k: never) => string;
+  onPatch: (patch: Partial<Tactics>) => void;
+  onAutoPick: () => void;
+}) {
+  return (
+    <div className="mb-3 rounded-lg border border-zinc-200 p-3 dark:border-zinc-800">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <h4 className="text-xs font-semibold uppercase text-zinc-400">{t("tactics" as never)}</h4>
+        <button onClick={onAutoPick} className="rounded-md border px-2 py-1 text-xs hover:bg-zinc-100 dark:hover:bg-zinc-900">
+          {t("autoPick" as never)}
+        </button>
+      </div>
+      <div className="grid gap-2 sm:grid-cols-2">
+        <BreakSelect label={t("formation" as never)} value={tactics.formation} options={formations} onChange={(formation) => onPatch({ formation })} />
+        <BreakSelect label={t("mentality" as never)} value={tactics.mentality} options={MENTALITY} onChange={(mentality) => onPatch({ mentality: mentality as Tactics["mentality"] })} t={t} />
+        <BreakSelect label={t("tempo" as never)} value={tactics.tempo} options={TEMPO} onChange={(tempo) => onPatch({ tempo: tempo as Tactics["tempo"] })} t={t} />
+        <BreakSelect label={t("pressing" as never)} value={tactics.pressing} options={PRESSING} onChange={(pressing) => onPatch({ pressing: pressing as Tactics["pressing"] })} t={t} />
+        <BreakSelect label={t("width" as never)} value={tactics.width} options={WIDTH} onChange={(width) => onPatch({ width: width as Tactics["width"] })} t={t} />
+      </div>
+    </div>
+  );
+}
+
+function BreakSelect({
+  label,
+  value,
+  options,
+  onChange,
+  t,
+}: {
+  label: string;
+  value: string;
+  options: readonly string[];
+  onChange: (value: string) => void;
+  t?: (k: never) => string;
+}) {
+  return (
+    <label className="flex flex-col gap-1 text-left text-xs text-zinc-500">
+      {label}
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="rounded-md border border-zinc-300 bg-transparent px-2 py-1.5 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+      >
+        {options.map((option) => (
+          <option key={option} value={option}>
+            {t ? t(option as never) : option}
+          </option>
+        ))}
+      </select>
+    </label>
   );
 }

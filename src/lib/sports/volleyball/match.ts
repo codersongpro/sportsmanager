@@ -10,7 +10,8 @@ const META: Record<string, MatchEventMeta> = {
 };
 
 export const volleyballPresentation: MatchPresentation = {
-  venue: "net",
+  venue: "volleyballCourt",
+  regulationMinutes: 100,
   endProgress: 3,
   breaks: [
     { at: 1, label: { ko: "1세트 종료", en: "End Set 1" } },

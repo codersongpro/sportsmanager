@@ -10,7 +10,8 @@ const META: Record<string, MatchEventMeta> = {
 };
 
 export const pickleballPresentation: MatchPresentation = {
-  venue: "net",
+  venue: "pickleballCourt",
+  regulationMinutes: 45,
   endProgress: 2,
   breaks: [
     { at: 1, label: { ko: "1게임 종료", en: "End Game 1" } },

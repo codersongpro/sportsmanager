@@ -343,7 +343,9 @@ export interface MatchStatRow {
 
 export interface MatchPresentation {
   /** playing-surface backdrop for the live viewer */
-  venue: "pitch" | "hardwood" | "net" | "diamond";
+  venue: "pitch" | "hardwood" | "diamond" | "volleyballCourt" | "pickleballCourt";
+  /** real regulation length in minutes, used to pace playback consistently by sport */
+  regulationMinutes: number;
   /** timeline length the playback clock runs to */
   endProgress: number;
   /** points along the timeline where a break card shows (e.g. half time) */
