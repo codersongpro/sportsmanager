@@ -54,6 +54,24 @@ function toneRing(tone?: string): string {
   }
 }
 
+function toneRank(tone?: string): number {
+  switch (tone) {
+    case "score":
+    case "danger": return 3;
+    case "warn": return 2;
+    case "info": return 1;
+    default: return 0;
+  }
+}
+
+/** higher playback speed thins out lower-priority flavor events so the feed stays readable */
+function feedToneRankFloor(speed: number): number {
+  if (speed <= 2) return 0;
+  if (speed <= 4) return 1;
+  if (speed <= 8) return 2;
+  return 3;
+}
+
 function shortName(p: Player): string {
   if (p.nameKo) return p.nameKo;
   const parts = p.name.split(" ");
@@ -219,14 +237,19 @@ export function MatchViewer({ result, home, away, players, sportId }: Props) {
   const scoreFlash = newestScore ? pres.eventMeta(newestScore.type).label : null;
 
   const feed = useMemo<FeedItem[]>(() => {
+    const minRank = feedToneRankFloor(speed);
     const items: FeedItem[] = [];
-    for (const ev of result.events) if (ev.minute <= clock) items.push({ kind: "event", minute: ev.minute, ev });
-    items.push({ kind: "marker", minute: 0, label: { ko: "킥오프", en: "Kick-off" } });
+    for (const ev of result.events) {
+      if (ev.minute > clock) continue;
+      if (toneRank(pres.eventMeta(ev.type).tone) < minRank) continue;
+      items.push({ kind: "event", minute: ev.minute, ev });
+    }
+    items.push({ kind: "marker", minute: 0, label: pres.openLabel });
     for (const b of pres.breaks) if (b.at <= clock) items.push({ kind: "marker", minute: b.at, label: b.label });
     if (finished) items.push({ kind: "marker", minute: endMinute, label: { ko: "경기 종료", en: "Full Time" } });
     items.sort((a, b) => b.minute - a.minute || (a.kind === "marker" ? 1 : -1));
     return items;
-  }, [result.events, pres.breaks, clock, finished, endMinute]);
+  }, [result.events, pres, clock, finished, endMinute, speed]);
 
   const topPerformers = useMemo(
     () =>
@@ -391,7 +414,6 @@ export function MatchViewer({ result, home, away, players, sportId }: Props) {
             const assist = ev.assistId ? players[ev.assistId] : null;
             return (
               <div key={`e${i}`} className={`flex items-start gap-2 rounded-md border px-3 py-1.5 text-sm ${toneRing(meta.tone)}`}>
-                <span className="w-9 shrink-0 text-right font-mono text-xs text-zinc-500">{ev.minute}</span>
                 <span className="shrink-0">{meta.emoji}</span>
                 <span className="flex-1">
                   <span className="font-semibold">{tl(meta.label)}</span>
@@ -533,12 +555,11 @@ function BroadcastFeed({
           return (
             <div key={`e${i}`} className={`rounded-lg border px-3 py-2 ${toneRing(meta.tone)} ${important ? "shadow-sm" : ""}`}>
               <div className="flex items-center gap-2">
-                <span className="w-10 shrink-0 text-right font-mono text-xs text-soft">{ev.minute}</span>
                 <span className="shrink-0">{meta.emoji}</span>
                 <span className={`truncate ${important ? "font-bold" : "font-semibold"}`}>{tl(meta.label)}</span>
                 <span className="ml-auto max-w-[35%] truncate text-xs text-soft">{club.shortName}</span>
               </div>
-              <div className="mt-1 pl-14 text-sm leading-snug">
+              <div className="mt-1 pl-7 text-sm leading-snug">
                 {ev.detail ? <span className="text-zinc-700 dark:text-zinc-200">{tl(ev.detail)}</span> : null}
                 {player && (
                   <span className="ml-1">

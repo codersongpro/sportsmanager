@@ -344,6 +344,8 @@ export interface MatchStatRow {
 export interface MatchPresentation {
   /** playing-surface backdrop for the live viewer */
   venue: "pitch" | "hardwood" | "diamond" | "volleyballCourt" | "pickleballCourt";
+  /** sport-specific term for the match's opening moment (kickoff / tip-off / first pitch / first serve) */
+  openLabel: LocalizedText;
   /** real regulation length in minutes, used to pace playback consistently by sport */
   regulationMinutes: number;
   /** timeline length the playback clock runs to */

@@ -23,12 +23,33 @@ const META: Record<string, MatchEventMeta> = {
   alleyOop: { emoji: "AO", label: { ko: "앨리웁", en: "Alley-oop" }, tone: "score" },
   sixthManRun: { emoji: "6", label: { ko: "식스맨 흐름", en: "Sixth-man Run" }, tone: "info" },
   mismatch: { emoji: "M", label: { ko: "미스매치 공략", en: "Mismatch Attack" }, tone: "info" },
+  offBallScreen: { emoji: "SC", label: { ko: "오프볼 스크린", en: "Off-ball Screen" }, tone: "info" },
+  doubleTeam: { emoji: "DT", label: { ko: "더블팀", en: "Double Team" }, tone: "info" },
+  corner3Setup: { emoji: "C3", label: { ko: "코너 3점 세팅", en: "Corner 3 Setup" }, tone: "info" },
+  lobPass: { emoji: "LP", label: { ko: "롭 패스", en: "Lob Pass" }, tone: "info" },
+  transitionDefense: { emoji: "TD", label: { ko: "전환 수비", en: "Transition Defense" }, tone: "info" },
+  benchSpark: { emoji: "BS", label: { ko: "벤치 활력", en: "Bench Spark" }, tone: "info" },
+  clutchTime: { emoji: "CL", label: { ko: "승부처", en: "Clutch Time" }, tone: "info" },
+  coachChallenge: { emoji: "CC", label: { ko: "코치 챌린지", en: "Coach Challenge" }, tone: "warn" },
+  offensiveFoul: { emoji: "OF", label: { ko: "공격자 파울", en: "Offensive Foul" }, tone: "warn" },
+  boxOut: { emoji: "BX", label: { ko: "박스아웃", en: "Box-out" }, tone: "info" },
+  drivingLane: { emoji: "DL", label: { ko: "드라이브 레인", en: "Driving Lane" }, tone: "info" },
+  perimeterDefense: { emoji: "PD", label: { ko: "외곽 수비", en: "Perimeter Defense" }, tone: "info" },
+  paintProtection: { emoji: "PP", label: { ko: "골밑 보호", en: "Paint Protection" }, tone: "info" },
+  benchTechnical: { emoji: "BT", label: { ko: "벤치 테크니컬 파울", en: "Bench Technical" }, tone: "danger" },
+  shotClockBeat: { emoji: "SCB", label: { ko: "샷클락 비팅", en: "Beats the Shot Clock" }, tone: "info" },
+  crossoverMove: { emoji: "XO", label: { ko: "크로스오버", en: "Crossover Move" }, tone: "info" },
+  helpDefense: { emoji: "HD", label: { ko: "헬프 디펜스", en: "Help Defense" }, tone: "info" },
+  inboundPlay: { emoji: "IB", label: { ko: "인바운드 플레이", en: "Inbound Play" }, tone: "info" },
+  freeThrowLine: { emoji: "FL", label: { ko: "자유투 라인 집중", en: "At the Free-throw Line" }, tone: "info" },
+  benchMomentum: { emoji: "BM", label: { ko: "벤치 모멘텀", en: "Bench Momentum" }, tone: "info" },
 };
 
 const PTS: Record<string, number> = { three: 3, two: 2, dunk: 2, freeThrow: 1 };
 
 export const basketballPresentation: MatchPresentation = {
   venue: "hardwood",
+  openLabel: { ko: "팁오프", en: "Tip-off" },
   regulationMinutes: 48,
   endProgress: 48,
   breaks: [

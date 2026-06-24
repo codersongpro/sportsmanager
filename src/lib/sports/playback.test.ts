@@ -5,6 +5,7 @@ import { progressPerSecond } from "./playback";
 function presentation(endProgress: number, regulationMinutes: number): MatchPresentation {
   return {
     venue: "pitch",
+    openLabel: { ko: "", en: "" },
     regulationMinutes,
     endProgress,
     breaks: [],
