@@ -38,15 +38,20 @@ export function VenueSurface({ venue }: { venue: Props["venue"] }) {
 }
 
 export function venueFrameClass(venue: Props["venue"]): string {
-  return BG[venue];
+  return `${VENUE_TINT[venue].border} ${VENUE_TINT[venue].horizontal}`;
 }
 
-const BG: Record<Props["venue"], string> = {
-  pitch: "border-emerald-900/30 bg-gradient-to-r from-green-600 to-green-700",
-  hardwood: "border-amber-900/40 bg-gradient-to-r from-amber-500 to-amber-600",
-  diamond: "border-emerald-900/30 bg-gradient-to-br from-green-600 to-green-700",
-  volleyballCourt: "border-sky-900/30 bg-gradient-to-r from-sky-500 to-orange-400",
-  pickleballCourt: "border-teal-900/30 bg-gradient-to-r from-teal-500 to-blue-500",
+/** Fill-only gradient (no border) for the vertical formation board on the tactics page. */
+export function venueFillClassVertical(venue: Props["venue"]): string {
+  return VENUE_TINT[venue].vertical;
+}
+
+const VENUE_TINT: Record<Props["venue"], { border: string; horizontal: string; vertical: string }> = {
+  pitch: { border: "border-emerald-900/30", horizontal: "bg-gradient-to-r from-green-600 to-green-700", vertical: "bg-gradient-to-b from-green-600 to-green-700" },
+  hardwood: { border: "border-amber-900/40", horizontal: "bg-gradient-to-r from-amber-500 to-amber-600", vertical: "bg-gradient-to-b from-amber-500 to-amber-600" },
+  diamond: { border: "border-emerald-900/30", horizontal: "bg-gradient-to-br from-green-600 to-green-700", vertical: "bg-gradient-to-b from-green-600 to-green-700" },
+  volleyballCourt: { border: "border-sky-900/30", horizontal: "bg-gradient-to-r from-sky-500 to-orange-400", vertical: "bg-gradient-to-b from-sky-500 to-orange-400" },
+  pickleballCourt: { border: "border-teal-900/30", horizontal: "bg-gradient-to-r from-teal-500 to-blue-500", vertical: "bg-gradient-to-b from-teal-500 to-blue-500" },
 };
 
 const line = "absolute bg-white/40";
@@ -111,4 +116,58 @@ const SURFACE: Record<Props["venue"], React.ReactNode> = {
       <div className={`${ring} left-1/2 top-1/2 h-[8%] w-[8%] -translate-x-1/2 -translate-y-1/2`} />
     </>
   ),
+};
+
+/** Per-sport markings for the vertical (top-to-bottom) formation board on the tactics page. */
+export function VenueSurfaceVertical({ venue }: { venue: Props["venue"] }) {
+  return <>{SURFACE_VERTICAL[venue]}</>;
+}
+
+const SURFACE_VERTICAL: Record<Props["venue"], React.ReactNode> = {
+  pitch: (
+    <>
+      <div className={`${line} left-0 top-1/2 h-px w-full -translate-y-1/2`} />
+      <div className={`${ring} left-1/2 top-1/2 h-[16%] w-[28%] -translate-x-1/2 -translate-y-1/2`} />
+      <div className="absolute left-1/2 top-0 h-[12%] w-[55%] -translate-x-1/2 border border-t-0 border-white/40" />
+      <div className="absolute bottom-0 left-1/2 h-[12%] w-[55%] -translate-x-1/2 border border-b-0 border-white/40" />
+      <div className={`${line} left-1/2 top-0 h-[2%] w-[20%] -translate-x-1/2 !bg-white/30`} />
+      <div className={`${line} bottom-0 left-1/2 h-[2%] w-[20%] -translate-x-1/2 !bg-white/30`} />
+    </>
+  ),
+  hardwood: (
+    <>
+      <div className={`${line} left-0 top-1/2 h-px w-full -translate-y-1/2`} />
+      <div className={`${ring} left-1/2 top-1/2 h-[18%] w-[30%] -translate-x-1/2 -translate-y-1/2`} />
+      {/* keys + hoops */}
+      <div className="absolute left-1/2 top-0 h-[16%] w-[40%] -translate-x-1/2 border border-t-0 border-white/40" />
+      <div className="absolute bottom-0 left-1/2 h-[16%] w-[40%] -translate-x-1/2 border border-b-0 border-white/40" />
+      <div className={`${ring} left-1/2 top-[3%] h-[5%] w-[10%] -translate-x-1/2 !border-orange-200`} />
+      <div className={`${ring} bottom-[3%] left-1/2 h-[5%] w-[10%] -translate-x-1/2 !border-orange-200`} />
+    </>
+  ),
+  volleyballCourt: (
+    <>
+      {/* center net */}
+      <div className="absolute left-0 top-1/2 h-1 w-full -translate-y-1/2 bg-white/70" />
+      <div className="absolute left-0 top-1/2 h-[14%] w-full -translate-y-1/2 bg-[repeating-linear-gradient(90deg,transparent,transparent_6px,rgba(255,255,255,0.25)_6px,rgba(255,255,255,0.25)_8px)]" />
+      {/* attack lines */}
+      <div className={`${line} left-0 top-[35%] h-px w-full`} />
+      <div className={`${line} bottom-[35%] left-0 h-px w-full`} />
+      <div className="absolute inset-2 border border-white/40" />
+    </>
+  ),
+  pickleballCourt: (
+    <>
+      {/* center net */}
+      <div className="absolute left-0 top-1/2 h-1 w-full -translate-y-1/2 bg-white/75" />
+      <div className="absolute inset-3 border border-white/45" />
+      {/* non-volley zones */}
+      <div className={`${line} left-3 top-[42%] h-px w-[calc(100%-1.5rem)]`} />
+      <div className={`${line} bottom-[42%] left-3 h-px w-[calc(100%-1.5rem)]`} />
+      {/* service boxes */}
+      <div className={`${line} left-1/2 top-3 h-[39%] w-px`} />
+      <div className={`${line} bottom-3 left-1/2 h-[39%] w-px`} />
+    </>
+  ),
+  diamond: SURFACE.diamond,
 };

@@ -5,6 +5,7 @@ import { useGameStore } from "@/lib/store/gameStore";
 import { getSport } from "@/lib/sports";
 import { playerDisplayName, playerInitials } from "@/lib/utils/format";
 import { Avatar, RatingNumber, StatBar, Tile, conditionColor, groupColor, overallColor } from "@/components/Tile";
+import { VenueSurfaceVertical, venueFillClassVertical } from "@/components/Venue";
 import { TACTIC_PRESETS } from "@/lib/data/tacticPresets";
 import type { Player, Tactics } from "@/lib/types";
 
@@ -29,6 +30,7 @@ export default function TacticsPage() {
 
   if (!state) return null;
   const sport = getSport(state.sportId);
+  const pres = sport.matchPresentation;
   const myClub = state.clubs[state.manager.clubId];
   const tactics = myClub.tactics;
   const formation = sport.formations.find((f) => f.key === tactics.formation) ?? sport.formations[0];
@@ -81,12 +83,10 @@ export default function TacticsPage() {
           </div>
 
           <div
-            className="relative mx-auto overflow-hidden rounded-[14px] border"
-            style={{ aspectRatio: "68/100", maxHeight: 560, background: "linear-gradient(180deg,#0f3b28,#0c2e20)", borderColor: "rgba(255,255,255,.08)" }}
+            className={`relative mx-auto overflow-hidden rounded-[14px] border ${venueFillClassVertical(pres.venue)}`}
+            style={{ aspectRatio: "68/100", maxHeight: 560, borderColor: "rgba(255,255,255,.08)" }}
           >
-            <div className="absolute inset-x-[8%] inset-y-[5%] rounded-[4px] border-2" style={{ borderColor: "rgba(255,255,255,.16)" }} />
-            <div className="absolute left-[8%] right-[8%] top-1/2 border-t-2" style={{ borderColor: "rgba(255,255,255,.16)" }} />
-            <div className="absolute left-1/2 top-1/2 h-[84px] w-[84px] -translate-x-1/2 -translate-y-1/2 rounded-full border-2" style={{ borderColor: "rgba(255,255,255,.16)" }} />
+            <VenueSurfaceVertical venue={pres.venue} />
             {formation.slots.map((slot, i) => {
               const p = tactics.lineup[i] ? state.players[tactics.lineup[i]] : undefined;
               const group = sport.positions.find((meta) => meta.key === slot.position)?.group ?? "";
