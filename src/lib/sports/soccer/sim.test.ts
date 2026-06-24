@@ -3,7 +3,7 @@ import { createRng } from "@/lib/sim/rng";
 import { buildWorld } from "@/lib/engine/world";
 import { CLUBS } from "@/data/clubs";
 import { getSport } from "@/lib/sports";
-import { simulateMatch } from "./sim";
+import { finalizeSegments, simulateMatch, simulateSegment } from "./sim";
 
 const sport = getSport("soccer");
 
@@ -41,5 +41,26 @@ describe("simulateMatch", () => {
         expect(["extra_time", "penalties"]).toContain(result.decidedBy);
       }
     }
+  });
+
+  it("is exactly the composition of simulateSegment + finalizeSegments (no duplicate match logic)", () => {
+    const world = buildWorld(sport, createRng(321), 2026);
+    const [a, b] = CLUBS.slice(0, 2);
+    const home = teamFor(world, a.id);
+    const away = teamFor(world, b.id);
+
+    const viaMatch = simulateMatch(home, away, createRng(7), { allowDraw: true });
+
+    const rng = createRng(7);
+    const segments = [
+      { kind: "first_half" as const, result: simulateSegment(home, away, rng, "first_half", { allowDraw: true }) },
+      { kind: "second_half" as const, result: simulateSegment(home, away, rng, "second_half", { allowDraw: true }) },
+    ];
+    const viaSegments = finalizeSegments(home, away, segments, { allowDraw: true }, rng);
+
+    expect(viaSegments.homeScore).toBe(viaMatch.homeScore);
+    expect(viaSegments.awayScore).toBe(viaMatch.awayScore);
+    expect(viaSegments.events).toEqual(viaMatch.events);
+    expect(viaSegments.playerRatings).toEqual(viaMatch.playerRatings);
   });
 });

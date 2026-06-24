@@ -40,7 +40,7 @@ export function createNewGame(opts: NewGameOptions): GameState {
 
   const now = Date.now();
   return {
-    version: 1,
+    version: 2,
     id: `save_${now}_${Math.floor(rng.next() * 1e6)}`,
     createdAt: now,
     updatedAt: now,

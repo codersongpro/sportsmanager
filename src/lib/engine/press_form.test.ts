@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { createNewGame } from "./newGame";
 import { continueGame } from "./season";
+import { advanceActiveMatch } from "./activeMatch";
 import { getSport } from "@/lib/sports";
 import { CLUBS } from "@/data/clubs";
 
@@ -22,6 +23,10 @@ describe("season: form history, press and manager reputation", () => {
     let guard = 0;
     while (!state.lastResultFixtureId && guard++ < 20) {
       state = continueGame(state, sport);
+      let drain = 0;
+      while (state.activeMatch && !state.activeMatch.finished && drain++ < 8) {
+        state = advanceActiveMatch(state, sport);
+      }
     }
     expect(state.lastResultFixtureId).toBeTruthy();
 

@@ -65,6 +65,9 @@ export interface Finances {
   wageBudget: number; // weekly wage cap
 }
 
+/** One phase of a match that can be simulated and revealed independently. */
+export type MatchSegmentKind = "first_half" | "second_half" | "extra_time" | "penalties";
+
 export interface Tactics {
   formation: string; // e.g. "4-3-3"
   mentality: "defensive" | "balanced" | "attacking";
@@ -137,6 +140,44 @@ export interface MatchResult {
   decidedBy?: "normal" | "extra_time" | "penalties";
   homePens?: number;
   awayPens?: number;
+}
+
+/** Output of simulating a single match segment, before it's merged into a final MatchResult. */
+export interface MatchSegmentResult {
+  events: MatchEvent[];
+  homeGoals: number;
+  awayGoals: number;
+  homeShots: number;
+  awayShots: number;
+  homeShotsOnTarget: number;
+  awayShotsOnTarget: number;
+  scorerIds: string[];
+  assistIds: string[];
+  saves: Record<string, number>;
+  homePens?: number;
+  awayPens?: number;
+}
+
+/**
+ * A user fixture being played out segment by segment instead of resolved
+ * atomically, so it can be paused, saved, and resumed (and, in the Match
+ * Center UI, intervened on between segments). Singleton: only one match is
+ * ever "live" at a time.
+ */
+export interface ActiveMatchState {
+  fixtureId: string;
+  day: number;
+  homeId: string;
+  awayId: string;
+  opts: SimOptions;
+  /** the next segment to simulate when advanced */
+  phase: MatchSegmentKind;
+  finished: boolean;
+  homeScore: number;
+  awayScore: number;
+  segments: { kind: MatchSegmentKind; result: MatchSegmentResult }[];
+  /** populated once `finished` is true */
+  finalResult?: MatchResult;
 }
 
 // ---------------------------------------------------------------------------
@@ -253,6 +294,8 @@ export interface GameState {
   seasonOver: boolean;
   /** pending press-conference prompts for the user */
   press?: PressItem[];
+  /** the user's fixture currently being played out segment by segment, if any */
+  activeMatch?: ActiveMatchState;
   /** optional side competition: national-team World Cup, built from the same player pool */
   worldCup?: {
     competition: CompetitionState;
@@ -409,6 +452,16 @@ export interface SportModule {
   autoPickLineup(club: Club, players: Record<string, Player>): { lineup: string[]; bench: string[] };
   validateLineup(club: Club, players: Record<string, Player>): ValidationResult;
   simulateMatch(home: MatchTeam, away: MatchTeam, rng: RNG, opts?: SimOptions): MatchResult;
+  /** simulate one segment of a match (e.g. a half); sports that support resumable matches implement this */
+  simulateSegment?(home: MatchTeam, away: MatchTeam, rng: RNG, kind: MatchSegmentKind, opts?: SimOptions): MatchSegmentResult;
+  /** merge previously simulated segments into a final MatchResult (ratings, possession, decider) */
+  finalizeSegments?(
+    home: MatchTeam,
+    away: MatchTeam,
+    segments: { kind: MatchSegmentKind; result: MatchSegmentResult }[],
+    opts: SimOptions,
+    rng: RNG,
+  ): MatchResult;
   /** returns a NEW player object with developed attributes */
   trainPlayer(player: Player, focusKey: string, rng: RNG): Player;
   generatePlayer(opts: GenPlayerOpts, rng: RNG): Player;

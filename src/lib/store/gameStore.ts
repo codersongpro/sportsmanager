@@ -3,6 +3,7 @@ import type { GameState, LocalizedText, Locale, Tactics } from "@/lib/types";
 import { getSport } from "@/lib/sports";
 import { createNewGame, type NewGameOptions } from "@/lib/engine/newGame";
 import { continueGame, rolloverSeason } from "@/lib/engine/season";
+import { advanceActiveMatch } from "@/lib/engine/activeMatch";
 import { createWorldCup, simulateWorldCupRound } from "@/lib/engine/worldcup";
 import { saveGame } from "./persistence";
 
@@ -13,6 +14,7 @@ interface GameStoreState {
   loadFromSave: (save: GameState) => void;
   startNewGame: (opts: NewGameOptions) => void;
   continue: () => void;
+  playNextSegment: () => void;
   rolloverSeason: () => void;
   setLocale: (locale: Locale) => void;
   setTrainingFocus: (key: string) => void;
@@ -63,7 +65,24 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
     const cur = get().state;
     if (!cur) return;
     const sport = getSport(cur.sportId);
-    const next = continueGame(cur, sport);
+    let next = continueGame(cur, sport);
+    // The engine pauses on the user's own fixture (`activeMatch`), so the
+    // Match Center can step through it segment by segment. Until that UI
+    // exists, auto-play it through here to keep "continue" producing a full
+    // result in one click, same as before segmentation was introduced.
+    let guard = 0;
+    while (next.activeMatch && !next.activeMatch.finished && guard++ < 8) {
+      next = advanceActiveMatch(next, sport);
+    }
+    set({ state: next });
+    persist(next);
+  },
+
+  playNextSegment: () => {
+    const cur = get().state;
+    if (!cur || !cur.activeMatch || cur.activeMatch.finished) return;
+    const sport = getSport(cur.sportId);
+    const next = advanceActiveMatch(cur, sport);
     set({ state: next });
     persist(next);
   },

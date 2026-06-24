@@ -1,8 +1,20 @@
 import { describe, expect, it } from "vitest";
 import { getSport } from "@/lib/sports";
 import { getClubsForSport } from "@/data/clubs";
+import type { GameState, SportModule } from "@/lib/types";
+import { advanceActiveMatch } from "./activeMatch";
 import { createNewGame } from "./newGame";
 import { continueGame, rolloverSeason } from "./season";
+
+/** continueGame pauses on the user's own fixture (`activeMatch`); drain it to mirror the store's auto-play. */
+function continueAndDrain(state: GameState, sport: SportModule): GameState {
+  let next = continueGame(state, sport);
+  let guard = 0;
+  while (next.activeMatch && !next.activeMatch.finished && guard++ < 8) {
+    next = advanceActiveMatch(next, sport);
+  }
+  return next;
+}
 
 describe("season engine", () => {
   const sport = getSport("soccer");
@@ -23,7 +35,7 @@ describe("season engine", () => {
     let state = freshGame();
     let guard = 0;
     while (!state.lastResultFixtureId && !state.seasonOver && guard++ < 60) {
-      state = continueGame(state, sport);
+      state = continueAndDrain(state, sport);
     }
     expect(state.lastResultFixtureId).toBeDefined();
     const fixture = state.competition.fixtures.find((f) => f.id === state.lastResultFixtureId);
@@ -36,7 +48,7 @@ describe("season engine", () => {
     let state = freshGame();
     let guard = 0;
     while (!state.seasonOver && guard++ < 200) {
-      state = continueGame(state, sport);
+      state = continueAndDrain(state, sport);
     }
     expect(state.seasonOver).toBe(true);
     expect(state.competition.championId).toBeTruthy();

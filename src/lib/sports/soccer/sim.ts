@@ -2,6 +2,8 @@ import type {
   LocalizedText,
   MatchEvent,
   MatchResult,
+  MatchSegmentKind,
+  MatchSegmentResult,
   MatchTeam,
   PitchZone,
   Player,
@@ -407,10 +409,11 @@ function genAttack(
   return { shots, onTarget };
 }
 
-/** Fouls, cards and injuries committed by a team. */
-function genDiscipline(ctx: Ctx, power: TeamPower, clubId: string, loMin: number, hiMin: number) {
+/** Fouls, cards and injuries committed by a team within one segment. `scale` is the segment's share of a full 90' match. */
+function genDiscipline(ctx: Ctx, power: TeamPower, clubId: string, loMin: number, hiMin: number, scale = 1) {
+  if (scale <= 0) return;
   const { rng, events } = ctx;
-  const fouls = Math.min(5, poisson(rng, (1.4 + (power.aggression - 45) / 45) * power.pressingFoul));
+  const fouls = Math.min(5, poisson(rng, (1.4 + (power.aggression - 45) / 45) * power.pressingFoul * scale));
   let cards = 0;
   for (let i = 0; i < fouls; i++) {
     const fouler = pick(rng, power.foulers);
@@ -436,10 +439,10 @@ function genDiscipline(ctx: Ctx, power: TeamPower, clubId: string, loMin: number
     }
   }
   // rare straight red
-  if (rng.bool(0.04)) {
+  if (rng.bool(0.04 * scale)) {
     const p = pick(rng, power.foulers);
     events.push({
-      minute: rng.int(30, hiMin),
+      minute: rng.int(loMin, hiMin),
       type: "red",
       clubId,
       playerId: p?.id,
@@ -448,10 +451,10 @@ function genDiscipline(ctx: Ctx, power: TeamPower, clubId: string, loMin: number
     });
   }
   // rare injury
-  if (rng.bool(0.1)) {
+  if (rng.bool(0.1 * scale)) {
     const p = pick(rng, power.foulers);
     events.push({
-      minute: rng.int(loMin + 5, hiMin),
+      minute: rng.int(loMin, hiMin),
       type: "injury",
       clubId,
       playerId: p?.id,
@@ -465,11 +468,17 @@ function genDiscipline(ctx: Ctx, power: TeamPower, clubId: string, loMin: number
 // Ratings
 // ---------------------------------------------------------------------------
 
+interface RatingInputs {
+  scorerIds: string[];
+  assistIds: string[];
+  saves: Record<string, number>;
+}
+
 function ratePlayers(
   team: MatchTeam,
   goalsFor: number,
   goalsAgainst: number,
-  ctx: Ctx,
+  inputs: RatingInputs,
   rng: RNG,
 ): Record<string, number> {
   const out: Record<string, number> = {};
@@ -477,10 +486,10 @@ function ratePlayers(
   for (const p of team.lineup) {
     const grp = POSITION_GROUP[p.positions[0] ?? "CM"] ?? "MID";
     let r = 6.4 + rng.range(-0.5, 0.7) + resultBonus;
-    for (const sid of ctx.scorerIds) if (sid === p.id) r += 0.9;
-    for (const aid of ctx.assistIds) if (aid === p.id) r += 0.5;
+    for (const sid of inputs.scorerIds) if (sid === p.id) r += 0.9;
+    for (const aid of inputs.assistIds) if (aid === p.id) r += 0.5;
     if (grp === "GK") {
-      r += (goalsAgainst === 0 ? 0.6 : 0) - goalsAgainst * 0.15 + (ctx.saves[p.id] ?? 0) * 0.18;
+      r += (goalsAgainst === 0 ? 0.6 : 0) - goalsAgainst * 0.15 + (inputs.saves[p.id] ?? 0) * 0.18;
     }
     out[p.id] = Math.max(4, Math.min(10, Math.round(r * 10) / 10));
   }
@@ -503,42 +512,94 @@ function shootout(rng: RNG): [number, number] {
 }
 
 // ---------------------------------------------------------------------------
-// Public entry point
+// Segments (resumable matches: a segment is one independently simulatable
+// phase. `simulateMatch` below is a thin composition of these, so the
+// segment-by-segment engine path (src/lib/engine/activeMatch.ts) and the
+// atomic AI-vs-AI path always agree on the rules.)
 // ---------------------------------------------------------------------------
 
-export function simulateMatch(home: MatchTeam, away: MatchTeam, rng: RNG, opts: SimOptions = {}): MatchResult {
-  const allowDraw = opts.allowDraw ?? true;
-  const neutral = opts.neutralVenue ?? false;
+const SEGMENT_MINUTES: Record<MatchSegmentKind, [number, number]> = {
+  first_half: [1, 45],
+  second_half: [46, 90],
+  extra_time: [91, 120],
+  penalties: [121, 121],
+};
+// each segment's share of a full 90' match's expected goals / discipline rate
+const SEGMENT_SHARE: Record<MatchSegmentKind, number> = {
+  first_half: 0.5,
+  second_half: 0.5,
+  extra_time: 0.35,
+  penalties: 0,
+};
+const SEGMENT_FLAVOR_COUNT: Record<MatchSegmentKind, number> = {
+  first_half: 8,
+  second_half: 8,
+  extra_time: 5,
+  penalties: 0,
+};
 
+/** Simulate one phase of a match. Team power is recomputed fresh from the passed-in lineups/tactics, so mid-match tactical changes apply from the next segment onward. */
+export function simulateSegment(
+  home: MatchTeam,
+  away: MatchTeam,
+  rng: RNG,
+  kind: MatchSegmentKind,
+  opts: SimOptions = {},
+): MatchSegmentResult {
   const hp = teamPower(home);
   const ap = teamPower(away);
 
-  let homeXg = expectedGoals(hp, ap) * ap.pressDisruption;
-  let awayXg = expectedGoals(ap, hp) * hp.pressDisruption;
-  if (!neutral) {
-    homeXg *= 1.12;
-    awayXg *= 0.95;
+  if (kind === "penalties") {
+    const [homePens, awayPens] = shootout(rng);
+    const winnerId = homePens > awayPens ? home.club.id : away.club.id;
+    return {
+      events: [
+        {
+          minute: SEGMENT_MINUTES.penalties[0],
+          type: "penalty_shootout",
+          clubId: winnerId,
+          detail: { ko: `승부차기 ${homePens} - ${awayPens} 승리!`, en: `Wins ${homePens}-${awayPens} on penalties!` },
+          zone: "mid",
+        },
+      ],
+      homeGoals: 0,
+      awayGoals: 0,
+      homeShots: 0,
+      awayShots: 0,
+      homeShotsOnTarget: 0,
+      awayShotsOnTarget: 0,
+      scorerIds: [],
+      assistIds: [],
+      saves: {},
+      homePens,
+      awayPens,
+    };
   }
 
-  let homeScore = poisson(rng, homeXg);
-  let awayScore = poisson(rng, awayXg);
+  const neutral = opts.neutralVenue ?? false;
+  let homeXgFull = expectedGoals(hp, ap) * ap.pressDisruption;
+  let awayXgFull = expectedGoals(ap, hp) * hp.pressDisruption;
+  if (!neutral) {
+    homeXgFull *= 1.12;
+    awayXgFull *= 0.95;
+  }
 
-  const ctx: Ctx = {
-    rng,
-    events: [],
-    homeId: home.club.id,
-    awayId: away.club.id,
-    scorerIds: [],
-    assistIds: [],
-    saves: {},
-  };
+  const share = SEGMENT_SHARE[kind];
+  const homeXg = homeXgFull * share;
+  const awayXg = awayXgFull * share;
+  const homeGoals = poisson(rng, homeXg);
+  const awayGoals = poisson(rng, awayXg);
 
-  // Regulation narrative (events spread across both halves, 1'..90')
-  const hStat = genAttack(ctx, hp, ap, homeXg, homeScore, true, home.club.id, away.club.id, 1, 90);
-  const aStat = genAttack(ctx, ap, hp, awayXg, awayScore, false, away.club.id, home.club.id, 1, 90);
-  genDiscipline(ctx, hp, home.club.id, 8, 90);
-  genDiscipline(ctx, ap, away.club.id, 8, 90);
-  for (let i = 0; i < 16; i++) {
+  const [loMin, hiMin] = SEGMENT_MINUTES[kind];
+  const ctx: Ctx = { rng, events: [], homeId: home.club.id, awayId: away.club.id, scorerIds: [], assistIds: [], saves: {} };
+
+  const hStat = genAttack(ctx, hp, ap, homeXg, homeGoals, true, home.club.id, away.club.id, loMin, hiMin);
+  const aStat = genAttack(ctx, ap, hp, awayXg, awayGoals, false, away.club.id, home.club.id, loMin, hiMin);
+  genDiscipline(ctx, hp, home.club.id, loMin, hiMin, share);
+  genDiscipline(ctx, ap, away.club.id, loMin, hiMin, share);
+
+  const flavorCount = SEGMENT_FLAVOR_COUNT[kind];
+  for (let i = 0; i < flavorCount; i++) {
     const homeEvent = rng.bool(0.5);
     const power = homeEvent ? hp : ap;
     const clubId = homeEvent ? home.club.id : away.club.id;
@@ -546,7 +607,7 @@ export function simulateMatch(home: MatchTeam, away: MatchTeam, rng: RNG, opts: 
     const pool = rng.bool(0.45) ? power.assisters : rng.bool(0.5) ? power.pacey : power.crossers;
     const p = pick(rng, pool);
     ctx.events.push({
-      minute: rng.int(1, 90),
+      minute: rng.int(loMin, hiMin),
       type: item.type,
       clubId,
       playerId: p?.id,
@@ -555,48 +616,80 @@ export function simulateMatch(home: MatchTeam, away: MatchTeam, rng: RNG, opts: 
     });
   }
 
-  let decidedBy: MatchResult["decidedBy"] = "normal";
-  let winnerId: string | undefined;
+  return {
+    events: ctx.events,
+    homeGoals,
+    awayGoals,
+    homeShots: hStat.shots,
+    awayShots: aStat.shots,
+    homeShotsOnTarget: hStat.onTarget,
+    awayShotsOnTarget: aStat.onTarget,
+    scorerIds: ctx.scorerIds,
+    assistIds: ctx.assistIds,
+    saves: ctx.saves,
+  };
+}
+
+/** Merge already-simulated segments into a final MatchResult (ratings, possession, decider). */
+export function finalizeSegments(
+  home: MatchTeam,
+  away: MatchTeam,
+  segments: { kind: MatchSegmentKind; result: MatchSegmentResult }[],
+  opts: SimOptions,
+  rng: RNG,
+): MatchResult {
+  const hp = teamPower(home);
+  const ap = teamPower(away);
+
+  let homeScore = 0,
+    awayScore = 0,
+    homeShots = 0,
+    awayShots = 0,
+    homeOnTarget = 0,
+    awayOnTarget = 0;
+  const events: MatchEvent[] = [];
+  const scorerIds: string[] = [];
+  const assistIds: string[] = [];
+  const saves: Record<string, number> = {};
   let homePens: number | undefined;
   let awayPens: number | undefined;
 
-  if (homeScore > awayScore) winnerId = home.club.id;
-  else if (awayScore > homeScore) winnerId = away.club.id;
-
-  if (!allowDraw && homeScore === awayScore) {
-    const etH = poisson(rng, homeXg * 0.35);
-    const etA = poisson(rng, awayXg * 0.35);
-    genAttack(ctx, hp, ap, homeXg * 0.35, etH, true, home.club.id, away.club.id, 91, 120);
-    genAttack(ctx, ap, hp, awayXg * 0.35, etA, false, away.club.id, home.club.id, 91, 120);
-    homeScore += etH;
-    awayScore += etA;
-    if (homeScore !== awayScore) {
-      decidedBy = "extra_time";
-      winnerId = homeScore > awayScore ? home.club.id : away.club.id;
-    } else {
-      decidedBy = "penalties";
-      [homePens, awayPens] = shootout(rng);
-      winnerId = homePens > awayPens ? home.club.id : away.club.id;
-      ctx.events.push({
-        minute: 121,
-        type: "penalty_shootout",
-        clubId: winnerId,
-        detail: { ko: `승부차기 ${homePens} - ${awayPens} 승리!`, en: `Wins ${homePens}-${awayPens} on penalties!` },
-        zone: "mid",
-      });
-    }
+  for (const { result } of segments) {
+    homeScore += result.homeGoals;
+    awayScore += result.awayGoals;
+    homeShots += result.homeShots;
+    awayShots += result.awayShots;
+    homeOnTarget += result.homeShotsOnTarget;
+    awayOnTarget += result.awayShotsOnTarget;
+    events.push(...result.events);
+    scorerIds.push(...result.scorerIds);
+    assistIds.push(...result.assistIds);
+    for (const [id, n] of Object.entries(result.saves)) saves[id] = (saves[id] ?? 0) + n;
+    if (result.homePens !== undefined) homePens = result.homePens;
+    if (result.awayPens !== undefined) awayPens = result.awayPens;
   }
 
-  ctx.events.sort((a, b) => a.minute - b.minute);
+  events.sort((a, b) => a.minute - b.minute);
 
+  const hasPenalties = segments.some((s) => s.kind === "penalties");
+  const hasExtraTime = segments.some((s) => s.kind === "extra_time");
+  const decidedBy: MatchResult["decidedBy"] = hasPenalties ? "penalties" : hasExtraTime ? "extra_time" : "normal";
+  let winnerId: string | undefined;
+  if (hasPenalties) {
+    winnerId = (homePens ?? 0) > (awayPens ?? 0) ? home.club.id : away.club.id;
+  } else if (homeScore > awayScore) {
+    winnerId = home.club.id;
+  } else if (awayScore > homeScore) {
+    winnerId = away.club.id;
+  }
+
+  const ratingInputs: RatingInputs = { scorerIds, assistIds, saves };
   const playerRatings = {
-    ...ratePlayers(home, homeScore, awayScore, ctx, rng),
-    ...ratePlayers(away, awayScore, homeScore, ctx, rng),
+    ...ratePlayers(home, homeScore, awayScore, ratingInputs, rng),
+    ...ratePlayers(away, awayScore, homeScore, ratingInputs, rng),
   };
 
-  const homePoss = Math.round(
-    50 + ((hp.attackPower + 100) / (hp.attackPower + ap.attackPower + 200) - 0.5) * 100,
-  );
+  const homePoss = Math.round(50 + ((hp.attackPower + 100) / (hp.attackPower + ap.attackPower + 200) - 0.5) * 100);
 
   return {
     fixtureId: "",
@@ -604,18 +697,45 @@ export function simulateMatch(home: MatchTeam, away: MatchTeam, rng: RNG, opts: 
     awayId: away.club.id,
     homeScore,
     awayScore,
-    events: ctx.events,
+    events,
     playerRatings,
     stats: {
       homePossession: Math.max(30, Math.min(70, homePoss)),
-      homeShots: hStat.shots,
-      awayShots: aStat.shots,
-      homeShotsOnTarget: hStat.onTarget,
-      awayShotsOnTarget: aStat.onTarget,
+      homeShots,
+      awayShots,
+      homeShotsOnTarget: homeOnTarget,
+      awayShotsOnTarget: awayOnTarget,
     },
     winnerId,
     decidedBy,
     homePens,
     awayPens,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Public entry point
+// ---------------------------------------------------------------------------
+
+export function simulateMatch(home: MatchTeam, away: MatchTeam, rng: RNG, opts: SimOptions = {}): MatchResult {
+  const allowDraw = opts.allowDraw ?? true;
+  const segments: { kind: MatchSegmentKind; result: MatchSegmentResult }[] = [];
+
+  segments.push({ kind: "first_half", result: simulateSegment(home, away, rng, "first_half", opts) });
+  segments.push({ kind: "second_half", result: simulateSegment(home, away, rng, "second_half", opts) });
+
+  let homeScore = segments.reduce((s, x) => s + x.result.homeGoals, 0);
+  let awayScore = segments.reduce((s, x) => s + x.result.awayGoals, 0);
+
+  if (!allowDraw && homeScore === awayScore) {
+    const et = simulateSegment(home, away, rng, "extra_time", opts);
+    segments.push({ kind: "extra_time", result: et });
+    homeScore += et.homeGoals;
+    awayScore += et.awayGoals;
+    if (homeScore === awayScore) {
+      segments.push({ kind: "penalties", result: simulateSegment(home, away, rng, "penalties", opts) });
+    }
+  }
+
+  return finalizeSegments(home, away, segments, opts, rng);
 }

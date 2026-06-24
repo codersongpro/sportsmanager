@@ -3,6 +3,15 @@ import type { GameState } from "@/lib/types";
 
 const PREFIX = "sm_save_";
 
+export const CURRENT_VERSION = 2;
+
+/** Bring a save from an older `GameState.version` up to `CURRENT_VERSION`. Pure, so it's testable without IndexedDB. */
+export function migrate(state: GameState): GameState {
+  if (state.version >= CURRENT_VERSION) return state;
+  // v1 -> v2: introduced `GameState.activeMatch` (optional, so no data migration needed beyond the version bump)
+  return { ...state, version: CURRENT_VERSION };
+}
+
 export interface SaveSummary {
   id: string;
   managerName: string;
@@ -31,7 +40,8 @@ export async function saveGame(state: GameState): Promise<void> {
 }
 
 export async function loadGame(id: string): Promise<GameState | undefined> {
-  return get(`${PREFIX}${id}`);
+  const state = await get<GameState>(`${PREFIX}${id}`);
+  return state ? migrate(state) : undefined;
 }
 
 export async function deleteSave(id: string): Promise<void> {
