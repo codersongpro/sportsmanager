@@ -1,0 +1,779 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow+Semi+Condensed:wght@500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  ::-webkit-scrollbar { width: 9px; height: 9px; }
+  ::-webkit-scrollbar-thumb { background: #2b3445; border-radius: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  @keyframes livepulse { 0%,100% { opacity: 1; } 50% { opacity: .35; } }
+  @keyframes barsweep { from { width: 0; } }
+  @keyframes fadeup { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+</style>
+</helmet>
+<div style="display:flex; height:100vh; width:100%; background:#0A0D13; color:#EAEEF5; font-family:'Pretendard',system-ui,sans-serif; overflow:hidden; -webkit-font-smoothing:antialiased;">
+
+  <!-- SIDEBAR -->
+  <aside style="width:236px; flex:0 0 236px; background:#0E121B; border-right:1px solid rgba(255,255,255,.06); display:flex; flex-direction:column; padding:18px 14px;">
+    <div style="display:flex; align-items:center; gap:11px; padding:6px 8px 18px;">
+      <div style="width:38px; height:38px; border-radius:10px; background:linear-gradient(135deg,#18E29A,#0a8f63); display:flex; align-items:center; justify-content:center; font-family:'Barlow Condensed'; font-weight:700; font-size:22px; color:#06140e; box-shadow:0 0 0 1px rgba(24,226,154,.3),0 6px 16px rgba(24,226,154,.25);">SM</div>
+      <div>
+        <div style="font-family:'Barlow Condensed'; font-weight:700; font-size:19px; letter-spacing:.5px; line-height:1;">PRO MANAGER</div>
+        <div style="font-size:10.5px; color:#5A6478; letter-spacing:2px; margin-top:3px;">SEASON 2026/27</div>
+      </div>
+    </div>
+
+    <nav style="display:flex; flex-direction:column; gap:3px; margin-top:4px;">
+      <sc-for list="{{ nav }}" as="item" hint-placeholder-count="8">
+        <button onClick="{{ item.go }}" style="display:flex; align-items:center; gap:12px; padding:10px 12px; border:none; border-radius:9px; cursor:pointer; text-align:left; font-family:'Pretendard'; font-size:13.5px; font-weight:{{ item.weight }}; background:{{ item.bg }}; color:{{ item.color }}; transition:background .15s;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="{{ item.color }}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="{{ item.icon }}"></path></svg>
+          <span>{{ item.label }}</span>
+          <sc-if value="{{ item.badge }}" hint-placeholder-val="">
+            <span style="margin-left:auto; background:#FF4D5E; color:#fff; font-size:10px; font-weight:700; padding:1px 6px; border-radius:9px; font-family:'Barlow Semi Condensed';">{{ item.badge }}</span>
+          </sc-if>
+        </button>
+      </sc-for>
+    </nav>
+
+    <div style="margin-top:auto; padding:13px; border-radius:12px; background:#131822; border:1px solid rgba(255,255,255,.06);">
+      <div style="display:flex; align-items:center; gap:10px;">
+        <div style="width:34px; height:34px; border-radius:8px; background:linear-gradient(135deg,#21304a,#16213a); display:flex; align-items:center; justify-content:center; font-family:'Barlow Condensed'; font-weight:700; font-size:15px; color:#9fc3ff; border:1px solid rgba(120,160,255,.25);">SU</div>
+        <div style="min-width:0;">
+          <div style="font-weight:600; font-size:12.5px; white-space:nowrap;">서울 유나이티드</div>
+          <div style="font-size:10.5px; color:#7E8AA0;">K리그1 · 감독 송민호</div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <div style="flex:1; display:flex; flex-direction:column; min-width:0;">
+
+    <!-- TOPBAR -->
+    <header style="height:60px; flex:0 0 60px; border-bottom:1px solid rgba(255,255,255,.06); display:flex; align-items:center; padding:0 22px; gap:18px; background:#0C1019;">
+      <div style="display:flex; flex-direction:column;">
+        <div style="font-family:'Barlow Condensed'; font-weight:700; font-size:18px; line-height:1; letter-spacing:.3px;">{{ screenTitle }}</div>
+        <div style="font-size:11px; color:#5A6478; margin-top:2px;">{{ screenSub }}</div>
+      </div>
+
+      <div style="display:flex; align-items:center; gap:6px; margin-left:14px; padding:4px; background:#131822; border:1px solid rgba(255,255,255,.06); border-radius:10px;">
+        <sc-for list="{{ sports }}" as="s" hint-placeholder-count="4">
+          <button onClick="{{ s.go }}" title="{{ s.name }}" style="width:30px; height:30px; border:none; border-radius:7px; cursor:pointer; font-size:15px; display:flex; align-items:center; justify-content:center; background:{{ s.bg }}; filter:{{ s.filter }}; transition:.15s;">{{ s.icon }}</button>
+        </sc-for>
+      </div>
+
+      <div style="margin-left:auto; display:flex; align-items:center; gap:18px;">
+        <div style="text-align:right;">
+          <div style="font-size:10px; color:#5A6478; letter-spacing:1px;">이적 예산</div>
+          <div style="font-family:'Barlow Condensed'; font-weight:700; font-size:17px; color:#18E29A; line-height:1;">₩42.0억</div>
+        </div>
+        <div style="width:1px; height:30px; background:rgba(255,255,255,.08);"></div>
+        <div style="text-align:right;">
+          <div style="font-size:10px; color:#5A6478; letter-spacing:1px;">현재 날짜</div>
+          <div style="font-family:'Barlow Condensed'; font-weight:600; font-size:15px; line-height:1; margin-top:2px;">2026년 8월 14일</div>
+        </div>
+        <button style="display:flex; align-items:center; gap:9px; background:linear-gradient(135deg,#18E29A,#0fae77); color:#06140e; border:none; padding:9px 18px; border-radius:10px; font-family:'Pretendard'; font-weight:700; font-size:13.5px; cursor:pointer; box-shadow:0 4px 14px rgba(24,226,154,.3);">
+          계속 진행
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#06140e" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h13M13 6l6 6-6 6"></path></svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- SCREEN CONTAINER -->
+    <main style="flex:1; overflow-y:auto; overflow-x:hidden; padding:22px; background:radial-gradient(1200px 500px at 80% -10%, rgba(24,226,154,.05), transparent 60%), #0A0D13;">
+
+      <!-- ============ DASHBOARD ============ -->
+      <sc-if value="{{ isDash }}" hint-placeholder-val="{{ true }}">
+      <div style="display:grid; grid-template-columns:1.7fr 1fr; gap:18px;">
+
+        <!-- next match hero -->
+        <div style="grid-column:1 / -1; border-radius:16px; overflow:hidden; border:1px solid rgba(255,255,255,.07); background:linear-gradient(115deg,#10243a 0%,#0d1727 45%,#131822 100%); position:relative;">
+          <div style="position:absolute; inset:0; background:radial-gradient(600px 200px at 18% 120%, rgba(24,226,154,.18), transparent 70%);"></div>
+          <div style="position:relative; padding:22px 26px; display:flex; align-items:center; gap:26px;">
+            <div style="display:flex; flex-direction:column; gap:4px;">
+              <div style="display:inline-flex; align-items:center; gap:7px; font-size:11px; font-weight:700; color:#18E29A; letter-spacing:1.5px;"><span style="width:6px; height:6px; border-radius:50%; background:#18E29A;"></span>다음 경기 · K리그1 24R</div>
+              <div style="font-size:12.5px; color:#8A93A3; margin-top:4px;">2026년 8월 17일 (일) 19:00 · 서울월드컵경기장</div>
+            </div>
+            <div style="margin-left:auto; display:flex; align-items:center; gap:30px;">
+              <div style="text-align:center;">
+                <div style="width:60px; height:60px; margin:0 auto 8px; border-radius:14px; background:linear-gradient(135deg,#21304a,#16213a); display:flex; align-items:center; justify-content:center; font-family:'Barlow Condensed'; font-weight:700; font-size:24px; color:#9fc3ff; border:1px solid rgba(120,160,255,.25);">SU</div>
+                <div style="font-weight:700; font-size:14px;">서울 유나이티드</div>
+                <div style="font-size:11px; color:#7E8AA0; margin-top:2px;">홈 · 3위</div>
+              </div>
+              <div style="font-family:'Barlow Condensed'; font-weight:600; font-size:22px; color:#5A6478;">VS</div>
+              <div style="text-align:center;">
+                <div style="width:60px; height:60px; margin:0 auto 8px; border-radius:14px; background:linear-gradient(135deg,#3a2030,#2a1622); display:flex; align-items:center; justify-content:center; font-family:'Barlow Condensed'; font-weight:700; font-size:24px; color:#ff9fb0; border:1px solid rgba(255,120,150,.25);">UL</div>
+                <div style="font-weight:700; font-size:14px;">울산 HD</div>
+                <div style="font-size:11px; color:#7E8AA0; margin-top:2px;">원정 · 1위</div>
+              </div>
+            </div>
+            <div style="margin-left:30px; display:flex; flex-direction:column; gap:8px;">
+              <button onClick="{{ goMatch }}" style="background:#18E29A; color:#06140e; border:none; padding:11px 22px; border-radius:10px; font-family:'Pretendard'; font-weight:700; font-size:13.5px; cursor:pointer;">경기 시작</button>
+              <button onClick="{{ goTactics }}" style="background:rgba(255,255,255,.06); color:#EAEEF5; border:1px solid rgba(255,255,255,.1); padding:11px 22px; border-radius:10px; font-family:'Pretendard'; font-weight:600; font-size:13.5px; cursor:pointer;">전술 점검</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- league position card -->
+        <div style="border-radius:16px; border:1px solid rgba(255,255,255,.07); background:#131822; padding:20px;">
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;">
+            <div style="font-family:'Barlow Condensed'; font-weight:700; font-size:16px; letter-spacing:.5px;">시즌 현황</div>
+            <button onClick="{{ goLeague }}" style="font-size:11.5px; color:#18E29A; background:none; border:none; cursor:pointer; font-family:'Pretendard'; font-weight:600;">순위표 →</button>
+          </div>
+          <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:10px;">
+            <sc-for list="{{ seasonStats }}" as="st" hint-placeholder-count="4">
+              <div style="background:#0E121B; border:1px solid rgba(255,255,255,.05); border-radius:11px; padding:12px 10px; text-align:center;">
+                <div style="font-family:'Barlow Condensed'; font-weight:700; font-size:26px; line-height:1; color:{{ st.color }};">{{ st.value }}</div>
+                <div style="font-size:10.5px; color:#7E8AA0; margin-top:6px;">{{ st.label }}</div>
+              </div>
+            </sc-for>
+          </div>
+          <div style="margin-top:16px;">
+            <div style="font-size:11px; color:#7E8AA0; margin-bottom:9px;">최근 5경기</div>
+            <div style="display:flex; gap:7px;">
+              <sc-for list="{{ form }}" as="f" hint-placeholder-count="5">
+                <div style="width:30px; height:30px; border-radius:8px; display:flex; align-items:center; justify-content:center; font-family:'Barlow Condensed'; font-weight:700; font-size:14px; background:{{ f.bg }}; color:{{ f.color }};">{{ f.r }}</div>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+
+        <!-- inbox -->
+        <div style="border-radius:16px; border:1px solid rgba(255,255,255,.07); background:#131822; padding:20px;">
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:14px;">
+            <div style="font-family:'Barlow Condensed'; font-weight:700; font-size:16px; letter-spacing:.5px;">받은 메시지</div>
+            <span style="background:#FF4D5E; color:#fff; font-size:10px; font-weight:700; padding:2px 8px; border-radius:9px; font-family:'Barlow Semi Condensed';">3 NEW</span>
+          </div>
+          <div style="display:flex; flex-direction:column; gap:2px;">
+            <sc-for list="{{ inbox }}" as="m" hint-placeholder-count="4">
+              <div style="display:flex; gap:11px; padding:11px 8px; border-radius:9px; cursor:pointer; align-items:flex-start;" style-hover="background:rgba(255,255,255,.04)">
+                <div style="width:30px; height:30px; flex:0 0 30px; border-radius:8px; background:{{ m.iconBg }}; display:flex; align-items:center; justify-content:center;">
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="{{ m.iconColor }}" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="{{ m.icon }}"></path></svg>
+                </div>
+                <div style="min-width:0; flex:1;">
+                  <div style="display:flex; align-items:center; gap:7px;"><span style="font-weight:600; font-size:13px;">{{ m.title }}</span><sc-if value="{{ m.unread }}" hint-placeholder-val=""><span style="width:6px; height:6px; border-radius:50%; background:#18E29A;"></span></sc-if></div>
+                  <div style="font-size:11.5px; color:#8A93A3; margin-top:2px; line-height:1.4;">{{ m.body }}</div>
+                </div>
+                <div style="font-size:10.5px; color:#5A6478; white-space:nowrap;">{{ m.time }}</div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+
+        <!-- top performers -->
+        <div style="grid-column:1 / -1; border-radius:16px; border:1px solid rgba(255,255,255,.07); background:#131822; padding:20px;">
+          <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:16px;">
+            <div style="font-family:'Barlow Condensed'; font-weight:700; font-size:16px; letter-spacing:.5px;">이 달의 핵심 선수</div>
+            <button onClick="{{ goSquad }}" style="font-size:11.5px; color:#18E29A; background:none; border:none; cursor:pointer; font-family:'Pretendard'; font-weight:600;">전체 스쿼드 →</button>
+          </div>
+          <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:14px;">
+            <sc-for list="{{ topPerformers }}" as="p" hint-placeholder-count="4">
+              <div onClick="{{ goPlayer }}" style="display:flex; gap:13px; align-items:center; padding:14px; background:#0E121B; border:1px solid rgba(255,255,255,.05); border-radius:12px; cursor:pointer;" style-hover="border-color:rgba(24,226,154,.35)">
+                <div style="width:46px; height:46px; flex:0 0 46px; border-radius:11px; background:{{ p.avBg }}; display:flex; align-items:center; justify-content:center; font-family:'Barlow Condensed'; font-weight:700; font-size:18px; color:{{ p.avColor }};">{{ p.initials }}</div>
+                <div style="min-width:0; flex:1;">
+                  <div style="font-weight:600; font-size:13.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{{ p.name }}</div>
+                  <div style="font-size:11px; color:#7E8AA0; margin-top:2px;">{{ p.pos }} · {{ p.stat }}</div>
+                </div>
+                <div style="text-align:center;">
+                  <div style="font-family:'Barlow Condensed'; font-weight:700; font-size:20px; color:{{ p.ratingColor }}; line-height:1;">{{ p.rating }}</div>
+                  <div style="font-size:9px; color:#5A6478; margin-top:2px;">평점</div>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+
+      </div>
+      </sc-if>
+
+      <!-- ============ SQUAD ============ -->
+      <sc-if value="{{ isSquad }}" hint-placeholder-val="">
+      <div style="border-radius:16px; border:1px solid rgba(255,255,255,.07); background:#131822; overflow:hidden;">
+        <div style="display:flex; align-items:center; gap:14px; padding:16px 20px; border-bottom:1px solid rgba(255,255,255,.06);">
+          <div style="font-family:'Barlow Condensed'; font-weight:700; font-size:16px; letter-spacing:.5px;">1군 스쿼드</div>
+          <div style="display:flex; gap:6px;">
+            <span style="font-size:11px; font-weight:600; color:#06140e; background:#18E29A; padding:3px 10px; border-radius:7px;">전체 18</span>
+            <span style="font-size:11px; font-weight:600; color:#9aa4b8; background:rgba(255,255,255,.05); padding:3px 10px; border-radius:7px; cursor:pointer;">GK</span>
+            <span style="font-size:11px; font-weight:600; color:#9aa4b8; background:rgba(255,255,255,.05); padding:3px 10px; border-radius:7px; cursor:pointer;">DF</span>
+            <span style="font-size:11px; font-weight:600; color:#9aa4b8; background:rgba(255,255,255,.05); padding:3px 10px; border-radius:7px; cursor:pointer;">MF</span>
+            <span style="font-size:11px; font-weight:600; color:#9aa4b8; background:rgba(255,255,255,.05); padding:3px 10px; border-radius:7px; cursor:pointer;">FW</span>
+          </div>
+          <div style="margin-left:auto; font-size:11.5px; color:#7E8AA0;">평균 연령 24.8 · 스쿼드 가치 ₩553억</div>
+        </div>
+        <div style="display:grid; grid-template-columns:46px 2.4fr 1fr .7fr .8fr .8fr 1.3fr 1.1fr .9fr 1fr; padding:11px 20px; font-size:10.5px; color:#5A6478; letter-spacing:1px; font-weight:600; border-bottom:1px solid rgba(255,255,255,.04);">
+          <div>#</div><div>이름</div><div>포지션</div><div>나이</div><div style="text-align:center;">OVR</div><div style="text-align:center;">POT</div><div>컨디션</div><div>사기</div><div style="text-align:center;">평점</div><div style="text-align:right;">가치</div>
+        </div>
+        <div>
+          <sc-for list="{{ squad }}" as="p" hint-placeholder-count="12">
+            <div onClick="{{ p.go }}" style="display:grid; grid-template-columns:46px 2.4fr 1fr .7fr .8fr .8fr 1.3fr 1.1fr .9fr 1fr; align-items:center; padding:9px 20px; border-bottom:1px solid rgba(255,255,255,.035); cursor:pointer;" style-hover="background:rgba(24,226,154,.05)">
+              <div style="font-family:'Barlow Condensed'; font-weight:700; font-size:16px; color:#5A6478;">{{ p.num }}</div>
+              <div style="display:flex; align-items:center; gap:11px;">
+                <div style="width:34px; height:34px; flex:0 0 34px; border-radius:9px; background:{{ p.avBg }}; display:flex; align-items:center; justify-content:center; font-family:'Barlow Condensed'; font-weight:700; font-size:14px; color:{{ p.avColor }};">{{ p.initials }}</div>
+                <div><div style="font-weight:600; font-size:13px;">{{ p.name }}</div><div style="font-size:10px; color:#5A6478; margin-top:1px;">{{ p.nat }}</div></div>
+              </div>
+              <div><span style="font-size:11px; font-weight:700; color:{{ p.posColor }}; background:{{ p.posBg }}; padding:3px 9px; border-radius:6px;">{{ p.pos }}</span></div>
+              <div style="font-family:'Barlow Semi Condensed'; font-size:14px; color:#9aa4b8;">{{ p.age }}</div>
+              <div style="text-align:center;"><span style="font-family:'Barlow Condensed'; font-weight:700; font-size:18px; color:{{ p.ovrColor }};">{{ p.ovr }}</span></div>
+              <div style="text-align:center;"><span style="font-family:'Barlow Condensed'; font-weight:600; font-size:15px; color:{{ p.potColor }}; opacity:.75;">{{ p.pot }}</span></div>
+              <div style="display:flex; align-items:center; gap:8px;"><div style="flex:1; height:5px; border-radius:3px; background:rgba(255,255,255,.07); overflow:hidden; max-width:60px;"><div style="height:100%; width:{{ p.cond }}%; background:{{ p.condColor }}; border-radius:3px;"></div></div><span style="font-size:11px; color:{{ p.condColor }}; font-family:'Barlow Semi Condensed';">{{ p.condText }}</span></div>
+              <div style="display:flex; align-items:center; gap:7px;"><span style="width:7px; height:7px; border-radius:50%; background:{{ p.moraleColor }};"></span><span style="font-size:11.5px; color:#b6bfcf;">{{ p.morale }}</span></div>
+              <div style="text-align:center;"><span style="font-family:'Barlow Condensed'; font-weight:700; font-size:16px; color:{{ p.ratColor }};">{{ p.rat }}</span></div>
+              <div style="text-align:right; font-size:12px; color:#9aa4b8; font-family:'Barlow Semi Condensed';">{{ p.val }}</div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+      </sc-if>
+
+      <!-- ============ PLAYER PROFILE ============ -->
+      <sc-if value="{{ isPlayer }}" hint-placeholder-val="">
+      <div style="display:grid; grid-template-columns:340px 1fr; gap:18px;">
+
+        <!-- identity card -->
+        <div style="display:flex; flex-direction:column; gap:18px;">
+          <div style="border-radius:16px; border:1px solid rgba(255,255,255,.07); background:linear-gradient(160deg,#14241c,#131822 55%); padding:22px; position:relative; overflow:hidden;">
+            <div style="position:absolute; top:-30px; right:-20px; font-family:'Barlow Condensed'; font-weight:700; font-size:150px; color:rgba(24,226,154,.06); line-height:1;">10</div>
+            <div style="display:flex; gap:16px; align-items:center; position:relative;">
+              <div style="width:78px; height:78px; border-radius:18px; background:linear-gradient(135deg,#1d3a2e,#0f2218); display:flex; align-items:center; justify-content:center; font-family:'Barlow Condensed'; font-weight:700; font-size:34px; color:#18E29A; border:1px solid rgba(24,226,154,.3);">손</div>
+              <div>
+                <div style="font-size:22px; font-weight:700; letter-spacing:.3px;">손정우</div>
+                <div style="font-size:12.5px; color:#8A93A3; margin-top:3px;">25세 · 대한민국 · 178cm</div>
+                <div style="display:inline-flex; gap:6px; margin-top:9px;"><span style="font-size:11px; font-weight:700; color:#18E29A; background:rgba(24,226,154,.15); padding:3px 10px; border-radius:6px;">AMC</span><span style="font-size:11px; font-weight:600; color:#9aa4b8; background:rgba(255,255,255,.06); padding:3px 10px; border-radius:6px;">주장 후보</span></div>
+              </div>
+            </div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-top:20px; position:relative;">
+              <div style="background:rgba(0,0,0,.25); border-radius:12px; padding:13px; text-align:center;"><div style="font-family:'Barlow Condensed'; font-weight:700; font-size:32px; color:#18E29A; line-height:1;">86</div><div style="font-size:10.5px; color:#7E8AA0; margin-top:5px;">현재 능력 OVR</div></div>
+              <div style="background:rgba(0,0,0,.25); border-radius:12px; padding:13px; text-align:center;"><div style="font-family:'Barlow Condensed'; font-weight:700; font-size:32px; color:#9B6DFF; line-height:1;">90</div><div style="font-size:10.5px; color:#7E8AA0; margin-top:5px;">잠재력 POT</div></div>
+            </div>
+          </div>
+
+          <div style="border-radius:16px; border:1px solid rgba(255,255,255,.07); background:#131822; padding:20px;">
+            <div style="font-family:'Barlow Condensed'; font-weight:700; font-size:15px; margin-bottom:14px;">계약 정보</div>
+            <div style="display:flex; flex-direction:column; gap:11px; font-size:12.5px;">
+              <div style="display:flex; justify-content:space-between;"><span style="color:#7E8AA0;">시장 가치</span><span style="font-weight:600; color:#18E29A;">₩58억</span></div>
+              <div style="display:flex; justify-content:space-between;"><span style="color:#7E8AA0;">주급</span><span style="font-weight:600;">₩9,200만</span></div>
+              <div style="display:flex; justify-content:space-between;"><span style="color:#7E8AA0;">계약 만료</span><span style="font-weight:600;">2029년 6월</span></div>
+              <div style="display:flex; justify-content:space-between;"><span style="color:#7E8AA0;">사기</span><span style="font-weight:600; color:#18E29A;">매우 좋음</span></div>
+            </div>
+          </div>
+
+          <div style="border-radius:16px; border:1px solid rgba(255,255,255,.07); background:#131822; padding:20px;">
+            <div style="font-family:'Barlow Condensed'; font-weight:700; font-size:15px; margin-bottom:13px;">플레이 성향</div>
+            <div style="display:flex; flex-wrap:wrap; gap:7px;">
+              <sc-for list="{{ traits }}" as="t" hint-placeholder-count="4">
+                <span style="font-size:11.5px; color:#b6bfcf; background:rgba(76,141,255,.12); border:1px solid rgba(76,141,255,.25); padding:5px 11px; border-radius:8px;">{{ t }}</span>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+
+        <!-- attributes + dev -->
+        <div style="display:flex; flex-direction:column; gap:18px;">
+          <div style="border-radius:16px; border:1px solid rgba(255,255,255,.07); background:#131822; padding:22px;">
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:18px;">
+              <div style="font-family:'Barlow Condensed'; font-weight:700; font-size:16px;">선수 능력치</div>
+              <div style="display:flex; gap:14px; font-size:10.5px; color:#7E8AA0;"><span style="display:flex; align-items:center; gap:5px;"><span style="width:8px; height:8px; border-radius:2px; background:#18E29A;"></span>우수</span><span style="display:flex; align-items:center; gap:5px;"><span style="width:8px; height:8px; border-radius:2px; background:#F6C453;"></span>양호</span><span style="display:flex; align-items:center; gap:5px;"><span style="width:8px; height:8px; border-radius:2px; background:#FF4D5E;"></span>약점</span></div>
+            </div>
+            <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:24px;">
+              <div>
+                <div style="font-size:11px; color:#18E29A; font-weight:700; letter-spacing:1px; margin-bottom:12px;">기술 TECHNICAL</div>
+                <div style="display:flex; flex-direction:column; gap:10px;">
+                  <sc-for list="{{ attrTech }}" as="a" hint-placeholder-count="6">
+                    <div><div style="display:flex; justify-content:space-between; margin-bottom:4px;"><span style="font-size:11.5px; color:#b6bfcf;">{{ a.label }}</span><span style="font-family:'Barlow Condensed'; font-weight:700; font-size:14px; color:{{ a.color }};">{{ a.v }}</span></div><div style="height:5px; border-radius:3px; background:rgba(255,255,255,.06); overflow:hidden;"><div style="height:100%; width:{{ a.pct }}%; background:{{ a.color }}; border-radius:3px;"></div></div></div>
+                  </sc-for>
+                </div>
+              </div>
+              <div>
+                <div style="font-size:11px; color:#4C8DFF; font-weight:700; letter-spacing:1px; margin-bottom:12px;">정신 MENTAL</div>
+                <div style="display:flex; flex-direction:column; gap:10px;">
+                  <sc-for list="{{ attrMental }}" as="a" hint-placeholder-count="6">
+                    <div><div style="display:flex; justify-content:space-between; margin-bottom:4px;"><span style="font-size:11.5px; color:#b6bfcf;">{{ a.label }}</span><span style="font-family:'Barlow Condensed'; font-weight:700; font-size:14px; color:{{ a.color }};">{{ a.v }}</span></div><div style="height:5px; border-radius:3px; background:rgba(255,255,255,.06); overflow:hidden;"><div style="height:100%; width:{{ a.pct }}%; background:{{ a.color }}; border-radius:3px;"></div></div></div>
+                  </sc-for>
+                </div>
+              </div>
+              <div>
+                <div style="font-size:11px; color:#FF4D5E; font-weight:700; letter-spacing:1px; margin-bottom:12px;">신체 PHYSICAL</div>
+                <div style="display:flex; flex-direction:column; gap:10px;">
+                  <sc-for list="{{ attrPhys }}" as="a" hint-placeholder-count="6">
+                    <div><div style="display:flex; justify-content:space-between; margin-bottom:4px;"><span style="font-size:11.5px; color:#b6bfcf;">{{ a.label }}</span><span style="font-family:'Barlow Condensed'; font-weight:700; font-size:14px; color:{{ a.color }};">{{ a.v }}</span></div><div style="height:5px; border-radius:3px; background:rgba(255,255,255,.06); overflow:hidden;"><div style="height:100%; width:{{ a.pct }}%; background:{{ a.color }}; border-radius:3px;"></div></div></div>
+                  </sc-for>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div style="display:grid; grid-template-columns:1.3fr 1fr; gap:18px;">
+            <div style="border-radius:16px; border:1px solid rgba(255,255,255,.07); background:#131822; padding:20px;">
+              <div style="font-family:'Barlow Condensed'; font-weight:700; font-size:15px; margin-bottom:6px;">능력 성장 추이</div>
+              <div style="font-size:11px; color:#7E8AA0; margin-bottom:18px;">최근 7시즌 OVR</div>
+              <div style="display:flex; align-items:flex-end; gap:10px; height:130px;">
+                <sc-for list="{{ devChart }}" as="d" hint-placeholder-count="7">
+                  <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:6px; height:100%; justify-content:flex-end;">
+                    <span style="font-family:'Barlow Condensed'; font-weight:700; font-size:12px; color:{{ d.last }};"></span>
+                    <div style="width:100%; height:{{ d.h }}%; min-height:8px; border-radius:6px 6px 0 0; background:linear-gradient(180deg,#18E29A,rgba(24,226,154,.25));"></div>
+                    <span style="font-size:9.5px; color:#5A6478; font-family:'Barlow Semi Condensed';">{{ d.label }}</span>
+                  </div>
+                </sc-for>
+              </div>
+            </div>
+            <div style="border-radius:16px; border:1px solid rgba(255,255,255,.07); background:#131822; padding:20px;">
+              <div style="font-family:'Barlow Condensed'; font-weight:700; font-size:15px; margin-bottom:16px;">이번 시즌 기록</div>
+              <div style="display:grid; grid-template-columns:1fr 1fr; gap:13px;">
+                <sc-for list="{{ seasonLine }}" as="s" hint-placeholder-count="6">
+                  <div style="display:flex; flex-direction:column; gap:3px;"><span style="font-size:10.5px; color:#7E8AA0;">{{ s.k }}</span><span style="font-family:'Barlow Condensed'; font-weight:700; font-size:20px;">{{ s.v }}</span></div>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      </sc-if>
+
+      <!-- ============ TACTICS ============ -->
+      <sc-if value="{{ isTactics }}" hint-placeholder-val="">
+      <div style="display:grid; grid-template-columns:1fr 320px; gap:18px;">
+        <div style="border-radius:16px; border:1px solid rgba(255,255,255,.07); background:#131822; padding:20px;">
+          <div style="display:flex; align-items:center; gap:10px; margin-bottom:16px;">
+            <div style="font-family:'Barlow Condensed'; font-weight:700; font-size:16px;">전술 포메이션</div>
+            <div style="display:flex; gap:6px; margin-left:auto;">
+              <sc-for list="{{ formations }}" as="f" hint-placeholder-count="5">
+                <span style="font-size:12px; font-weight:700; font-family:'Barlow Condensed'; padding:5px 12px; border-radius:8px; cursor:pointer; background:rgba(255,255,255,.05); color:#9aa4b8;">{{ f }}</span>
+              </sc-for>
+            </div>
+          </div>
+          <!-- pitch -->
+          <div style="position:relative; aspect-ratio:68/100; max-height:560px; margin:0 auto; border-radius:14px; overflow:hidden; background:linear-gradient(180deg,#0f3b28,#0c2e20); border:1px solid rgba(255,255,255,.08);">
+            <div style="position:absolute; inset:0; background:repeating-linear-gradient(180deg,rgba(255,255,255,.025) 0 9%, transparent 9% 18%);"></div>
+            <div style="position:absolute; left:8%; right:8%; top:5%; bottom:5%; border:2px solid rgba(255,255,255,.16); border-radius:4px;"></div>
+            <div style="position:absolute; left:8%; right:8%; top:50%; height:0; border-top:2px solid rgba(255,255,255,.16);"></div>
+            <div style="position:absolute; left:50%; top:50%; width:84px; height:84px; transform:translate(-50%,-50%); border:2px solid rgba(255,255,255,.16); border-radius:50%;"></div>
+            <div style="position:absolute; left:28%; right:28%; top:5%; height:13%; border:2px solid rgba(255,255,255,.14); border-top:none;"></div>
+            <div style="position:absolute; left:28%; right:28%; bottom:5%; height:13%; border:2px solid rgba(255,255,255,.14); border-bottom:none;"></div>
+            <sc-for list="{{ lineup }}" as="pl" hint-placeholder-count="11">
+              <div style="position:absolute; left:{{ pl.x }}%; top:{{ pl.y }}%; transform:translate(-50%,-50%); display:flex; flex-direction:column; align-items:center; gap:4px; cursor:grab;">
+                <div style="width:40px; height:40px; border-radius:50%; background:#0E121B; border:2.5px solid {{ pl.color }}; display:flex; align-items:center; justify-content:center; font-family:'Barlow Condensed'; font-weight:700; font-size:15px; color:#EAEEF5; box-shadow:0 4px 12px rgba(0,0,0,.4);">{{ pl.initials }}</div>
+                <span style="font-size:10px; font-weight:600; color:#EAEEF5; background:rgba(0,0,0,.55); padding:1px 6px; border-radius:5px; white-space:nowrap;">{{ pl.name }}</span>
+                <span style="font-size:8.5px; font-weight:700; color:{{ pl.color }}; letter-spacing:.5px;">{{ pl.role }}</span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+
+        <div style="display:flex; flex-direction:column; gap:18px;">
+          <div style="border-radius:16px; border:1px solid rgba(255,255,255,.07); background:#131822; padding:20px;">
+            <div style="font-family:'Barlow Condensed'; font-weight:700; font-size:15px; margin-bottom:15px;">팀 지시사항</div>
+            <div style="display:flex; flex-direction:column; gap:14px;">
+              <sc-for list="{{ teamInstr }}" as="ti" hint-placeholder-count="6">
+                <div style="display:flex; align-items:center; justify-content:space-between;"><span style="font-size:12px; color:#8A93A3;">{{ ti.k }}</span><span style="font-size:12.5px; font-weight:700; color:{{ ti.c }};">{{ ti.v }}</span></div>
+              </sc-for>
+            </div>
+          </div>
+          <div style="border-radius:16px; border:1px solid rgba(255,255,255,.07); background:linear-gradient(160deg,#14241c,#131822); padding:20px;">
+            <div style="font-family:'Barlow Condensed'; font-weight:700; font-size:15px; margin-bottom:6px;">전술 친밀도</div>
+            <div style="display:flex; align-items:flex-end; gap:10px; margin-top:10px;"><span style="font-family:'Barlow Condensed'; font-weight:700; font-size:40px; color:#18E29A; line-height:1;">82%</span><span style="font-size:11px; color:#7E8AA0; margin-bottom:6px;">유창함</span></div>
+            <div style="height:7px; border-radius:4px; background:rgba(255,255,255,.06); margin-top:12px; overflow:hidden;"><div style="height:100%; width:82%; background:linear-gradient(90deg,#0fae77,#18E29A); border-radius:4px;"></div></div>
+            <div style="font-size:11px; color:#8A93A3; margin-top:12px; line-height:1.5;">선수들이 게겐프레싱 전술에 잘 적응하고 있습니다. 2경기 더 소화하면 완전 숙달됩니다.</div>
+          </div>
+        </div>
+      </div>
+      </sc-if>
+
+      <!-- ============ TRANSFER ============ -->
+      <sc-if value="{{ isTransfer }}" hint-placeholder-val="">
+      <div style="display:flex; flex-direction:column; gap:18px;">
+        <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:14px;">
+          <div style="border-radius:14px; border:1px solid rgba(255,255,255,.07); background:#131822; padding:16px;"><div style="font-size:11px; color:#7E8AA0;">잔여 예산</div><div style="font-family:'Barlow Condensed'; font-weight:700; font-size:26px; color:#18E29A; margin-top:5px;">₩42.0억</div></div>
+          <div style="border-radius:14px; border:1px solid rgba(255,255,255,.07); background:#131822; padding:16px;"><div style="font-size:11px; color:#7E8AA0;">주급 여유분</div><div style="font-family:'Barlow Condensed'; font-weight:700; font-size:26px; margin-top:5px;">₩1.8억</div></div>
+          <div style="border-radius:14px; border:1px solid rgba(255,255,255,.07); background:#131822; padding:16px;"><div style="font-size:11px; color:#7E8AA0;">스카우트 보고서</div><div style="font-family:'Barlow Condensed'; font-weight:700; font-size:26px; color:#9B6DFF; margin-top:5px;">12</div></div>
+          <div style="border-radius:14px; border:1px solid rgba(255,255,255,.07); background:#131822; padding:16px;"><div style="font-size:11px; color:#7E8AA0;">이적시장 마감</div><div style="font-family:'Barlow Condensed'; font-weight:700; font-size:26px; color:#F6C453; margin-top:5px;">D-118</div></div>
+        </div>
+
+        <div style="border-radius:16px; border:1px solid rgba(255,255,255,.07); background:#131822; overflow:hidden;">
+          <div style="padding:16px 20px; border-bottom:1px solid rgba(255,255,255,.06); font-family:'Barlow Condensed'; font-weight:700; font-size:16px;">스카우트 영입 후보</div>
+          <div style="display:grid; grid-template-columns:2.2fr .8fr .6fr 1.1fr 1.4fr .9fr 1.2fr; padding:11px 20px; font-size:10.5px; color:#5A6478; letter-spacing:1px; font-weight:600; border-bottom:1px solid rgba(255,255,255,.04);">
+            <div>선수</div><div>포지션</div><div>나이</div><div>소속</div><div>잠재력</div><div style="text-align:right;">가치</div><div style="text-align:right;">상태</div>
+          </div>
+          <sc-for list="{{ targets }}" as="t" hint-placeholder-count="6">
+            <div onClick="{{ t.go }}" style="display:grid; grid-template-columns:2.2fr .8fr .6fr 1.1fr 1.4fr .9fr 1.2fr; align-items:center; padding:12px 20px; border-bottom:1px solid rgba(255,255,255,.035); cursor:pointer;" style-hover="background:rgba(24,226,154,.05)">
+              <div style="display:flex; align-items:center; gap:11px;"><div style="width:36px; height:36px; border-radius:9px; background:linear-gradient(135deg,#1f2a3e,#141b29); display:flex; align-items:center; justify-content:center; font-family:'Barlow Condensed'; font-weight:700; font-size:14px; color:#9fc3ff;">{{ t.initials }}</div><div><div style="font-weight:600; font-size:13px;">{{ t.name }}</div><div style="font-size:10px; color:#5A6478; margin-top:1px;">{{ t.nat }} · OVR {{ t.ovr }}</div></div></div>
+              <div><span style="font-size:11px; font-weight:700; color:#EAEEF5; background:rgba(255,255,255,.07); padding:3px 9px; border-radius:6px;">{{ t.pos }}</span></div>
+              <div style="font-family:'Barlow Semi Condensed'; font-size:14px; color:#9aa4b8;">{{ t.age }}</div>
+              <div style="font-size:12px; color:#b6bfcf;">{{ t.club }}</div>
+              <div style="font-size:13px; color:#F6C453; letter-spacing:1px;">{{ t.potStars }}</div>
+              <div style="text-align:right; font-family:'Barlow Semi Condensed'; font-size:13px; color:#18E29A;">{{ t.val }}</div>
+              <div style="text-align:right;"><span style="font-size:11px; font-weight:600; color:{{ t.statusColor }}; background:rgba(255,255,255,.05); padding:4px 10px; border-radius:7px;">{{ t.status }}</span></div>
+            </div>
+          </sc-for>
+        </div>
+      </div>
+      </sc-if>
+
+      <!-- ============ MATCH ============ -->
+      <sc-if value="{{ isMatch }}" hint-placeholder-val="">
+      <div style="display:grid; grid-template-columns:1fr 380px; gap:18px;">
+        <div style="display:flex; flex-direction:column; gap:18px;">
+          <!-- scoreboard -->
+          <div style="border-radius:16px; border:1px solid rgba(255,255,255,.07); background:linear-gradient(120deg,#10243a,#0d1727); padding:24px 28px; display:flex; align-items:center;">
+            <div style="display:flex; align-items:center; gap:16px; flex:1;">
+              <div style="width:52px; height:52px; border-radius:13px; background:linear-gradient(135deg,#21304a,#16213a); display:flex; align-items:center; justify-content:center; font-family:'Barlow Condensed'; font-weight:700; font-size:20px; color:#9fc3ff;">SU</div>
+              <div><div style="font-weight:700; font-size:15px;">서울 유나이티드</div><div style="font-size:11px; color:#7E8AA0;">4-3-3 · 홈</div></div>
+            </div>
+            <div style="text-align:center; padding:0 24px;">
+              <div style="display:inline-flex; align-items:center; gap:7px; font-size:11px; font-weight:700; color:#FF4D5E; margin-bottom:6px;"><span style="width:7px; height:7px; border-radius:50%; background:#FF4D5E; animation:livepulse 1.2s infinite;"></span>LIVE 67'</div>
+              <div style="font-family:'Barlow Condensed'; font-weight:700; font-size:48px; line-height:1;">2 <span style="color:#5A6478;">:</span> 1</div>
+            </div>
+            <div style="display:flex; align-items:center; gap:16px; flex:1; justify-content:flex-end;">
+              <div style="text-align:right;"><div style="font-weight:700; font-size:15px;">울산 HD</div><div style="font-size:11px; color:#7E8AA0;">4-2-3-1 · 원정</div></div>
+              <div style="width:52px; height:52px; border-radius:13px; background:linear-gradient(135deg,#3a2030,#2a1622); display:flex; align-items:center; justify-content:center; font-family:'Barlow Condensed'; font-weight:700; font-size:20px; color:#ff9fb0;">UL</div>
+            </div>
+          </div>
+
+          <!-- momentum -->
+          <div style="border-radius:16px; border:1px solid rgba(255,255,255,.07); background:#131822; padding:20px;">
+            <div style="display:flex; justify-content:space-between; margin-bottom:10px;"><span style="font-size:12px; font-weight:600; color:#9fc3ff;">서울</span><span style="font-family:'Barlow Condensed'; font-weight:700; font-size:14px;">경기 흐름</span><span style="font-size:12px; font-weight:600; color:#ff9fb0;">울산</span></div>
+            <div style="display:flex; height:46px; gap:3px; align-items:flex-end;">
+              <sc-for list="{{ matchStats }}" as="m" hint-placeholder-count="6"><div style="flex:1; display:flex; flex-direction:column; gap:2px; height:100%; justify-content:flex-end;"><div style="height:{{ m.hPct }}%; background:#4C8DFF; border-radius:3px 3px 0 0; min-height:4px;"></div></div></sc-for>
+            </div>
+          </div>
+
+          <!-- stats -->
+          <div style="border-radius:16px; border:1px solid rgba(255,255,255,.07); background:#131822; padding:22px;">
+            <div style="font-family:'Barlow Condensed'; font-weight:700; font-size:16px; margin-bottom:18px;">경기 통계</div>
+            <div style="display:flex; flex-direction:column; gap:15px;">
+              <sc-for list="{{ matchStats }}" as="m" hint-placeholder-count="6">
+                <div>
+                  <div style="display:flex; justify-content:space-between; font-size:13px; margin-bottom:6px;"><span style="font-family:'Barlow Condensed'; font-weight:700; color:#9fc3ff;">{{ m.h }}</span><span style="color:#7E8AA0; font-size:11.5px;">{{ m.k }}</span><span style="font-family:'Barlow Condensed'; font-weight:700; color:#ff9fb0;">{{ m.a }}</span></div>
+                  <div style="display:flex; gap:3px; height:6px;"><div style="width:{{ m.hPct }}%; background:#4C8DFF; border-radius:3px 0 0 3px;"></div><div style="width:{{ m.aPct }}%; background:#FF4D5E; border-radius:0 3px 3px 0;"></div></div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+
+        <!-- commentary -->
+        <div style="border-radius:16px; border:1px solid rgba(255,255,255,.07); background:#131822; padding:20px; display:flex; flex-direction:column;">
+          <div style="font-family:'Barlow Condensed'; font-weight:700; font-size:16px; margin-bottom:16px;">실시간 중계</div>
+          <div style="display:flex; flex-direction:column; gap:3px; flex:1;">
+            <sc-for list="{{ matchEvents }}" as="e" hint-placeholder-count="5">
+              <div style="display:flex; gap:13px; padding:12px 6px; border-bottom:1px solid rgba(255,255,255,.04);">
+                <div style="font-family:'Barlow Condensed'; font-weight:700; font-size:15px; color:{{ e.c }}; flex:0 0 34px;">{{ e.min }}</div>
+                <div style="width:8px; height:8px; border-radius:50%; background:{{ e.c }}; margin-top:5px; flex:0 0 8px;"></div>
+                <div style="min-width:0;"><div style="font-weight:600; font-size:12.5px;">{{ e.who }}</div><div style="font-size:11.5px; color:#8A93A3; margin-top:2px; line-height:1.4;">{{ e.desc }}</div></div>
+              </div>
+            </sc-for>
+          </div>
+          <div style="display:flex; gap:8px; margin-top:14px;">
+            <button onClick="{{ goTactics }}" style="flex:1; background:rgba(255,255,255,.06); color:#EAEEF5; border:1px solid rgba(255,255,255,.1); padding:11px; border-radius:10px; font-family:'Pretendard'; font-weight:600; font-size:12.5px; cursor:pointer;">전술 변경</button>
+            <button style="flex:1; background:#18E29A; color:#06140e; border:none; padding:11px; border-radius:10px; font-family:'Pretendard'; font-weight:700; font-size:12.5px; cursor:pointer;">교체 투입</button>
+          </div>
+        </div>
+      </div>
+      </sc-if>
+
+      <!-- ============ LEAGUE ============ -->
+      <sc-if value="{{ isLeague }}" hint-placeholder-val="">
+      <div style="border-radius:16px; border:1px solid rgba(255,255,255,.07); background:#131822; overflow:hidden;">
+        <div style="display:flex; align-items:center; gap:14px; padding:16px 20px; border-bottom:1px solid rgba(255,255,255,.06);">
+          <div style="font-family:'Barlow Condensed'; font-weight:700; font-size:16px;">K리그1 순위표</div>
+          <div style="margin-left:auto; display:flex; gap:16px; font-size:10.5px; color:#7E8AA0;"><span style="display:flex; align-items:center; gap:6px;"><span style="width:9px; height:9px; border-radius:2px; background:#18E29A;"></span>ACL 직행</span><span style="display:flex; align-items:center; gap:6px;"><span style="width:9px; height:9px; border-radius:2px; background:#4C8DFF;"></span>ACL2</span><span style="display:flex; align-items:center; gap:6px;"><span style="width:9px; height:9px; border-radius:2px; background:#FF4D5E;"></span>강등권</span></div>
+        </div>
+        <div style="display:grid; grid-template-columns:50px 2.6fr repeat(7,.7fr) .9fr; padding:11px 20px; font-size:10.5px; color:#5A6478; letter-spacing:1px; font-weight:600; border-bottom:1px solid rgba(255,255,255,.04);">
+          <div>#</div><div>구단</div><div style="text-align:center;">경기</div><div style="text-align:center;">승</div><div style="text-align:center;">무</div><div style="text-align:center;">패</div><div style="text-align:center;">득</div><div style="text-align:center;">실</div><div style="text-align:center;">득실</div><div style="text-align:center;">승점</div>
+        </div>
+        <sc-for list="{{ table }}" as="t" hint-placeholder-count="12">
+          <div style="display:grid; grid-template-columns:50px 2.6fr repeat(7,.7fr) .9fr; align-items:center; padding:10px 20px; border-bottom:1px solid rgba(255,255,255,.035); background:{{ t.meBg }};">
+            <div style="display:flex; align-items:center; gap:9px;"><span style="width:3px; height:18px; border-radius:2px; background:{{ t.zone }};"></span><span style="font-family:'Barlow Condensed'; font-weight:700; font-size:15px; color:#9aa4b8;">{{ t.rank }}</span></div>
+            <div style="display:flex; align-items:center; gap:11px;"><div style="width:30px; height:30px; border-radius:8px; background:rgba(255,255,255,.05); display:flex; align-items:center; justify-content:center; font-family:'Barlow Condensed'; font-weight:700; font-size:12px; color:{{ t.bc }};">{{ t.badge }}</div><span style="font-weight:600; font-size:13px; color:{{ t.nameColor }};">{{ t.name }}</span></div>
+            <div style="text-align:center; font-family:'Barlow Semi Condensed'; font-size:13px; color:#9aa4b8;">{{ t.p }}</div>
+            <div style="text-align:center; font-family:'Barlow Semi Condensed'; font-size:13px;">{{ t.w }}</div>
+            <div style="text-align:center; font-family:'Barlow Semi Condensed'; font-size:13px; color:#9aa4b8;">{{ t.d }}</div>
+            <div style="text-align:center; font-family:'Barlow Semi Condensed'; font-size:13px; color:#9aa4b8;">{{ t.l }}</div>
+            <div style="text-align:center; font-family:'Barlow Semi Condensed'; font-size:13px; color:#9aa4b8;">{{ t.gf }}</div>
+            <div style="text-align:center; font-family:'Barlow Semi Condensed'; font-size:13px; color:#9aa4b8;">{{ t.ga }}</div>
+            <div style="text-align:center; font-family:'Barlow Semi Condensed'; font-size:13px; color:#b6bfcf;">{{ t.gd }}</div>
+            <div style="text-align:center; font-family:'Barlow Condensed'; font-weight:700; font-size:17px; color:#18E29A;">{{ t.pts }}</div>
+          </div>
+        </sc-for>
+      </div>
+      </sc-if>
+
+      <!-- ============ TRAINING ============ -->
+      <sc-if value="{{ isTraining }}" hint-placeholder-val="">
+      <div style="display:flex; flex-direction:column; gap:18px;">
+        <div style="border-radius:16px; border:1px solid rgba(255,255,255,.07); background:#131822; padding:20px;">
+          <div style="font-family:'Barlow Condensed'; font-weight:700; font-size:16px; margin-bottom:16px;">주간 훈련 일정</div>
+          <div style="display:grid; grid-template-columns:repeat(7,1fr); gap:11px;">
+            <sc-for list="{{ week }}" as="d" hint-placeholder-count="7">
+              <div style="background:#0E121B; border:1px solid rgba(255,255,255,.05); border-radius:12px; padding:14px 12px; min-height:140px; display:flex; flex-direction:column;">
+                <div style="font-family:'Barlow Condensed'; font-weight:700; font-size:16px; color:#7E8AA0;">{{ d.day }}</div>
+                <div style="width:30px; height:3px; border-radius:2px; background:{{ d.c }}; margin:9px 0 12px;"></div>
+                <div style="font-weight:600; font-size:12.5px; line-height:1.35;">{{ d.focus }}</div>
+                <div style="margin-top:auto; display:flex; flex-direction:column; gap:6px;">
+                  <span style="font-size:10px; font-weight:700; color:{{ d.c }}; align-self:flex-start; background:rgba(255,255,255,.05); padding:2px 8px; border-radius:6px;">{{ d.tag }}</span>
+                  <span style="font-size:10.5px; color:{{ d.loadColor }};">강도 · {{ d.load }}</span>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+
+        <div style="display:grid; grid-template-columns:1fr 1.2fr; gap:18px;">
+          <div style="border-radius:16px; border:1px solid rgba(255,255,255,.07); background:#131822; padding:20px;">
+            <div style="font-family:'Barlow Condensed'; font-weight:700; font-size:15px; margin-bottom:16px;">개인 집중 훈련</div>
+            <div style="display:flex; flex-direction:column; gap:14px;">
+              <sc-for list="{{ indivTraining }}" as="it" hint-placeholder-count="4">
+                <div style="display:flex; align-items:center; gap:13px;">
+                  <div style="width:38px; height:38px; border-radius:10px; background:linear-gradient(135deg,#1d3a2e,#0f2218); display:flex; align-items:center; justify-content:center; font-family:'Barlow Condensed'; font-weight:700; font-size:15px; color:#18E29A;">{{ it.initials }}</div>
+                  <div style="flex:1; min-width:0;"><div style="display:flex; justify-content:space-between;"><span style="font-weight:600; font-size:12.5px;">{{ it.name }}</span><span style="font-size:11px; color:{{ it.c }}; font-family:'Barlow Semi Condensed';">{{ it.prog }}</span></div><div style="font-size:11px; color:#7E8AA0; margin:3px 0 6px;">{{ it.focus }}</div><div style="height:5px; border-radius:3px; background:rgba(255,255,255,.06); overflow:hidden;"><div style="height:100%; width:{{ it.prog }}; background:{{ it.c }}; border-radius:3px;"></div></div></div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+          <div style="border-radius:16px; border:1px solid rgba(255,255,255,.07); background:linear-gradient(160deg,#1a1726,#131822); padding:20px;">
+            <div style="font-family:'Barlow Condensed'; font-weight:700; font-size:15px; margin-bottom:16px;">팀 컨디션 & 부상</div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:18px;">
+              <div style="background:rgba(0,0,0,.25); border-radius:11px; padding:14px;"><div style="font-family:'Barlow Condensed'; font-weight:700; font-size:28px; color:#18E29A;">91%</div><div style="font-size:10.5px; color:#7E8AA0; margin-top:4px;">평균 체력</div></div>
+              <div style="background:rgba(0,0,0,.25); border-radius:11px; padding:14px;"><div style="font-family:'Barlow Condensed'; font-weight:700; font-size:28px; color:#FF4D5E;">2</div><div style="font-size:10.5px; color:#7E8AA0; margin-top:4px;">부상 선수</div></div>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:10px;">
+              <div style="display:flex; align-items:center; gap:11px; padding:10px; background:rgba(255,77,94,.08); border:1px solid rgba(255,77,94,.2); border-radius:10px;"><div style="width:32px; height:32px; border-radius:8px; background:rgba(255,77,94,.15); display:flex; align-items:center; justify-content:center; font-family:'Barlow Condensed'; font-weight:700; color:#FF4D5E;">박</div><div style="flex:1;"><div style="font-weight:600; font-size:12.5px;">박태현 · 햄스트링</div><div style="font-size:11px; color:#FF4D5E;">예상 복귀 2주</div></div></div>
+              <div style="display:flex; align-items:center; gap:11px; padding:10px; background:rgba(246,196,83,.08); border:1px solid rgba(246,196,83,.2); border-radius:10px;"><div style="width:32px; height:32px; border-radius:8px; background:rgba(246,196,83,.15); display:flex; align-items:center; justify-content:center; font-family:'Barlow Condensed'; font-weight:700; color:#F6C453;">윤</div><div style="flex:1;"><div style="font-weight:600; font-size:12.5px;">윤성민 · 발목 염좌</div><div style="font-size:11px; color:#F6C453;">예상 복귀 4일</div></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      </sc-if>
+
+    </main>
+  </div>
+</div>
+
+<template id="__bundler_thumbnail">
+<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+<rect width="100" height="100" fill="#0A0D13"/>
+<rect x="30" y="30" width="40" height="40" rx="10" fill="#18E29A"/>
+<text x="50" y="58" font-family="Arial" font-weight="700" font-size="20" fill="#06140e" text-anchor="middle">SM</text>
+</svg>
+</template></x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:&quot;100%&quot;,&quot;height&quot;:&quot;100%&quot;},&quot;startScreen&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;dash&quot;,&quot;squad&quot;,&quot;player&quot;,&quot;tactics&quot;,&quot;transfer&quot;,&quot;match&quot;,&quot;league&quot;,&quot;training&quot;],&quot;default&quot;:&quot;dash&quot;,&quot;tsType&quot;:&quot;string&quot;}}">
+class Component extends DCLogic {
+  constructor(props){ super(props); this.state = { screen: props.startScreen || 'dash', sport: 'soccer' }; }
+
+  go(s){ return () => this.setState({ screen: s }); }
+
+  renderVals(){
+    const sc = this.state.screen;
+    const navDef = [
+      ['dash','대시보드','M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z',''],
+      ['squad','스쿼드','M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01',''],
+      ['player','선수 프로필','M12 12a4 4 0 100-8 4 4 0 000 8zM6 21v-1a6 6 0 0112 0v1',''],
+      ['tactics','전술 보드','M4 4h16v16H4zM4 9h16M9 4v16',''],
+      ['transfer','이적 / 스카우트','M7 16l-4-4 4-4M3 12h13M17 8l4 4-4 4M21 12H8','5'],
+      ['match','경기 중계','M12 2a10 10 0 100 20 10 10 0 000-20zM10 8l6 4-6 4z',''],
+      ['league','리그 순위','M5 21V10M12 21V4M19 21V14',''],
+      ['training','트레이닝','M6 6v12M18 6v12M4 9h2M4 15h2M18 9h2M18 15h2M6 12h12',''],
+    ];
+    const nav = navDef.map(([id,label,icon,badge]) => {
+      const on = sc === id;
+      return { label, icon, badge, go: this.go(id),
+        bg: on ? 'rgba(24,226,154,.12)' : 'transparent',
+        color: on ? '#18E29A' : '#9aa4b8',
+        weight: on ? 700 : 500 };
+    });
+
+    const sportsDef = [['soccer','축구','⚽'],['baseball','야구','⚾'],['basket','농구','🏀'],['esports','e스포츠','🎮']];
+    const sports = sportsDef.map(([id,name,icon]) => {
+      const on = this.state.sport === id;
+      return { name, icon, go: () => this.setState({ sport: id }),
+        bg: on ? 'rgba(24,226,154,.16)' : 'transparent',
+        filter: on ? 'none' : 'grayscale(.7) opacity(.55)' };
+    });
+
+    const titles = {
+      dash:['대시보드','시즌 전반의 핵심 정보를 한눈에'],
+      squad:['스쿼드','1군 선수 명단 · 24명'],
+      player:['선수 프로필','손정우 · 공격형 미드필더'],
+      tactics:['전술 보드','4-3-3 게겐프레싱'],
+      transfer:['이적 / 스카우트','겨울 이적시장 · D-118'],
+      match:['경기 중계','서울 유나이티드 vs 울산 HD'],
+      league:['리그 순위','K리그1 · 2026 시즌'],
+      training:['트레이닝','주간 훈련 일정'],
+    };
+
+    const fc = { W:['#18E29A','#06140e'], D:['rgba(246,196,83,.9)','#1a1305'], L:['#FF4D5E','#fff'] };
+    const form = ['W','W','D','L','W'].map(r => ({ r, bg: fc[r][0], color: fc[r][1] }));
+
+    const seasonStats = [
+      { label:'순위', value:'3위', color:'#18E29A' },
+      { label:'승점', value:'48', color:'#EAEEF5' },
+      { label:'득점', value:'52', color:'#EAEEF5' },
+      { label:'무패', value:'7', color:'#F6C453' },
+    ];
+
+    const inbox = [
+      { title:'주장 완장 결정', body:'손정우가 차기 주장 후보로 거론되고 있습니다.', time:'2시간', unread:true, icon:'M12 2a10 10 0 100 20 10 10 0 000-20zM12 8v4l3 2', iconBg:'rgba(76,141,255,.15)', iconColor:'#4C8DFF' },
+      { title:'스카우트 보고서 도착', body:'18세 윙어 \u201c레안드루\u201d 영입 추천 — 잠재력 5성.', time:'5시간', unread:true, icon:'M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8zM14 2v6h6', iconBg:'rgba(155,109,255,.15)', iconColor:'#9B6DFF' },
+      { title:'부상 리포트', body:'수비수 박태현 — 햄스트링, 예상 결장 2주.', time:'어제', unread:true, icon:'M8 12h8M12 8v8', iconBg:'rgba(255,77,94,.15)', iconColor:'#FF4D5E' },
+      { title:'보드진 메시지', body:'리그 4위 이내 진입 시 추가 예산을 약속합니다.', time:'2일', unread:false, icon:'M3 21h18M5 21V7l8-4 8 4v14M9 21v-6h6v6', iconBg:'rgba(246,196,83,.15)', iconColor:'#F6C453' },
+    ];
+
+    const topPerformers = [
+      { name:'손정우', pos:'AMC', stat:'8골 11도움', rating:'7.84', initials:'손', avBg:'linear-gradient(135deg,#1d3a2e,#0f2218)', avColor:'#18E29A', ratingColor:'#18E29A' },
+      { name:'마르코 실바', pos:'ST', stat:'14골 4도움', rating:'7.62', initials:'MS', avBg:'linear-gradient(135deg,#3a2030,#241420)', avColor:'#ff9fb0', ratingColor:'#18E29A' },
+      { name:'정현우', pos:'GK', stat:'클린시트 9', rating:'7.41', initials:'정', avBg:'linear-gradient(135deg,#2a2740,#181626)', avColor:'#b9a8ff', ratingColor:'#F6C453' },
+      { name:'카를로스', pos:'DM', stat:'태클 2.8/경기', rating:'7.33', initials:'C', avBg:'linear-gradient(135deg,#1f3550,#13202f)', avColor:'#9fc3ff', ratingColor:'#F6C453' },
+    ];
+
+    const posColor = { GK:'#F6C453', DF:'#4C8DFF', MF:'#18E29A', FW:'#FF4D5E' };
+    const condColor = (v) => v>=90?'#18E29A':v>=75?'#F6C453':'#FF4D5E';
+    const ratColor = (v) => v>=7.3?'#18E29A':v>=6.8?'#F6C453':'#FF4D5E';
+    const ovrColor = (v) => v>=85?'#18E29A':v>=78?'#9fc3ff':'#9aa4b8';
+    const moraleMap = { 최상:['#18E29A','매우 좋음'], 좋음:['#7ee0bd',''], 보통:['#F6C453',''], 불만:['#FF4D5E',''] };
+
+    const rawSquad = [
+      ['정현우','GK','GK',1,29,'KOR',88,89,93,'좋음',7.41,'₩28억'],
+      ['김도윤','GK','GK',21,22,'KOR',74,84,88,'보통',6.90,'₩9억'],
+      ['카를로스','DF','RB',2,27,'BRA',83,84,86,'좋음',7.33,'₩34억'],
+      ['박태현','DF','CB',4,30,'KOR',85,85,62,'보통',7.05,'₩30억'],
+      ['반 다이크','DF','CB',5,28,'NED',87,88,91,'최상',7.52,'₩62억'],
+      ['이준영','DF','LB',3,24,'KOR',80,86,89,'좋음',7.18,'₩26억'],
+      ['오스카르','MF','DM',6,26,'ARG',84,86,90,'좋음',7.27,'₩41억'],
+      ['한지호','MF','CM',8,23,'KOR',81,89,84,'최상',7.34,'₩33억'],
+      ['손정우','MF','AMC',10,25,'KOR',86,90,95,'최상',7.84,'₩58억'],
+      ['레안드루','MF','LW',7,18,'BRA',76,92,88,'좋음',7.21,'₩22억'],
+      ['윤성민','MF','RW',11,26,'KOR',82,83,87,'좋음',7.09,'₩31억'],
+      ['마르코 실바','FW','ST',9,27,'POR',85,86,90,'최상',7.62,'₩55억'],
+      ['조나탄','FW','ST',19,21,'BRA',78,88,93,'좋음',7.15,'₩24억'],
+      ['최우진','FW','RW',17,20,'KOR',75,87,85,'보통',6.95,'₩18억'],
+      ['김민재','DF','CB',15,25,'KOR',82,85,88,'좋음',7.12,'₩29억'],
+      ['디에고','MF','CM',14,28,'ESP',83,83,80,'보통',7.06,'₩30억'],
+      ['장현수','DF','RB',23,22,'KOR',73,82,90,'좋음',6.88,'₩8억'],
+      ['알렉스','MF','AMC',22,24,'GER',80,85,86,'좋음',7.10,'₩27억'],
+    ];
+    const squad = rawSquad.map(([name,grp,pos,num,age,nat,ovr,pot,cond,morale,rat,val]) => ({
+      name, pos, num, age, nat, ovr, pot, cond, morale, val,
+      rat: rat.toFixed(2),
+      posColor: posColor[grp], posBg: posColor[grp].replace(')',',.16)').replace('#','rgba(') ,
+      condColor: condColor(cond), condText: cond+'%',
+      ovrColor: ovrColor(ovr), potColor: ovrColor(pot),
+      ratColor: ratColor(rat),
+      moraleColor: moraleMap[morale] ? moraleMap[morale][0] : '#9aa4b8',
+      initials: /[가-힣]/.test(name[0]) ? name[0] : name.split(' ').map(w=>w[0]).join('').slice(0,2),
+      avBg: posColor[grp]==='#FF4D5E'?'linear-gradient(135deg,#3a2030,#241420)': posColor[grp]==='#18E29A'?'linear-gradient(135deg,#1d3a2e,#0f2218)': posColor[grp]==='#4C8DFF'?'linear-gradient(135deg,#1f3550,#13202f)':'linear-gradient(135deg,#3a3220,#241f12)',
+      avColor: posColor[grp],
+      go: this.go('player'),
+    }));
+    const posBgFix = (hex,a)=>{ const n=parseInt(hex.slice(1),16); return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${a})`; };
+    squad.forEach(p=>{ p.posBg = posBgFix(p.posColor,.15); });
+
+    const attrColor = (v) => v>=16?'#18E29A':v>=13?'#F6C453':v>=10?'#9aa4b8':'#FF4D5E';
+    const mkAttr = (label,v) => ({ label, v, pct: v/20*100, color: attrColor(v) });
+    const attrTech = [['슈팅',16],['패스',17],['드리블',18],['퍼스트터치',16],['크로스',14],['프리킥',15]].map(a=>mkAttr(...a));
+    const attrMental = [['시야',18],['결정력',15],['침착성',16],['위치선정',17],['투지',15],['집중력',14]].map(a=>mkAttr(...a));
+    const attrPhys = [['스피드',17],['가속력',18],['스태미나',16],['몸싸움',12],['민첩성',17],['점프',11]].map(a=>mkAttr(...a));
+    const traits = ['상대 압박 즐김','컷인 슈팅 시도','스루패스 자주 시도','중거리 슛'];
+    const devChart = [76,78,79,81,82,84,86].map((v,i)=>({ v, h:(v-72)/(90-72)*100, year:2020+i, label:(2020+i)+'', last:i===6 }));
+    const seasonLine = [
+      ['출전','29경기'],['선발','27'],['득점','8'],['도움','11'],['키패스','2.9'],['평점','7.84'],
+    ].map(([k,v])=>({ k, v }));
+
+    // TACTICS — 4-3-3 positions (x%, y% on pitch, vertical attacking up)
+    const lineup = [
+      ['정현우','GK','GK',50,92,'#F6C453'],
+      ['이준영','LB','DF',16,72,'#4C8DFF'],['반 다이크','CB','DF',38,76,'#4C8DFF'],['박태현','CB','DF',62,76,'#4C8DFF'],['카를로스','RB','DF',84,72,'#4C8DFF'],
+      ['오스카르','DM','MF',50,56,'#18E29A'],['한지호','CM','MF',32,44,'#18E29A'],['손정우','AMC','MF',68,42,'#18E29A'],
+      ['레안드루','LW','FW',18,24,'#FF4D5E'],['마르코 실바','ST','FW',50,16,'#FF4D5E'],['윤성민','RW','FW',82,24,'#FF4D5E'],
+    ].map(([name,role,grp,x,y,c])=>({ name, role, x, y, color:c, initials:/[가-힣]/.test(name[0])?name[0]:name.split(' ').map(w=>w[0]).join('').slice(0,2) }));
+    const teamInstr = [
+      ['멘탈리티','밸런스','#18E29A'],['빌드업','짧은 패스','#4C8DFF'],['수비 라인','높게','#F6C453'],['압박 강도','매우 강함','#FF4D5E'],['공격 폭','넓게','#18E29A'],['템포','빠르게','#18E29A'],
+    ].map(([k,v,c])=>({ k, v, c }));
+    const formations = ['4-3-3','4-2-3-1','4-4-2','3-5-2','4-1-4-1'];
+
+    // TRANSFER
+    const targets = [
+      ['레안드루 코스타','LW',18,'산투스 FC','BRA','₩45억','확보 추진','#18E29A',92,5],
+      ['요나스 베버','CB',24,'함부르크','GER','₩72억','관심 단계','#F6C453',86,3.5],
+      ['타카하시 렌','DM',22,'우라와','JPN','₩38억','협상 중','#4C8DFF',84,4],
+      ['음바예 디오프','ST',20,'메스','SEN','₩55억','경쟁 치열','#FF4D5E',83,4.5],
+      ['루카 페트로비치','AMC',19,'디나모','CRO','₩41억','스카우트 중','#9B6DFF',81,4.5],
+      ['김선호','RB',21,'포항','KOR','₩19억','확보 추진','#18E29A',79,4],
+    ].map(([name,pos,age,club,nat,val,status,sc,ovr,pot])=>({ name,pos,age,club,nat,val,status,statusColor:sc,ovr,
+      potStars:'★'.repeat(Math.floor(pot))+(pot%1?'½':''),
+      initials:/[가-힣]/.test(name[0])?name[0]:name.split(' ').map(w=>w[0]).join('').slice(0,2),
+      go:this.go('player') }));
+
+    // MATCH — live
+    const matchEvents = [
+      ['23\'','goal','마르코 실바','선제골! 손정우의 스루패스를 마무리','#18E29A'],
+      ['41\'','yellow','박태현','경고 — 전술적 파울','#F6C453'],
+      ['45\'','goal','김민재(울산)','동점골 허용 — 코너킥 상황','#FF4D5E'],
+      ['58\'','sub','조나탄 ▲ 윤성민 ▼','공격 보강 교체','#4C8DFF'],
+      ['67\'','goal','손정우','역전골!! 중거리 강슛 골망 흔들어','#18E29A'],
+    ].map(([min,type,who,desc,c])=>({ min, type, who, desc, c }));
+    const matchStats = [
+      ['점유율',58,42],['슈팅',14,9],['유효슈팅',6,3],['코너킥',7,4],['패스 성공률',87,81],['태클',18,21],
+    ].map(([k,h,a])=>({ k, h, a, hPct:h/(h+a)*100, aPct:a/(h+a)*100 }));
+
+    // LEAGUE
+    const table = [
+      ['울산 HD',23,16,4,3,48,21,52,'UL','#ff9fb0'],
+      ['전북 현대',23,15,5,3,44,24,50,'JB','#9fe0a8'],
+      ['서울 유나이티드',23,14,6,3,52,28,48,'SU','#9fc3ff'],
+      ['포항 스틸러스',23,13,5,5,41,30,44,'PH','#ffd79f'],
+      ['김천 상무',23,11,7,5,35,29,40,'GC','#d7b9ff'],
+      ['수원 삼성',23,10,6,7,33,31,36,'SW','#9fd7ff'],
+      ['대구 FC',23,9,7,7,30,30,34,'DG','#ffb9c8'],
+      ['강원 FC',23,8,6,9,28,33,30,'GW','#b9ffd7'],
+      ['인천 유나이티드',23,6,8,9,26,34,26,'IC','#9fc3ff'],
+      ['광주 FC',23,5,7,11,24,38,22,'GJ','#ffe09f'],
+      ['제주 SK',23,4,6,13,21,42,18,'JJ','#d79fff'],
+      ['대전 하나',23,3,5,15,19,49,14,'DJ','#9fffe0'],
+    ].map((r,i)=>{ const [name,p,w,d,l,gf,ga,pts,badge,bc]=r; const me=name==='서울 유나이티드';
+      return { rank:i+1, name, p,w,d,l,gf,ga,gd:(gf-ga>0?'+':'')+(gf-ga), pts, badge, bc, me,
+        meBg: me?'rgba(24,226,154,.07)':'transparent',
+        nameColor: me?'#18E29A':'#EAEEF5',
+        zone: i<3?'#18E29A':i<6?'#4C8DFF':i>=10?'#FF4D5E':'transparent' }; });
+
+    // TRAINING
+    const week = [
+      ['월','체력 회복','회복','#18E29A','낮음'],
+      ['화','전술 — 압박','전술','#4C8DFF','높음'],
+      ['수','세트피스 수비','수비','#F6C453','중간'],
+      ['목','슈팅 마무리','공격','#FF4D5E','높음'],
+      ['금','포지션별 훈련','개인','#9B6DFF','중간'],
+      ['토','경기 준비','전술','#4C8DFF','낮음'],
+      ['일','경기 / 휴식','-','#5A6478','-'],
+    ].map(([day,focus,tag,c,load])=>({ day, focus, tag, c, load,
+      loadColor: load==='높음'?'#FF4D5E':load==='중간'?'#F6C453':load==='낮음'?'#18E29A':'#5A6478' }));
+    const indivTraining = [
+      ['손정우','중거리 슛','89%','#18E29A'],['레안드루','민첩성','64%','#F6C453'],['조나탄','위치선정','77%','#18E29A'],['김도윤','반응속도','52%','#F6C453'],
+    ].map(([name,focus,prog,c])=>({ name, focus, prog, c, initials:/[가-힣]/.test(name[0])?name[0]:name[0] }));
+
+    return {
+      nav, sports, squad, attrTech, attrMental, attrPhys, traits, devChart, seasonLine,
+      lineup, teamInstr, formations, targets, matchEvents, matchStats, table, week, indivTraining,
+      screenTitle: titles[sc][0], screenSub: titles[sc][1],
+      isDash: sc==='dash', isSquad: sc==='squad', isPlayer: sc==='player',
+      isTactics: sc==='tactics', isTransfer: sc==='transfer', isMatch: sc==='match',
+      isLeague: sc==='league', isTraining: sc==='training',
+      goMatch: this.go('match'), goTactics: this.go('tactics'), goLeague: this.go('league'),
+      goSquad: this.go('squad'), goPlayer: this.go('player'),
+      form, seasonStats, inbox, topPerformers,
+    };
+  }
+}
+</script>
+</body>
+</html>
