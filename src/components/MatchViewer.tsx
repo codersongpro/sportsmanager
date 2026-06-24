@@ -8,7 +8,7 @@ import { getSport } from "@/lib/sports";
 import { progressPerSecond } from "@/lib/sports/playback";
 import { useGameStore } from "@/lib/store/gameStore";
 import { playerDisplayName, clubDisplayName } from "@/lib/utils/format";
-import { Tile, conditionColor, ratingColor } from "./Tile";
+import { Avatar, Tile, conditionColor, ratingColor } from "./Tile";
 import { Venue, VenueSurface, venueFrameClass } from "./Venue";
 
 const SPEEDS = [0.5, 1, 2, 4, 8, 16];
@@ -51,6 +51,28 @@ function toneRing(tone?: string): string {
     case "warn": return "border-amber-300 bg-amber-50/60 dark:bg-amber-950/20";
     case "info": return "border-sky-300 bg-sky-50/50 dark:bg-sky-950/20";
     default: return "border-zinc-200 dark:border-zinc-800";
+  }
+}
+
+/** Cosmetic-only accent color per event tone, used by the dark-theme BroadcastFeed. */
+function toneAccent(tone?: string): string {
+  switch (tone) {
+    case "score": return "var(--mint)";
+    case "danger": return "var(--red)";
+    case "warn": return "var(--gold)";
+    case "info": return "var(--blue)";
+    default: return "var(--muted-3)";
+  }
+}
+
+/** Weight used only for the momentum widget below — separate from the protected toneRank() filter. */
+function eventWeight(tone?: string): number {
+  switch (tone) {
+    case "score": return 3;
+    case "danger": return 2;
+    case "warn": return 1;
+    case "info": return 1;
+    default: return 0;
   }
 }
 
@@ -221,6 +243,27 @@ export function MatchViewer({ result, home, away, players, sportId }: Props) {
   const liveStats = pres.liveStats(revealed, home.id, away.id);
   const pens = revealed.find((e) => e.type === "penalty_shootout");
 
+  const BUCKETS = 12;
+  const momentum = useMemo(() => {
+    const width = endMinute / BUCKETS;
+    return Array.from({ length: BUCKETS }, (_, i) => {
+      const from = i * width;
+      const to = from + width;
+      if (from >= clock) return { homePct: null as number | null };
+      let homeW = 0;
+      let awayW = 0;
+      for (const ev of revealed) {
+        if (ev.minute < from || ev.minute >= to) continue;
+        const w = eventWeight(pres.eventMeta(ev.type).tone);
+        if (w === 0) continue;
+        if (ev.clubId === home.id) homeW += w;
+        else if (ev.clubId === away.id) awayW += w;
+      }
+      const total = homeW + awayW;
+      return { homePct: total === 0 ? 50 : Math.round((homeW / total) * 100) };
+    });
+  }, [revealed, endMinute, clock, home.id, away.id, pres]);
+
   const ratingOf = (pid: string): number => {
     const final = result.playerRatings[pid] ?? 6.6;
     const prog = Math.min(1, clock / endMinute);
@@ -266,28 +309,38 @@ export function MatchViewer({ result, home, away, players, sportId }: Props) {
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-3 overflow-hidden p-2 sm:p-3">
-      {/* Top control / scoreboard bar */}
-      <div className="z-10 flex shrink-0 flex-wrap items-center justify-between gap-3 rounded-lg border border-[var(--line)] bg-[var(--panel)]/95 px-4 py-2.5 backdrop-blur">
-        <span className="hidden text-sm text-zinc-500 sm:inline">{tl(sport.name)}</span>
-        <div className="flex items-center gap-3">
-          <span className="max-w-[26vw] truncate text-right text-sm font-semibold">{home.shortName}</span>
-          <span className={`rounded-md px-3 py-1 text-lg font-bold tabular-nums ${newestScore ? "bg-emerald-600 text-white" : "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-black"}`}>
-            {homeScore} - {awayScore}
-          </span>
-          <span className="max-w-[26vw] truncate text-left text-sm font-semibold">{away.shortName}</span>
+      {/* Top scoreboard bar */}
+      <div
+        className="z-10 flex shrink-0 flex-wrap items-center justify-between gap-4 rounded-2xl border px-5 py-3.5"
+        style={{ borderColor: "var(--line)", background: "linear-gradient(120deg,#10243a,#0d1727)" }}
+      >
+        <div className="flex min-w-0 flex-1 items-center gap-3">
+          <Avatar initials={home.shortName.slice(0, 2).toUpperCase()} color="var(--blue)" size={40} rounded="11px" />
+          <span className="truncate text-[13px] font-semibold">{home.shortName}</span>
         </div>
-        <div className="flex items-center gap-2">
-          <span className="flex items-center gap-1.5 font-mono text-sm text-soft">
-            {!finished && !activeBreak && <span className="inline-block h-2 w-2 animate-pulse rounded-full bg-rose-500" />}
-            {clockLabel}
+        <div className="flex flex-col items-center gap-1.5 px-3">
+          <span className="flex items-center gap-[7px] text-[11px] font-bold" style={{ color: "var(--red)" }}>
+            {!finished && !activeBreak && <span className="inline-block h-[7px] w-[7px] animate-pulse rounded-full" style={{ background: "var(--red)" }} />}
+            {finished || activeBreak ? clockLabel : `${t("live")} ${clockLabel}`}
           </span>
-          <button onClick={togglePlay} className="rounded-md bg-blue-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-blue-700">
-            {playing ? "⏸" : "▶"}
-          </button>
+          <span className="font-display text-[36px] font-bold leading-none tabular-nums" style={{ color: newestScore ? "var(--mint)" : "var(--text)" }}>
+            {homeScore} <span style={{ color: "var(--muted-3)" }}>:</span> {awayScore}
+          </span>
         </div>
+        <div className="flex min-w-0 flex-1 items-center justify-end gap-3">
+          <span className="truncate text-right text-[13px] font-semibold">{away.shortName}</span>
+          <Avatar initials={away.shortName.slice(0, 2).toUpperCase()} color="var(--red)" size={40} rounded="11px" />
+        </div>
+        <button
+          onClick={togglePlay}
+          className="rounded-lg px-3 py-1.5 text-sm font-semibold"
+          style={{ color: "#06140e", background: "var(--mint)" }}
+        >
+          {playing ? "⏸" : "▶"}
+        </button>
       </div>
       {pens && (
-        <p className="-mt-2 text-center text-xs text-zinc-500">
+        <p className="-mt-2 text-center text-xs" style={{ color: "var(--muted-3)" }}>
           {clubDisplayName(home)} {result.homePens} - {result.awayPens} {clubDisplayName(away)} · {t("afterPenalties")}
         </p>
       )}
@@ -309,20 +362,37 @@ export function MatchViewer({ result, home, away, players, sportId }: Props) {
                 flash={scoreFlash ? tl(scoreFlash) : null}
               />
             </div>
-            <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
-              <div className="h-full bg-blue-500 transition-[width] duration-200" style={{ width: `${(clock / endMinute) * 100}%` }} />
+            <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full" style={{ background: "rgba(255,255,255,.08)" }}>
+              <div className="h-full transition-[width] duration-200" style={{ width: `${(clock / endMinute) * 100}%`, background: "var(--blue)" }} />
             </div>
             <div className="mt-3 flex flex-wrap items-center gap-2">
-              <button onClick={togglePlay} className="rounded-md bg-blue-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-blue-700">
+              <button
+                onClick={togglePlay}
+                className="rounded-lg px-3 py-1.5 text-sm font-semibold"
+                style={{ color: "#06140e", background: "var(--mint)" }}
+              >
                 {playing ? `⏸ ${t("pause")}` : `▶ ${t("play")}`}
               </button>
-              <button onClick={restart} className="rounded-md border px-3 py-1.5 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-900">↺</button>
-              <button onClick={skip} className="rounded-md border px-3 py-1.5 text-sm hover:bg-zinc-100 dark:hover:bg-zinc-900">⏭ {t("skipToEnd")}</button>
+              <button
+                onClick={restart}
+                className="rounded-lg border px-3 py-1.5 text-sm"
+                style={{ borderColor: "var(--border-soft)", color: "var(--muted-2)" }}
+              >
+                ↺
+              </button>
+              <button
+                onClick={skip}
+                className="rounded-lg border px-3 py-1.5 text-sm"
+                style={{ borderColor: "var(--border-soft)", color: "var(--muted-2)" }}
+              >
+                ⏭ {t("skipToEnd")}
+              </button>
               {managedClub && (
                 <button
                   onClick={requestSubstitution}
                   disabled={!canRequestSubstitution}
-                  className="rounded-md border border-emerald-300 px-3 py-1.5 text-sm font-semibold text-emerald-700 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-emerald-800 dark:text-emerald-300 dark:hover:bg-emerald-950/30"
+                  className="rounded-lg border px-3 py-1.5 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-40"
+                  style={{ borderColor: "color-mix(in srgb, var(--mint) 35%, transparent)", color: "var(--mint)" }}
                 >
                   ⇄ 교체
                 </button>
@@ -331,18 +401,24 @@ export function MatchViewer({ result, home, away, players, sportId }: Props) {
                 <button
                   onClick={callTimeout}
                   disabled={!canCallTimeout}
-                  className="rounded-md border border-amber-300 px-3 py-1.5 text-sm font-semibold text-amber-700 hover:bg-amber-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-amber-800 dark:text-amber-300 dark:hover:bg-amber-950/30"
+                  className="rounded-lg border px-3 py-1.5 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-40"
+                  style={{ borderColor: "color-mix(in srgb, var(--gold) 40%, transparent)", color: "var(--gold)" }}
                 >
                   ⏱ 작전타임 {timeoutsLeft}
                 </button>
               )}
               <div className="ml-auto flex items-center gap-1">
-                <span className="mr-1 text-xs text-soft">{t("speed")}</span>
+                <span className="mr-1 text-xs" style={{ color: "var(--muted-2)" }}>{t("speed")}</span>
                 {SPEEDS.map((s) => (
                   <button
                     key={s}
                     onClick={() => setSpeed(s)}
-                    className={`rounded-md px-2 py-1 text-xs tabular-nums ${speed === s ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-black" : "border hover:bg-zinc-100 dark:hover:bg-zinc-900"}`}
+                    className="rounded-md px-2 py-1 text-xs tabular-nums"
+                    style={
+                      speed === s
+                        ? { color: "#06140e", background: "var(--mint)" }
+                        : { color: "var(--muted-2)", background: "rgba(255,255,255,.05)" }
+                    }
                   >
                     {s}×
                   </button>
@@ -351,13 +427,15 @@ export function MatchViewer({ result, home, away, players, sportId }: Props) {
             </div>
           </Tile>
 
+          <MomentumBar buckets={momentum} homeShort={home.shortName} awayShort={away.shortName} title={t("momentum")} />
+
           <div className="grid min-h-0 flex-1 gap-3 overflow-hidden sm:grid-cols-2">
             <Tile title={t("matchStats")}>
               <div className="flex flex-col gap-2">
                 {liveStats.map((row, i) => (
                   <StatRow key={i} label={tl(row.label)} h={row.h} a={row.a} suffix={row.suffix} />
                 ))}
-                {liveStats.length === 0 && <p className="text-sm text-zinc-400">—</p>}
+                {liveStats.length === 0 && <p className="text-sm" style={{ color: "var(--muted-3)" }}>—</p>}
               </div>
             </Tile>
             <RatingsPanel title={t("ratings")} ratings={topPerformers} />
@@ -432,8 +510,8 @@ export function MatchViewer({ result, home, away, players, sportId }: Props) {
       {activeBreak && (
         <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/60 p-4" onClick={() => { clearBreak(); setPlaying(true); }}>
           <div className="w-full max-w-md" onClick={(e) => e.stopPropagation()}>
-            <Tile title={tl(activeBreak)} className="bg-white dark:bg-zinc-900">
-              <div className="mb-3 text-center text-3xl font-bold tabular-nums">{homeScore} - {awayScore}</div>
+            <Tile title={tl(activeBreak)}>
+              <div className="font-display mb-3 text-center text-3xl font-bold tabular-nums">{homeScore} - {awayScore}</div>
               {liveStats.length > 0 && (
                 <div className="mb-3 grid grid-cols-3 gap-2 text-center text-sm">
                   {liveStats.slice(0, 3).map((row, i) => (
@@ -469,7 +547,7 @@ export function MatchViewer({ result, home, away, players, sportId }: Props) {
                   onLineupChange={setLineup}
                 />
               )}
-              <h4 className="mb-1 text-xs font-semibold uppercase text-zinc-400">{t("ratings")}</h4>
+              <h4 className="mb-1.5 text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--muted-3)" }}>{t("ratings")}</h4>
               <div className="flex flex-col gap-1">
                 {topPerformers.map(({ p, r }) => (
                   <div key={p.id} className="flex items-center justify-between text-sm">
@@ -478,7 +556,11 @@ export function MatchViewer({ result, home, away, players, sportId }: Props) {
                   </div>
                 ))}
               </div>
-              <button onClick={() => { clearBreak(); setPlaying(true); }} className="mt-4 w-full rounded-md bg-blue-600 py-2 text-sm font-semibold text-white hover:bg-blue-700">
+              <button
+                onClick={() => { clearBreak(); setPlaying(true); }}
+                className="mt-4 w-full rounded-lg py-2 text-sm font-semibold"
+                style={{ color: "#06140e", background: "var(--mint)" }}
+              >
                 ▶ {t("play")}
               </button>
             </Tile>
@@ -534,15 +616,15 @@ function BroadcastFeed({
 }) {
   return (
     <Tile title={title} className="flex h-full min-h-0 flex-col" bodyClassName="min-h-0">
-      <div className="flex h-full min-h-0 flex-col-reverse gap-2 overflow-y-auto pr-1 text-sm">
-        {feed.length === 0 && <p className="text-zinc-400">—</p>}
+      <div className="flex h-full min-h-0 flex-col-reverse gap-0.5 overflow-y-auto pr-1 text-sm">
+        {feed.length === 0 && <p style={{ color: "var(--muted-3)" }}>—</p>}
         {feed.map((item, i) => {
           if (item.kind === "marker") {
             return (
-              <div key={`m${i}`} className="my-1 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-soft">
-                <span className="h-px flex-1 bg-[var(--line)]" />
+              <div key={`m${i}`} className="my-1 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wide" style={{ color: "var(--muted-3)" }}>
+                <span className="h-px flex-1" style={{ background: "var(--line)" }} />
                 {tl(item.label)}
-                <span className="h-px flex-1 bg-[var(--line)]" />
+                <span className="h-px flex-1" style={{ background: "var(--line)" }} />
               </div>
             );
           }
@@ -552,25 +634,72 @@ function BroadcastFeed({
           const assist = ev.assistId ? players[ev.assistId] : null;
           const club = home.id === ev.clubId ? home : away;
           const important = meta.tone === "score" || meta.tone === "danger";
+          const accent = toneAccent(meta.tone);
           return (
-            <div key={`e${i}`} className={`rounded-lg border px-3 py-2 ${toneRing(meta.tone)} ${important ? "shadow-sm" : ""}`}>
-              <div className="flex items-center gap-2">
-                <span className="shrink-0">{meta.emoji}</span>
-                <span className={`truncate ${important ? "font-bold" : "font-semibold"}`}>{tl(meta.label)}</span>
-                <span className="ml-auto max-w-[35%] truncate text-xs text-soft">{club.shortName}</span>
-              </div>
-              <div className="mt-1 pl-7 text-sm leading-snug">
-                {ev.detail ? <span className="text-zinc-700 dark:text-zinc-200">{tl(ev.detail)}</span> : null}
-                {player && (
-                  <span className="ml-1">
-                    <PlayerNameLink player={player} />
-                  </span>
-                )}
-                {assist && <span className="text-xs text-soft"> ({t("assist" as never)}: <PlayerNameLink player={assist} className="hover:text-[var(--accent)]" />)</span>}
+            <div key={`e${i}`} className="flex gap-3 border-b px-1.5 py-2.5" style={{ borderColor: "rgba(255,255,255,.04)" }}>
+              <span className="font-display w-9 shrink-0 text-[15px] font-bold" style={{ color: accent }}>{ev.minute}&apos;</span>
+              <span className="mt-[6px] h-2 w-2 shrink-0 rounded-full" style={{ background: accent }} />
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1.5">
+                  <span className="shrink-0">{meta.emoji}</span>
+                  <span className={`truncate text-[12.5px] ${important ? "font-bold" : "font-semibold"}`}>{tl(meta.label)}</span>
+                  <span className="ml-auto max-w-[35%] truncate text-[10.5px]" style={{ color: "var(--muted-3)" }}>{club.shortName}</span>
+                </div>
+                <div className="mt-0.5 text-[11.5px] leading-snug" style={{ color: "var(--muted-2)" }}>
+                  {ev.detail ? <span>{tl(ev.detail)}</span> : null}
+                  {player && (
+                    <span className="ml-1 font-medium" style={{ color: "var(--text)" }}>
+                      <PlayerNameLink player={player} />
+                    </span>
+                  )}
+                  {assist && <span> ({t("assist" as never)}: <PlayerNameLink player={assist} className="hover:text-[var(--accent)]" />)</span>}
+                </div>
               </div>
             </div>
           );
         })}
+      </div>
+    </Tile>
+  );
+}
+
+function MomentumBar({
+  buckets,
+  homeShort,
+  awayShort,
+  title,
+}: {
+  buckets: { homePct: number | null }[];
+  homeShort: string;
+  awayShort: string;
+  title: string;
+}) {
+  return (
+    <Tile className="shrink-0">
+      <div className="mb-2.5 flex items-center justify-between">
+        <span className="text-[12px] font-semibold" style={{ color: "var(--blue)" }}>{homeShort}</span>
+        <span className="font-display text-[14px] font-bold">{title}</span>
+        <span className="text-[12px] font-semibold" style={{ color: "var(--red)" }}>{awayShort}</span>
+      </div>
+      <div className="flex h-[44px] items-end gap-[3px]">
+        {buckets.map((b, i) => (
+          <div key={i} className="flex h-full flex-1 flex-col justify-end gap-[2px]">
+            <div
+              className="rounded-t-[3px]"
+              style={{
+                height: b.homePct == null ? 4 : `${Math.max(4, b.homePct)}%`,
+                background: b.homePct == null ? "rgba(255,255,255,.06)" : "var(--blue)",
+              }}
+            />
+            <div
+              className="rounded-b-[3px]"
+              style={{
+                height: b.homePct == null ? 4 : `${Math.max(4, 100 - b.homePct)}%`,
+                background: b.homePct == null ? "rgba(255,255,255,.06)" : "var(--red)",
+              }}
+            />
+          </div>
+        ))}
       </div>
     </Tile>
   );
@@ -623,14 +752,14 @@ function StatRow({ label, h, a, suffix = "" }: { label: string; h: number; a: nu
   const total = h + a || 1;
   return (
     <div>
-      <div className="flex justify-between text-xs">
-        <span className="font-semibold tabular-nums">{h}{suffix}</span>
-        <span className="text-zinc-500">{label}</span>
-        <span className="font-semibold tabular-nums">{a}{suffix}</span>
+      <div className="flex justify-between text-[12.5px]">
+        <span className="font-display font-bold tabular-nums" style={{ color: "var(--blue)" }}>{h}{suffix}</span>
+        <span style={{ color: "var(--muted-2)" }}>{label}</span>
+        <span className="font-display font-bold tabular-nums" style={{ color: "var(--red)" }}>{a}{suffix}</span>
       </div>
-      <div className="mt-0.5 flex h-1.5 overflow-hidden rounded-full bg-zinc-200 dark:bg-zinc-800">
-        <div className="bg-blue-500" style={{ width: `${(h / total) * 100}%` }} />
-        <div className="ml-auto bg-rose-400" style={{ width: `${(a / total) * 100}%` }} />
+      <div className="mt-1.5 flex h-1.5 gap-[3px] overflow-hidden rounded-full">
+        <div className="rounded-l-full" style={{ width: `${(h / total) * 100}%`, background: "var(--blue)" }} />
+        <div className="ml-auto rounded-r-full" style={{ width: `${(a / total) * 100}%`, background: "var(--red)" }} />
       </div>
     </div>
   );
@@ -638,9 +767,9 @@ function StatRow({ label, h, a, suffix = "" }: { label: string; h: number; a: nu
 
 function MiniStat({ label, v }: { label: string; v: string }) {
   return (
-    <div className="rounded-lg border border-zinc-200 py-1.5 dark:border-zinc-800">
-      <div className="text-sm font-bold tabular-nums">{v}</div>
-      <div className="text-[10px] text-zinc-500">{label}</div>
+    <div className="rounded-lg border py-1.5" style={{ borderColor: "var(--border-soft)" }}>
+      <div className="font-display text-sm font-bold tabular-nums">{v}</div>
+      <div className="text-[10px]" style={{ color: "var(--muted-3)" }}>{label}</div>
     </div>
   );
 }
@@ -692,12 +821,16 @@ function InlineTacticsPanel({
   }
 
   return (
-    <div className="mb-3 rounded-lg border border-zinc-200 p-3 dark:border-zinc-800">
+    <div className="mb-3 rounded-lg border p-3" style={{ borderColor: "var(--border-soft)" }}>
       {allowTactics && (
         <>
           <div className="mb-2 flex items-center justify-between gap-2">
-            <h4 className="text-xs font-semibold uppercase text-zinc-400">{t("tactics" as never)}</h4>
-            <button onClick={onAutoPick} className="rounded-md border px-2 py-1 text-xs hover:bg-zinc-100 dark:hover:bg-zinc-900">
+            <h4 className="text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--muted-3)" }}>{t("tactics" as never)}</h4>
+            <button
+              onClick={onAutoPick}
+              className="rounded-md px-2 py-1 text-xs font-semibold"
+              style={{ color: "var(--muted-2)", background: "rgba(255,255,255,.05)" }}
+            >
               {t("autoPick" as never)}
             </button>
           </div>
@@ -706,7 +839,8 @@ function InlineTacticsPanel({
               <button
                 key={preset.name}
                 onClick={() => onPatch(preset.patch)}
-                className="rounded-md border border-zinc-200 px-2 py-1 text-xs font-semibold hover:bg-zinc-100 dark:border-zinc-800 dark:hover:bg-zinc-900"
+                className="rounded-md px-2 py-1 text-xs font-semibold"
+                style={{ color: "var(--muted-2)", background: "rgba(255,255,255,.05)" }}
               >
                 {preset.name}
               </button>
@@ -721,10 +855,10 @@ function InlineTacticsPanel({
           </div>
         </>
       )}
-      <div className={allowTactics ? "mt-3 border-t border-zinc-200 pt-3 dark:border-zinc-800" : ""}>
+      <div className={allowTactics ? "mt-3 border-t pt-3" : ""} style={allowTactics ? { borderColor: "var(--border-soft)" } : undefined}>
         <div className="mb-2 flex items-center justify-between gap-2">
-          <h4 className="text-xs font-semibold uppercase text-zinc-400">선수 교체</h4>
-          <span className="text-[11px] text-soft">라인업 {lineupIds.length}명 · 후보 {selectableBenchIds.length}명</span>
+          <h4 className="text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--muted-3)" }}>선수 교체</h4>
+          <span className="text-[11px]" style={{ color: "var(--muted-2)" }}>라인업 {lineupIds.length}명 · 후보 {selectableBenchIds.length}명</span>
         </div>
         <div className="grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
           <BreakSelect label="OUT" value={selectedOutId} options={lineupIds} onChange={setOutId} formatter={labelFor} />
@@ -732,7 +866,8 @@ function InlineTacticsPanel({
           <button
             onClick={applySubstitution}
             disabled={!selectedOutId || !selectedInId || selectedOutId === selectedInId}
-            className="self-end rounded-md bg-emerald-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-emerald-700 disabled:cursor-not-allowed disabled:opacity-40"
+            className="self-end rounded-md px-3 py-1.5 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-40"
+            style={{ color: "#06140e", background: "var(--mint)" }}
           >
             교체 적용
           </button>
@@ -758,15 +893,16 @@ function BreakSelect({
   formatter?: (value: string) => string;
 }) {
   return (
-    <label className="flex flex-col gap-1 text-left text-xs text-zinc-500">
+    <label className="flex flex-col gap-1 text-left text-xs" style={{ color: "var(--muted-2)" }}>
       {label}
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="rounded-md border border-zinc-300 bg-transparent px-2 py-1.5 text-sm text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100"
+        className="rounded-md border bg-transparent px-2 py-1.5 text-sm"
+        style={{ borderColor: "var(--border-soft)", color: "var(--text)" }}
       >
         {options.map((option) => (
-          <option key={option} value={option}>
+          <option key={option} value={option} className="text-black">
             {formatter ? formatter(option) : t ? t(option as never) : option}
           </option>
         ))}

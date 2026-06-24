@@ -8,7 +8,7 @@ import { BracketView } from "@/components/BracketView";
 import { clubDisplayName } from "@/lib/utils/format";
 
 export default function CompetitionPage() {
-  const { t, tl } = useI18n();
+  const { t } = useI18n();
   const state = useGameStore((s) => s.state);
 
   if (!state) return null;
@@ -16,17 +16,13 @@ export default function CompetitionPage() {
   const comp = state.competition;
 
   return (
-    <div className="mx-auto flex w-full max-w-4xl flex-col gap-6">
-      <div>
-        <h1 className="text-2xl font-bold">{tl(comp.name)}</h1>
-        <p className="text-sm text-zinc-500">
-          {t("season")} {comp.season}
-        </p>
-      </div>
-
+    <div className="mx-auto flex w-full max-w-7xl flex-col gap-[18px]">
       {comp.championId && (
-        <div className="rounded-lg border border-emerald-300 bg-emerald-50 p-4 dark:border-emerald-800 dark:bg-emerald-950/40">
-          <p className="font-semibold">
+        <div
+          className="rounded-2xl border p-4"
+          style={{ borderColor: "color-mix(in srgb, var(--mint) 35%, transparent)", background: "color-mix(in srgb, var(--mint) 10%, transparent)" }}
+        >
+          <p className="text-[13px] font-semibold" style={{ color: "var(--mint)" }}>
             {t("champion")}: {clubDisplayName(state.clubs[comp.championId])}
           </p>
         </div>
@@ -34,23 +30,25 @@ export default function CompetitionPage() {
 
       {comp.format === "league" && comp.table && (
         <div>
-          <h2 className="mb-2 font-semibold text-zinc-500">{t("standings")}</h2>
+          <h2 className="mb-2.5 font-display text-base font-bold">{t("standings")}</h2>
           <LeagueTable table={comp.table} clubs={state.clubs} highlightClubId={myClub.id} />
         </div>
       )}
 
       {comp.format === "tournament" && comp.bracket && (
         <div>
-          <h2 className="mb-2 font-semibold text-zinc-500">{t("bracket")}</h2>
-          <BracketView bracket={comp.bracket} clubs={state.clubs} userClubId={myClub.id} />
+          <h2 className="mb-2.5 font-display text-base font-bold">{t("bracket")}</h2>
+          <div className="rounded-2xl border p-5" style={{ borderColor: "var(--line)", background: "var(--panel)" }}>
+            <BracketView bracket={comp.bracket} clubs={state.clubs} userClubId={myClub.id} />
+          </div>
         </div>
       )}
 
       {state.sportId === "soccer" && (
-        <div className="rounded-lg border border-zinc-200 p-4 dark:border-zinc-800">
-          <h2 className="mb-1 font-semibold text-zinc-500">{t("worldCup")}</h2>
-          <p className="mb-2 text-sm text-zinc-500">{t("worldCupDesc")}</p>
-          <Link href="/game/worldcup" className="inline-block text-sm text-blue-600 hover:underline">
+        <div className="rounded-2xl border p-5" style={{ borderColor: "var(--line)", background: "var(--panel)" }}>
+          <h2 className="font-display mb-1.5 text-[15px] font-bold">{t("worldCup")}</h2>
+          <p className="mb-3 text-[12.5px]" style={{ color: "var(--muted-2)" }}>{t("worldCupDesc")}</p>
+          <Link href="/game/worldcup" className="inline-block text-[12.5px] font-semibold" style={{ color: "var(--mint)" }}>
             {t("worldCup")} →
           </Link>
         </div>

@@ -65,6 +65,13 @@ export function attrColor(value: number): string {
   return "var(--red)";
 }
 
+/** 0-100 attribute tier color for the player-detail attributes legend (우수/양호/약점). */
+export function attributeTierColor(value: number): string {
+  if (value >= 75) return "var(--mint)";
+  if (value >= 55) return "var(--gold)";
+  return "var(--red)";
+}
+
 /** 0-100 overall/potential threshold color (design source `ovrColor`). */
 export function overallColor(value: number): string {
   if (value >= 80) return "var(--mint)";

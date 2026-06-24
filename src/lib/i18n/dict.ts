@@ -119,6 +119,9 @@ export const dict = {
   trainingFocus: { ko: "훈련 중점", en: "Training Focus" },
   applyTraining: { ko: "이번 주 훈련 적용", en: "Apply Weekly Training" },
   teamFocus: { ko: "팀 훈련 중점", en: "Team Training Focus" },
+  fitnessReport: { ko: "체력 / 부상 현황", en: "Fitness & Injuries" },
+  avgCondition: { ko: "평균 체력", en: "Avg Condition" },
+  noInjuries: { ko: "부상자가 없습니다", en: "No injuries" },
 
   // finances
   balance: { ko: "잔고", en: "Balance" },
@@ -164,6 +167,9 @@ export const dict = {
   points: { ko: "승점", en: "Pts" },
   standings: { ko: "순위표", en: "Standings" },
   bracket: { ko: "대진표", en: "Bracket" },
+  aclDirect: { ko: "ACL 직행", en: "Continental (direct)" },
+  aclPlayoff: { ko: "ACL 플레이오프", en: "Continental (playoff)" },
+  relegation: { ko: "강등권", en: "Relegation" },
   matchResult: { ko: "경기 결과", en: "Match Result" },
   matchStats: { ko: "경기 통계", en: "Match Stats" },
   matchEvents: { ko: "주요 이벤트", en: "Match Events" },
@@ -197,6 +203,7 @@ export const dict = {
   skipToEnd: { ko: "결과로 건너뛰기", en: "Skip to result" },
   speed: { ko: "배속", en: "Speed" },
   commentary: { ko: "중계", en: "Commentary" },
+  momentum: { ko: "경기 흐름", en: "Momentum" },
   kickoff: { ko: "킥오프", en: "Kick-off" },
   halfTime: { ko: "하프타임", en: "Half Time" },
   fullTime: { ko: "경기 종료", en: "Full Time" },
@@ -223,6 +230,46 @@ export const dict = {
   injury: { ko: "부상", en: "Injury" },
   noSavedGame: { ko: "저장된 게임이 없습니다", en: "No saved game found" },
   deleteSave: { ko: "세이브 삭제", en: "Delete Save" },
+
+  // dashboard (design system)
+  seasonStatus: { ko: "시즌 현황", en: "Season Status" },
+  inbox: { ko: "받은 메시지", en: "Inbox" },
+  topPerformers: { ko: "이 달의 핵심 선수", en: "Top Performers" },
+  viewStandings: { ko: "순위표", en: "Standings" },
+  viewFullSquad: { ko: "전체 스쿼드", en: "Full Squad" },
+  startMatch: { ko: "경기 시작", en: "Start Match" },
+  checkTactics: { ko: "전술 점검", en: "Check Tactics" },
+  unbeaten: { ko: "무패", en: "Unbeaten" },
+  rating: { ko: "평점", en: "Rating" },
+  newCount: { ko: "건 신규", en: "new" },
+  noFixturesLeft: { ko: "남은 경기가 없습니다", en: "No fixtures remaining" },
+
+  // squad page (design system)
+  all: { ko: "전체", en: "All" },
+  avgAge: { ko: "평균 연령", en: "Avg Age" },
+  squadValue: { ko: "스쿼드 가치", en: "Squad Value" },
+
+  // player detail page (design system)
+  contractInfo: { ko: "계약 정보", en: "Contract Info" },
+  marketValue: { ko: "시장 가치", en: "Market Value" },
+  contractExpiry: { ko: "계약 만료", en: "Contract Expiry" },
+  seasonRecord: { ko: "이번 시즌 기록", en: "Season Record" },
+  attrExcellent: { ko: "우수", en: "Strong" },
+  attrGood: { ko: "양호", en: "Decent" },
+  attrWeak: { ko: "약점", en: "Weak" },
+
+  // tactics page (design system)
+  teamInstructions: { ko: "팀 지시사항", en: "Team Instructions" },
+  lineupValidity: { ko: "라인업 유효성", en: "Lineup Validity" },
+
+  // transfers page (design system)
+  wageHeadroom: { ko: "주급 여유분", en: "Wage Headroom" },
+  candidateCount: { ko: "영입 후보", en: "Targets" },
+  squadSize: { ko: "보유 선수", en: "Squad Size" },
+  available: { ko: "가능", en: "Available" },
+  overBudget: { ko: "예산 부족", en: "Over Budget" },
+  scoutTargets: { ko: "스카우트 영입 후보", en: "Scouted Targets" },
+  club: { ko: "소속", en: "Club" },
 } satisfies Record<string, LocalizedText>;
 
 export type DictKey = keyof typeof dict;
