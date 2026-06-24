@@ -2,12 +2,50 @@
 
 import { useRouter } from "next/navigation";
 import { Avatar, FormChip, RatingNumber, Tile, groupColor, ratingColorHex } from "@/components/Tile";
-import { Button } from "@/components/ui";
+import { Button, StatusBadge } from "@/components/ui";
 import { useI18n } from "@/lib/i18n/I18nProvider";
 import { useGameStore } from "@/lib/store/gameStore";
 import { getSport } from "@/lib/sports";
 import { upcomingFixtures, sortTable } from "@/lib/engine/competition";
-import { clubDisplayName, playerDisplayName, playerInitials } from "@/lib/utils/format";
+import {
+  financeSummary,
+  myClubOf,
+  primaryAction,
+  recentInbox,
+  teamStatusSummary,
+  todaysTasks,
+  urgentAlerts,
+  type StatusMetric,
+} from "@/lib/selectors/dashboard";
+import { clubDisplayName, formatMoney, playerDisplayName, playerInitials } from "@/lib/utils/format";
+import type { Locale } from "@/lib/types";
+
+const METRIC_LABEL_KEY = {
+  morale: "metricMorale",
+  condition: "metricCondition",
+  form: "metricForm",
+  rank: "metricRank",
+  reputation: "metricReputation",
+} as const;
+
+function metricValueText(m: StatusMetric, locale: Locale): string {
+  if (m.value == null) return "-";
+  switch (m.key) {
+    case "morale":
+    case "condition":
+      return `${m.value}%`;
+    case "form":
+      return locale === "ko" ? `${m.value}승` : `${m.value}W`;
+    case "rank":
+      return locale === "ko" ? `${m.value}위` : `#${m.value}`;
+    default:
+      return `${m.value}`;
+  }
+}
+
+function severityColor(severity: "danger" | "warning" | "info"): string {
+  return severity === "danger" ? "var(--red)" : severity === "warning" ? "var(--gold)" : "var(--blue)";
+}
 
 export default function DashboardPage() {
   const { t, tl, locale } = useI18n();
@@ -18,7 +56,7 @@ export default function DashboardPage() {
 
   if (!state) return null;
 
-  const myClub = state.clubs[state.manager.clubId];
+  const myClub = myClubOf(state);
   const comp = state.competition;
   const sport = getSport(state.sportId);
   const groupOf = (positionKey: string | undefined) => sport.positions.find((p) => p.key === positionKey)?.group ?? "MID";
@@ -29,6 +67,7 @@ export default function DashboardPage() {
   const opponentId = upcoming ? (upcoming.homeId === myClub.id ? upcoming.awayId : upcoming.homeId) : null;
   const opponent = opponentId ? state.clubs[opponentId] : null;
   const isHome = upcoming?.homeId === myClub.id;
+  const action = primaryAction(state, sport);
 
   const myFixtures = comp.fixtures
     .filter((f) => f.played && f.result && (f.homeId === myClub.id || f.awayId === myClub.id))
@@ -69,28 +108,11 @@ export default function DashboardPage() {
           { label: t("goalsFor"), value: goalsFor, color: "var(--gold)" },
         ];
 
-  const inboxItems = [
-    ...(state.press ?? []).filter((p) => !p.answered).map((p) => ({
-      id: p.id,
-      day: p.day,
-      title: t("pressConference"),
-      body: tl(p.question),
-      unread: true,
-      iconColor: "var(--blue)",
-      href: "/game/press",
-    })),
-    ...state.news.map((n) => ({
-      id: n.id,
-      day: n.day,
-      title: tl(n.title),
-      body: n.body ? tl(n.body) : "",
-      unread: !n.read,
-      iconColor: "var(--purple)",
-      href: undefined,
-    })),
-  ]
-    .sort((a, b) => b.day - a.day)
-    .slice(0, 4);
+  const alerts = urgentAlerts(state, sport);
+  const tasks = todaysTasks(state, sport);
+  const metrics = teamStatusSummary(state);
+  const finance = financeSummary(state);
+  const inboxItems = recentInbox(state, 5);
   const unreadCount = inboxItems.filter((i) => i.unread).length;
 
   const squad = myClub.squad.map((id) => state.players[id]).filter(Boolean);
@@ -128,6 +150,31 @@ export default function DashboardPage() {
 
   return (
     <div className="mx-auto grid w-full max-w-7xl grid-cols-1 gap-[18px] lg:grid-cols-[1.7fr_1fr]">
+      {/* urgent alerts */}
+      {alerts.length > 0 && (
+        <div className="col-span-full flex flex-col gap-2">
+          <div className="text-[11px] font-bold uppercase tracking-wide" style={{ color: "var(--muted-2)" }}>
+            {t("urgentAlerts")}
+          </div>
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            {alerts.map((a) => {
+              const color = severityColor(a.severity);
+              return (
+                <button
+                  key={a.id}
+                  onClick={() => router.push(a.href)}
+                  className="flex items-center gap-2.5 rounded-xl border px-3.5 py-2.5 text-left hover:opacity-90"
+                  style={{ borderColor: `color-mix(in srgb, ${color} 35%, transparent)`, background: `color-mix(in srgb, ${color} 10%, transparent)` }}
+                >
+                  <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: color }} />
+                  <span className="text-[12.5px] font-semibold">{tl(a.message)}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* next match hero */}
       <div
         className="relative col-span-full overflow-hidden rounded-2xl border"
@@ -179,8 +226,12 @@ export default function DashboardPage() {
                 </div>
               </div>
               <div className="ml-0 flex flex-col gap-2 sm:ml-[30px]">
-                <Button onClick={handleContinue} className="px-[22px] py-[11px] text-[13.5px]">
-                  {t("startMatch")}
+                <Button
+                  onClick={action.kind === "fixLineup" ? () => router.push("/game/tactics") : handleContinue}
+                  className="px-[22px] py-[11px] text-[13.5px]"
+                  variant={action.kind === "fixLineup" ? "danger" : "primary"}
+                >
+                  {tl(action.label)}
                 </Button>
                 <Button variant="secondary" onClick={() => router.push("/game/tactics")} className="px-[22px] py-[11px] text-[13.5px]">
                   {t("checkTactics")}
@@ -193,61 +244,123 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* season status */}
-      <Tile title={t("seasonStatus")} action={
-        <button onClick={() => router.push("/game/competition")} className="text-[11.5px] font-semibold" style={{ color: "var(--mint)" }}>
-          {t("viewStandings")} →
-        </button>
-      }>
-        <div className="grid grid-cols-4 gap-[10px]">
-          {seasonStats.map((st, i) => (
-            <div key={i} className="rounded-[11px] border px-[10px] py-3 text-center" style={{ borderColor: "var(--border-soft)", background: "var(--panel-2)" }}>
-              <div className="font-display text-[26px] font-bold leading-none" style={{ color: st.color }}>{st.value}</div>
-              <div className="mt-[6px] text-[10.5px]" style={{ color: "var(--muted-2)" }}>{st.label}</div>
-            </div>
-          ))}
-        </div>
-        <div className="mt-4">
-          <div className="mb-[9px] text-[11px]" style={{ color: "var(--muted-2)" }}>{t("recentForm")}</div>
-          <div className="flex gap-[7px]">
-            {recent.length ? recent.map((r, i) => <FormChip key={i} result={r} />) : <span className="text-xs text-soft">-</span>}
+      {/* left column */}
+      <div className="flex flex-col gap-[18px]">
+        <Tile title={t("seasonStatus")} action={
+          <button onClick={() => router.push("/game/competition")} className="text-[11.5px] font-semibold" style={{ color: "var(--mint)" }}>
+            {t("viewStandings")} →
+          </button>
+        }>
+          <div className="grid grid-cols-4 gap-[10px]">
+            {seasonStats.map((st, i) => (
+              <div key={i} className="rounded-[11px] border px-[10px] py-3 text-center" style={{ borderColor: "var(--border-soft)", background: "var(--panel-2)" }}>
+                <div className="font-display text-[26px] font-bold leading-none" style={{ color: st.color }}>{st.value}</div>
+                <div className="mt-[6px] text-[10.5px]" style={{ color: "var(--muted-2)" }}>{st.label}</div>
+              </div>
+            ))}
           </div>
-        </div>
-      </Tile>
-
-      {/* inbox */}
-      <Tile title={t("inbox")} action={
-        unreadCount > 0 ? (
-          <span className="rounded-[9px] px-2 py-0.5 text-[10px] font-bold" style={{ background: "var(--red)", color: "#fff" }}>
-            {unreadCount} {t("newCount")}
-          </span>
-        ) : null
-      }>
-        <div className="flex flex-col gap-0.5">
-          {inboxItems.length ? inboxItems.map((m) => (
-            <div
-              key={m.id}
-              onClick={() => m.href && router.push(m.href)}
-              className={`flex items-start gap-[11px] rounded-[9px] px-2 py-[11px] ${m.href ? "cursor-pointer hover:bg-white/[0.04]" : ""}`}
-            >
-              <div
-                className="h-[30px] w-[30px] shrink-0 rounded-lg"
-                style={{ background: `color-mix(in srgb, ${m.iconColor} 15%, transparent)` }}
-              />
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-[7px]">
-                  <span className="text-[13px] font-semibold">{m.title}</span>
-                  {m.unread ? <span className="h-1.5 w-1.5 rounded-full" style={{ background: "var(--mint)" }} /> : null}
-                </div>
-                <div className="mt-0.5 text-[11.5px] leading-snug" style={{ color: "var(--muted-2)" }}>{m.body}</div>
-              </div>
-              <div className="whitespace-nowrap text-[10.5px]" style={{ color: "var(--muted-3)" }}>
-                {t("day")} {m.day}
-              </div>
+          <div className="mt-4">
+            <div className="mb-[9px] text-[11px]" style={{ color: "var(--muted-2)" }}>{t("recentForm")}</div>
+            <div className="flex gap-[7px]">
+              {recent.length ? recent.map((r, i) => <FormChip key={i} result={r} />) : <span className="text-xs text-soft">-</span>}
             </div>
-          )) : <p className="text-sm text-soft">{t("noNews")}</p>}
-        </div>
-      </Tile>
+          </div>
+        </Tile>
+
+        <Tile title={t("teamStatus")}>
+          <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3">
+            {metrics.map((m) => (
+              <div key={m.key} className="rounded-[11px] border px-3 py-2.5" style={{ borderColor: "var(--border-soft)", background: "var(--panel-2)" }}>
+                <div className="flex items-center justify-between gap-1.5">
+                  <span className="text-[10.5px]" style={{ color: "var(--muted-2)" }}>{t(METRIC_LABEL_KEY[m.key])}</span>
+                  <span className="font-display text-sm font-bold" style={{ color: m.color }}>
+                    {metricValueText(m, locale)}
+                  </span>
+                </div>
+                <div className="mt-1 text-[10.5px] leading-snug" style={{ color: "var(--muted-3)" }}>{tl(m.phrase)}</div>
+              </div>
+            ))}
+          </div>
+        </Tile>
+      </div>
+
+      {/* right column */}
+      <div className="flex flex-col gap-[18px]">
+        <Tile title={t("todaysTasks")}>
+          <div className="flex flex-col gap-2">
+            {tasks.length ? tasks.map((task) => {
+              const color = severityColor(task.severity);
+              return (
+                <button
+                  key={task.id}
+                  onClick={() => router.push(task.href)}
+                  className="rounded-xl border px-3 py-2.5 text-left hover:border-[color-mix(in_srgb,var(--mint)_35%,transparent)]"
+                  style={{ borderColor: "var(--border-soft)", background: "var(--panel-2)" }}
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ background: color }} />
+                    <span className="text-[12.5px] font-semibold">{tl(task.label)}</span>
+                  </div>
+                  <div className="mt-1 text-[11px]" style={{ color: "var(--muted-2)" }}>{tl(task.reason)}</div>
+                </button>
+              );
+            }) : <p className="text-sm text-soft">{t("noTasks")}</p>}
+          </div>
+        </Tile>
+
+        <Tile title={t("inbox")} action={
+          unreadCount > 0 ? (
+            <span className="rounded-[9px] px-2 py-0.5 text-[10px] font-bold" style={{ background: "var(--red)", color: "#fff" }}>
+              {unreadCount} {t("newCount")}
+            </span>
+          ) : null
+        }>
+          <div className="flex flex-col gap-0.5">
+            {inboxItems.length ? inboxItems.map((m) => (
+              <div
+                key={m.id}
+                onClick={() => m.href && router.push(m.href)}
+                className={`flex items-start gap-[11px] rounded-[9px] px-2 py-[11px] ${m.href ? "cursor-pointer hover:bg-white/[0.04]" : ""}`}
+              >
+                <div
+                  className="h-[30px] w-[30px] shrink-0 rounded-lg"
+                  style={{ background: `color-mix(in srgb, ${m.kind === "press" ? "var(--blue)" : "var(--purple)"} 15%, transparent)` }}
+                />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-[7px]">
+                    <span className="text-[13px] font-semibold">{tl(m.title)}</span>
+                    {m.unread ? <span className="h-1.5 w-1.5 rounded-full" style={{ background: "var(--mint)" }} /> : null}
+                  </div>
+                  <div className="mt-0.5 text-[11.5px] leading-snug" style={{ color: "var(--muted-2)" }}>{m.body ? tl(m.body) : ""}</div>
+                </div>
+                <div className="whitespace-nowrap text-[10.5px]" style={{ color: "var(--muted-3)" }}>
+                  {t("day")} {m.day}
+                </div>
+              </div>
+            )) : <p className="text-sm text-soft">{t("noNews")}</p>}
+          </div>
+        </Tile>
+
+        <Tile title={t("financeSummary")} action={
+          <button onClick={() => router.push("/game/finances")} className="text-[11.5px] font-semibold" style={{ color: "var(--mint)" }}>
+            {t("viewFinances")} →
+          </button>
+        }>
+          <div className="flex flex-col gap-2.5">
+            <div className="flex items-center justify-between">
+              <span className="text-[11.5px]" style={{ color: "var(--muted-2)" }}>{t("balance")}</span>
+              <span className="font-display text-sm font-bold">{formatMoney(finance.balance)}</span>
+            </div>
+            <div className="flex items-center justify-between">
+              <span className="text-[11.5px]" style={{ color: "var(--muted-2)" }}>{t("netWeekly")}</span>
+              <span className="font-display text-sm font-bold" style={{ color: finance.netWeekly >= 0 ? "var(--mint)" : "var(--red)" }}>
+                {finance.netWeekly >= 0 ? "+" : ""}{formatMoney(finance.netWeekly)}
+              </span>
+            </div>
+            <StatusBadge tone={finance.riskTone}>{tl(finance.explanation)}</StatusBadge>
+          </div>
+        </Tile>
+      </div>
 
       {/* top performers */}
       <Tile title={t("topPerformers")} className="col-span-full" action={

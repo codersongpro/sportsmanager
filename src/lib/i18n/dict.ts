@@ -243,6 +243,18 @@ export const dict = {
   rating: { ko: "평점", en: "Rating" },
   newCount: { ko: "건 신규", en: "new" },
   noFixturesLeft: { ko: "남은 경기가 없습니다", en: "No fixtures remaining" },
+  urgentAlerts: { ko: "긴급 알림", en: "Urgent Alerts" },
+  teamStatus: { ko: "팀 상태", en: "Team Status" },
+  metricMorale: { ko: "사기", en: "Morale" },
+  metricCondition: { ko: "체력", en: "Condition" },
+  metricForm: { ko: "최근 폼", en: "Recent Form" },
+  metricRank: { ko: "순위", en: "Rank" },
+  metricReputation: { ko: "감독 평판", en: "Reputation" },
+  todaysTasks: { ko: "오늘의 할 일", en: "Today's Tasks" },
+  noTasks: { ko: "처리할 작업이 없습니다", en: "Nothing needs your attention" },
+  financeSummary: { ko: "재정 요약", en: "Finance Summary" },
+  netWeekly: { ko: "주간 순수익", en: "Net Weekly" },
+  viewFinances: { ko: "재정 보기", en: "View Finances" },
 
   // squad page (design system)
   all: { ko: "전체", en: "All" },
