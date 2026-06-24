@@ -10,6 +10,17 @@ import type {
 import type { RNG } from "@/lib/sim/rng";
 import { POSITION_GROUP } from "./constants";
 import { calcOverall } from "./ratings";
+import {
+  isCrossFlavor,
+  isThroughFlavor,
+  mentalityAttackMult,
+  mentalityDefenseMult,
+  pressingDisruptionMult,
+  pressingFoulMult,
+  tempoAttackMult,
+  widthCrossMult,
+  widthThroughMult,
+} from "./tactics";
 
 // ---------------------------------------------------------------------------
 // Team strength model (drives results from real player attributes)
@@ -31,6 +42,11 @@ interface TeamPower {
   pacey: Pool;
   crossers: Pool;
   aggression: number;
+  tempo: number;
+  pressingFoul: number;
+  pressDisruption: number;
+  widthCross: number;
+  widthThrough: number;
 }
 
 function poisson(rng: RNG, lambda: number): number {
@@ -42,13 +58,6 @@ function poisson(rng: RNG, lambda: number): number {
     p *= rng.next();
   } while (p > L);
   return k - 1;
-}
-
-function mentalityAtt(m: MatchTeam): number {
-  return m.club.tactics.mentality === "attacking" ? 1.12 : m.club.tactics.mentality === "defensive" ? 0.9 : 1;
-}
-function mentalityDef(m: MatchTeam): number {
-  return m.club.tactics.mentality === "attacking" ? 0.92 : m.club.tactics.mentality === "defensive" ? 1.12 : 1;
 }
 
 function teamPower(team: MatchTeam): TeamPower {
@@ -127,17 +136,23 @@ function teamPower(team: MatchTeam): TeamPower {
     crossers.weights.push(...scorers.players.map(() => 1));
   }
 
+  const tactics = team.club.tactics;
   return {
     gk,
     gkPlayer,
-    attackPower: (attack * 0.5 + midfield * 0.35 + 8) * mentalityAtt(team),
-    defPower: (defense * 0.55 + midfield * 0.25 + gk * 0.2 + 8) * mentalityDef(team),
+    attackPower: (attack * 0.5 + midfield * 0.35 + 8) * mentalityAttackMult(tactics.mentality) * tempoAttackMult(tactics.tempo),
+    defPower: (defense * 0.55 + midfield * 0.25 + gk * 0.2 + 8) * mentalityDefenseMult(tactics.mentality),
     scorers,
     assisters,
     foulers,
     pacey,
     crossers,
     aggression: team.lineup.length ? aggrSum / team.lineup.length : 45,
+    tempo: tempoAttackMult(tactics.tempo),
+    pressingFoul: pressingFoulMult(tactics.pressing),
+    pressDisruption: pressingDisruptionMult(tactics.pressing),
+    widthCross: widthCrossMult(tactics.width),
+    widthThrough: widthThroughMult(tactics.width),
   };
 }
 
@@ -225,6 +240,20 @@ function phrase(rng: RNG, pool: Pool2): LocalizedText {
   return pool[rng.int(0, pool.length - 1)];
 }
 
+const CROSS_FLAVOR_ITEMS = EXTRA.filter((e) => isCrossFlavor(e.type));
+const THROUGH_FLAVOR_ITEMS = EXTRA.filter((e) => isThroughFlavor(e.type));
+
+/** Wide teams skew toward crossing flavor events, narrow teams toward central/through-ball flavor. */
+function pickFlavorEvent(rng: RNG, power: TeamPower): { type: string; detail: Pool2 } {
+  if (power.widthCross > power.widthThrough && rng.bool(0.4)) {
+    return CROSS_FLAVOR_ITEMS[rng.int(0, CROSS_FLAVOR_ITEMS.length - 1)];
+  }
+  if (power.widthThrough > power.widthCross && rng.bool(0.4)) {
+    return THROUGH_FLAVOR_ITEMS[rng.int(0, THROUGH_FLAVOR_ITEMS.length - 1)];
+  }
+  return EXTRA[rng.int(0, EXTRA.length - 1)];
+}
+
 // ---------------------------------------------------------------------------
 // Picking players by weighted attribute pools
 // ---------------------------------------------------------------------------
@@ -280,7 +309,7 @@ function genAttack(
   const { rng, events } = ctx;
   const zone = attackerZone(attackingHome);
 
-  const shots = Math.max(goals, Math.round(xg * 5 + rng.range(1, 5)));
+  const shots = Math.max(goals, Math.round(xg * 5 * att.tempo + rng.range(1, 5)));
   const onTarget = Math.max(goals, Math.min(shots, Math.round(xg * 2.2 + rng.range(0, 2))));
   const saved = onTarget - goals;
   const offTarget = shots - onTarget;
@@ -333,8 +362,8 @@ function genAttack(
     });
   }
 
-  // corners
-  const corners = Math.min(5, poisson(rng, 1 + xg));
+  // corners (wide play generates more crossing/corner situations)
+  const corners = Math.min(5, poisson(rng, (1 + xg) * att.widthCross));
   for (let i = 0; i < corners; i++) {
     const taker = pick(rng, att.crossers);
     events.push({
@@ -381,7 +410,7 @@ function genAttack(
 /** Fouls, cards and injuries committed by a team. */
 function genDiscipline(ctx: Ctx, power: TeamPower, clubId: string, loMin: number, hiMin: number) {
   const { rng, events } = ctx;
-  const fouls = Math.min(5, poisson(rng, 1.4 + (power.aggression - 45) / 45));
+  const fouls = Math.min(5, poisson(rng, (1.4 + (power.aggression - 45) / 45) * power.pressingFoul));
   let cards = 0;
   for (let i = 0; i < fouls; i++) {
     const fouler = pick(rng, power.foulers);
@@ -484,8 +513,8 @@ export function simulateMatch(home: MatchTeam, away: MatchTeam, rng: RNG, opts: 
   const hp = teamPower(home);
   const ap = teamPower(away);
 
-  let homeXg = expectedGoals(hp, ap);
-  let awayXg = expectedGoals(ap, hp);
+  let homeXg = expectedGoals(hp, ap) * ap.pressDisruption;
+  let awayXg = expectedGoals(ap, hp) * hp.pressDisruption;
   if (!neutral) {
     homeXg *= 1.12;
     awayXg *= 0.95;
@@ -513,7 +542,7 @@ export function simulateMatch(home: MatchTeam, away: MatchTeam, rng: RNG, opts: 
     const homeEvent = rng.bool(0.5);
     const power = homeEvent ? hp : ap;
     const clubId = homeEvent ? home.club.id : away.club.id;
-    const item = EXTRA[rng.int(0, EXTRA.length - 1)];
+    const item = pickFlavorEvent(rng, power);
     const pool = rng.bool(0.45) ? power.assisters : rng.bool(0.5) ? power.pacey : power.crossers;
     const p = pick(rng, pool);
     ctx.events.push({

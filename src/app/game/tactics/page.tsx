@@ -28,7 +28,7 @@ function shortName(p: Player): string {
 }
 
 export default function TacticsPage() {
-  const { t } = useI18n();
+  const { t, tl } = useI18n();
   const state = useGameStore((s) => s.state);
   const setTactics = useGameStore((s) => s.setTactics);
   const setLineup = useGameStore((s) => s.setLineup);
@@ -39,6 +39,7 @@ export default function TacticsPage() {
   const myClub = state.clubs[state.manager.clubId];
   const tactics = myClub.tactics;
   const formation = sport.formations.find((f) => f.key === tactics.formation) ?? sport.formations[0];
+  const tags = sport.tacticTags?.(tactics) ?? [];
   const validation = sport.validateLineup(myClub, state.players);
   const filled = tactics.lineup.filter((id) => id && state.players[id]).length;
   const required = formation.slots.length;
@@ -137,6 +138,19 @@ export default function TacticsPage() {
               <InstrField label={t("pressing")} value={tactics.pressing} options={PRESSING} onChange={(v) => setTactics({ pressing: v as Tactics["pressing"] })} t={t} color={ACCENTS[2]} />
               <InstrField label={t("width")} value={tactics.width} options={WIDTH} onChange={(v) => setTactics({ width: v as Tactics["width"] })} t={t} color={ACCENTS[3]} />
             </div>
+            {tags.length > 0 && (
+              <div className="mt-3.5 flex flex-wrap gap-1.5 border-t pt-3.5" style={{ borderColor: "var(--border-soft)" }}>
+                {tags.map((tag, i) => (
+                  <span
+                    key={i}
+                    className="rounded-full px-2.5 py-1 text-[10.5px] font-semibold"
+                    style={{ color: "var(--muted-2)", background: "rgba(255,255,255,.05)" }}
+                  >
+                    {tl(tag)}
+                  </span>
+                ))}
+              </div>
+            )}
           </Tile>
 
           <div className="rounded-2xl border p-5" style={{ borderColor: "var(--line)", background: "linear-gradient(160deg,#14241c,#131822)" }}>

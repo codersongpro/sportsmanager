@@ -14,6 +14,7 @@ import { ageAndDevelop, weeklyTrain } from "./growth";
 import { simulateMatch } from "./sim";
 import { autoPickLineup, validateLineup } from "./lineup";
 import { soccerPresentation } from "./match";
+import { tacticTags } from "./tactics";
 
 export function defaultSoccerTactics(): Tactics {
   return {
@@ -42,6 +43,7 @@ export const soccerModule: SportModule = {
   playstylesFor: playstylesForPosition,
   calcOverall,
   defaultTactics: defaultSoccerTactics,
+  tacticTags,
   autoPickLineup,
   validateLineup,
   simulateMatch,

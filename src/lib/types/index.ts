@@ -403,6 +403,8 @@ export interface SportModule {
   /** overall ability, optionally rated for a specific position */
   calcOverall(player: Player, position?: PositionKey): number;
   defaultTactics(): Tactics;
+  /** short bilingual tags describing what the current tactic combination does, derived from the same rules the sim uses */
+  tacticTags?(tactics: Tactics): LocalizedText[];
   /** picks the best available XI for a club into tactics.lineup */
   autoPickLineup(club: Club, players: Record<string, Player>): { lineup: string[]; bench: string[] };
   validateLineup(club: Club, players: Record<string, Player>): ValidationResult;
