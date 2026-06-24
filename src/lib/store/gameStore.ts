@@ -5,6 +5,7 @@ import { createNewGame, type NewGameOptions } from "@/lib/engine/newGame";
 import { continueGame, rolloverSeason } from "@/lib/engine/season";
 import { advanceActiveMatch } from "@/lib/engine/activeMatch";
 import { createWorldCup, simulateWorldCupRound } from "@/lib/engine/worldcup";
+import { TEAM_TALK_OPTIONS } from "@/lib/data/teamTalks";
 import { saveGame } from "./persistence";
 
 interface GameStoreState {
@@ -15,6 +16,8 @@ interface GameStoreState {
   startNewGame: (opts: NewGameOptions) => void;
   continue: () => void;
   playNextSegment: () => void;
+  makeSubstitution: (outId: string, inId: string) => TransferResult;
+  giveTeamTalk: (optionKey: string) => TransferResult;
   rolloverSeason: () => void;
   setLocale: (locale: Locale) => void;
   setTrainingFocus: (key: string) => void;
@@ -65,15 +68,10 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
     const cur = get().state;
     if (!cur) return;
     const sport = getSport(cur.sportId);
-    let next = continueGame(cur, sport);
-    // The engine pauses on the user's own fixture (`activeMatch`), so the
-    // Match Center can step through it segment by segment. Until that UI
-    // exists, auto-play it through here to keep "continue" producing a full
-    // result in one click, same as before segmentation was introduced.
-    let guard = 0;
-    while (next.activeMatch && !next.activeMatch.finished && guard++ < 8) {
-      next = advanceActiveMatch(next, sport);
-    }
+    // The engine pauses here when it reaches the user's own fixture
+    // (`activeMatch`); the Match Center page then steps through it segment
+    // by segment via `playNextSegment`.
+    const next = continueGame(cur, sport);
     set({ state: next });
     persist(next);
   },
@@ -85,6 +83,56 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
     const next = advanceActiveMatch(cur, sport);
     set({ state: next });
     persist(next);
+  },
+
+  makeSubstitution: (outId, inId) => {
+    const fail = (ko: string, en: string): TransferResult => ({ ok: false, message: { ko, en } });
+    const cur = get().state;
+    if (!cur) return fail("", "");
+    const active = cur.activeMatch;
+    if (!active || active.finished) return fail("진행 중인 경기가 없습니다", "No match in progress");
+    if (active.subsMade >= 5) return fail("교체 횟수를 모두 사용했습니다", "No substitutions remaining");
+    if (active.subbedOffIds.includes(outId)) return fail("이미 교체되어 나간 선수입니다", "That player has already been substituted off");
+
+    const myClub = cur.clubs[cur.manager.clubId];
+    if (!myClub.tactics.lineup.includes(outId)) return fail("선발 명단에 없는 선수입니다", "That player isn't in the lineup");
+    if (!myClub.tactics.bench.includes(inId) || active.subbedOffIds.includes(inId)) {
+      return fail("교체로 투입할 수 없는 선수입니다", "That player can't be brought on");
+    }
+
+    const next: GameState = structuredClone(cur);
+    const club = next.clubs[cur.manager.clubId];
+    club.tactics.lineup = club.tactics.lineup.map((id) => (id === outId ? inId : id));
+    club.tactics.bench = club.tactics.bench.filter((id) => id !== inId);
+    next.activeMatch!.subsMade += 1;
+    next.activeMatch!.subbedOffIds = [...next.activeMatch!.subbedOffIds, outId];
+    next.updatedAt = Date.now();
+    set({ state: next });
+    persist(next);
+    return { ok: true, message: { ko: "교체를 완료했습니다", en: "Substitution made" } };
+  },
+
+  giveTeamTalk: (optionKey) => {
+    const fail = (ko: string, en: string): TransferResult => ({ ok: false, message: { ko, en } });
+    const cur = get().state;
+    if (!cur) return fail("", "");
+    const active = cur.activeMatch;
+    if (!active || active.finished) return fail("진행 중인 경기가 없습니다", "No match in progress");
+    if (active.teamTalkGiven) return fail("이미 팀토크를 진행했습니다", "You've already given a team talk this match");
+    const option = TEAM_TALK_OPTIONS.find((o) => o.key === optionKey);
+    if (!option) return fail("알 수 없는 선택지입니다", "Unknown team talk option");
+
+    const next: GameState = structuredClone(cur);
+    const myClub = next.clubs[next.manager.clubId];
+    for (const id of myClub.tactics.lineup) {
+      const p = next.players[id];
+      if (p) p.morale = clamp(p.morale + option.moraleDelta, 0, 100);
+    }
+    next.activeMatch!.teamTalkGiven = true;
+    next.updatedAt = Date.now();
+    set({ state: next });
+    persist(next);
+    return { ok: true, message: option.label };
   },
 
   rolloverSeason: () => {

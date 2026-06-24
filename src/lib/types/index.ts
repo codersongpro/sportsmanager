@@ -178,6 +178,12 @@ export interface ActiveMatchState {
   segments: { kind: MatchSegmentKind; result: MatchSegmentResult }[];
   /** populated once `finished` is true */
   finalResult?: MatchResult;
+  /** how many of the user's substitutions have been used this match (max 5) */
+  subsMade: number;
+  /** player ids the user has substituted off; they can't be brought back on */
+  subbedOffIds: string[];
+  /** whether the user has already used their one halftime team talk */
+  teamTalkGiven: boolean;
 }
 
 // ---------------------------------------------------------------------------

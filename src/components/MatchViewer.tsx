@@ -2,28 +2,15 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import type { Club, LocalizedText, MatchEvent, MatchPresentation, MatchResult, Player, SportId, Tactics } from "@/lib/types";
+import type { Club, LocalizedText, MatchEvent, MatchPresentation, MatchResult, Player, SportId } from "@/lib/types";
 import { useI18n } from "@/lib/i18n/I18nProvider";
 import { getSport } from "@/lib/sports";
-import { progressPerSecond } from "@/lib/sports/playback";
-import { useGameStore } from "@/lib/store/gameStore";
+import { feedToneRankFloor, momentumBuckets, progressPerSecond, toneRank } from "@/lib/sports/playback";
 import { playerDisplayName, clubDisplayName } from "@/lib/utils/format";
 import { Avatar, Tile, conditionColor, ratingColor } from "./Tile";
 import { Venue, VenueSurface, venueFrameClass } from "./Venue";
 
 const SPEEDS = [0.5, 1, 2, 4, 8, 16];
-const MENTALITY: Tactics["mentality"][] = ["defensive", "balanced", "attacking"];
-const TEMPO: Tactics["tempo"][] = ["slow", "normal", "fast"];
-const PRESSING: Tactics["pressing"][] = ["low", "medium", "high"];
-const WIDTH: Tactics["width"][] = ["narrow", "normal", "wide"];
-const TACTIC_PRESETS: { name: string; patch: Partial<Tactics> }[] = [
-  { name: "점유 안정", patch: { mentality: "balanced", tempo: "slow", pressing: "medium", width: "narrow" } },
-  { name: "강한 압박", patch: { mentality: "attacking", tempo: "fast", pressing: "high", width: "normal" } },
-  { name: "측면 공략", patch: { mentality: "attacking", tempo: "normal", pressing: "medium", width: "wide" } },
-  { name: "역습 대기", patch: { mentality: "defensive", tempo: "fast", pressing: "low", width: "wide" } },
-  { name: "잠그기", patch: { mentality: "defensive", tempo: "slow", pressing: "low", width: "narrow" } },
-  { name: "균형 운영", patch: { mentality: "balanced", tempo: "normal", pressing: "medium", width: "normal" } },
-];
 
 interface Props {
   result: MatchResult;
@@ -40,7 +27,7 @@ interface SlotPlayer {
   player?: Player;
 }
 
-type FeedItem =
+export type FeedItem =
   | { kind: "event"; minute: number; ev: MatchEvent }
   | { kind: "marker"; minute: number; label: LocalizedText };
 
@@ -65,36 +52,7 @@ function toneAccent(tone?: string): string {
   }
 }
 
-/** Weight used only for the momentum widget below — separate from the protected toneRank() filter. */
-function eventWeight(tone?: string): number {
-  switch (tone) {
-    case "score": return 3;
-    case "danger": return 2;
-    case "warn": return 1;
-    case "info": return 1;
-    default: return 0;
-  }
-}
-
-function toneRank(tone?: string): number {
-  switch (tone) {
-    case "score":
-    case "danger": return 3;
-    case "warn": return 2;
-    case "info": return 1;
-    default: return 0;
-  }
-}
-
-/** higher playback speed thins out lower-priority flavor events so the feed stays readable */
-function feedToneRankFloor(speed: number): number {
-  if (speed <= 2) return 0;
-  if (speed <= 4) return 1;
-  if (speed <= 8) return 2;
-  return 3;
-}
-
-function shortName(p: Player): string {
+export function shortName(p: Player): string {
   if (p.nameKo) return p.nameKo;
   const parts = p.name.split(" ");
   return parts[parts.length - 1];
@@ -102,10 +60,6 @@ function shortName(p: Player): string {
 
 export function MatchViewer({ result, home, away, players, sportId }: Props) {
   const { t, tl } = useI18n();
-  const gameState = useGameStore((s) => s.state);
-  const setTactics = useGameStore((s) => s.setTactics);
-  const setLineup = useGameStore((s) => s.setLineup);
-  const autoPickLineup = useGameStore((s) => s.autoPickLineup);
   const sport = getSport(sportId);
   const pres = sport.matchPresentation;
 
@@ -128,13 +82,6 @@ export function MatchViewer({ result, home, away, players, sportId }: Props) {
   const [playing, setPlaying] = useState(true);
   const [speed, setSpeed] = useState(1);
   const [activeBreak, setActiveBreak] = useState<LocalizedText | null>(null);
-  const [activeBreakKind, setActiveBreakKind] = useState<"scheduled" | "timeout" | "substitution" | null>(null);
-  const [timeoutsLeft, setTimeoutsLeft] = useState(3);
-  const managedClub = gameState?.manager.clubId === home.id ? home : gameState?.manager.clubId === away.id ? away : null;
-  const canAdjustTactics = Boolean(activeBreak && managedClub && activeBreakKind !== "substitution");
-  const canManagePlayers = Boolean(activeBreak && managedClub);
-  const canCallTimeout = Boolean(managedClub && sportId !== "soccer" && clock < endMinute && timeoutsLeft > 0);
-  const canRequestSubstitution = Boolean(managedClub && clock < endMinute);
 
   const clockRef = useRef(0);
   const lastRef = useRef<number | null>(null);
@@ -160,14 +107,10 @@ export function MatchViewer({ result, home, away, players, sportId }: Props) {
           setClock(nc);
           setPlaying(false);
           setActiveBreak(b.label);
-          setActiveBreakKind("scheduled");
-          if (!managedClub) {
-            breakTimer.current = window.setTimeout(() => {
-              setActiveBreak(null);
-              setActiveBreakKind(null);
-              setPlaying(true);
-            }, 2200);
-          }
+          breakTimer.current = window.setTimeout(() => {
+            setActiveBreak(null);
+            setPlaying(true);
+          }, 2200);
           return;
         }
       }
@@ -187,7 +130,7 @@ export function MatchViewer({ result, home, away, players, sportId }: Props) {
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [playing, speed, endMinute, pres, managedClub]);
+  }, [playing, speed, endMinute, pres]);
 
   useEffect(() => () => { if (breakTimer.current) clearTimeout(breakTimer.current); }, []);
 
@@ -197,7 +140,6 @@ export function MatchViewer({ result, home, away, players, sportId }: Props) {
       breakTimer.current = null;
     }
     setActiveBreak(null);
-    setActiveBreakKind(null);
   }
   function togglePlay() {
     clearBreak();
@@ -222,20 +164,6 @@ export function MatchViewer({ result, home, away, players, sportId }: Props) {
     setClock(endMinute);
     setPlaying(false);
   }
-  function callTimeout() {
-    if (!managedClub || sportId === "soccer" || timeoutsLeft <= 0 || clockRef.current >= endMinute) return;
-    setTimeoutsLeft((n) => Math.max(0, n - 1));
-    setPlaying(false);
-    setActiveBreak({ ko: "작전타임", en: "Timeout" });
-    setActiveBreakKind("timeout");
-  }
-  function requestSubstitution() {
-    if (!managedClub || clockRef.current >= endMinute) return;
-    setPlaying(false);
-    setActiveBreak({ ko: "선수 교체", en: "Substitution" });
-    setActiveBreakKind("substitution");
-  }
-
   const finished = clock >= endMinute;
   const revealed = useMemo(() => result.events.filter((e) => e.minute <= clock), [result.events, clock]);
   const homeScore = pres.scoreOf(revealed, home.id);
@@ -243,26 +171,10 @@ export function MatchViewer({ result, home, away, players, sportId }: Props) {
   const liveStats = pres.liveStats(revealed, home.id, away.id);
   const pens = revealed.find((e) => e.type === "penalty_shootout");
 
-  const BUCKETS = 12;
-  const momentum = useMemo(() => {
-    const width = endMinute / BUCKETS;
-    return Array.from({ length: BUCKETS }, (_, i) => {
-      const from = i * width;
-      const to = from + width;
-      if (from >= clock) return { homePct: null as number | null };
-      let homeW = 0;
-      let awayW = 0;
-      for (const ev of revealed) {
-        if (ev.minute < from || ev.minute >= to) continue;
-        const w = eventWeight(pres.eventMeta(ev.type).tone);
-        if (w === 0) continue;
-        if (ev.clubId === home.id) homeW += w;
-        else if (ev.clubId === away.id) awayW += w;
-      }
-      const total = homeW + awayW;
-      return { homePct: total === 0 ? 50 : Math.round((homeW / total) * 100) };
-    });
-  }, [revealed, endMinute, clock, home.id, away.id, pres]);
+  const momentum = useMemo(
+    () => momentumBuckets(revealed, clock, endMinute, home.id, away.id, pres),
+    [revealed, endMinute, clock, home.id, away.id, pres],
+  );
 
   const ratingOf = (pid: string): number => {
     const final = result.playerRatings[pid] ?? 6.6;
@@ -387,26 +299,6 @@ export function MatchViewer({ result, home, away, players, sportId }: Props) {
               >
                 ⏭ {t("skipToEnd")}
               </button>
-              {managedClub && (
-                <button
-                  onClick={requestSubstitution}
-                  disabled={!canRequestSubstitution}
-                  className="rounded-lg border px-3 py-1.5 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-40"
-                  style={{ borderColor: "color-mix(in srgb, var(--mint) 35%, transparent)", color: "var(--mint)" }}
-                >
-                  ⇄ 교체
-                </button>
-              )}
-              {sportId !== "soccer" && managedClub && (
-                <button
-                  onClick={callTimeout}
-                  disabled={!canCallTimeout}
-                  className="rounded-lg border px-3 py-1.5 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-40"
-                  style={{ borderColor: "color-mix(in srgb, var(--gold) 40%, transparent)", color: "var(--gold)" }}
-                >
-                  ⏱ 작전타임 {timeoutsLeft}
-                </button>
-              )}
               <div className="ml-auto flex items-center gap-1">
                 <span className="mr-1 text-xs" style={{ color: "var(--muted-2)" }}>{t("speed")}</span>
                 {SPEEDS.map((s) => (
@@ -519,34 +411,6 @@ export function MatchViewer({ result, home, away, players, sportId }: Props) {
                   ))}
                 </div>
               )}
-              {canAdjustTactics && managedClub && (
-                <InlineTacticsPanel
-                  tactics={managedClub.tactics}
-                  formations={sport.formations.map((f) => f.key)}
-                  club={managedClub}
-                  players={players}
-                  calcOverall={sport.calcOverall}
-                  allowTactics={canAdjustTactics}
-                  t={t}
-                  onPatch={setTactics}
-                  onAutoPick={autoPickLineup}
-                  onLineupChange={setLineup}
-                />
-              )}
-              {!canAdjustTactics && canManagePlayers && managedClub && (
-                <InlineTacticsPanel
-                  tactics={managedClub.tactics}
-                  formations={sport.formations.map((f) => f.key)}
-                  club={managedClub}
-                  players={players}
-                  calcOverall={sport.calcOverall}
-                  allowTactics={false}
-                  t={t}
-                  onPatch={setTactics}
-                  onAutoPick={autoPickLineup}
-                  onLineupChange={setLineup}
-                />
-              )}
               <h4 className="mb-1.5 text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--muted-3)" }}>{t("ratings")}</h4>
               <div className="flex flex-col gap-1">
                 {topPerformers.map(({ p, r }) => (
@@ -572,7 +436,7 @@ export function MatchViewer({ result, home, away, players, sportId }: Props) {
   );
 }
 
-function PlayerNameLink({ player, className = "font-medium text-foreground hover:text-[var(--accent)]", label }: { player: Player; className?: string; label?: string }) {
+export function PlayerNameLink({ player, className = "font-medium text-foreground hover:text-[var(--accent)]", label }: { player: Player; className?: string; label?: string }) {
   return (
     <Link href={`/game/squad/${player.id}`} className={className} title={playerDisplayName(player)}>
       {label ?? playerDisplayName(player)}
@@ -580,7 +444,7 @@ function PlayerNameLink({ player, className = "font-medium text-foreground hover
   );
 }
 
-function RatingsPanel({ title, ratings }: { title: string; ratings: { p: Player; r: number }[] }) {
+export function RatingsPanel({ title, ratings }: { title: string; ratings: { p: Player; r: number }[] }) {
   return (
     <Tile title={title}>
       <div className="flex flex-col gap-1.5">
@@ -595,7 +459,7 @@ function RatingsPanel({ title, ratings }: { title: string; ratings: { p: Player;
   );
 }
 
-function BroadcastFeed({
+export function BroadcastFeed({
   title,
   feed,
   players,
@@ -663,7 +527,7 @@ function BroadcastFeed({
   );
 }
 
-function MomentumBar({
+export function MomentumBar({
   buckets,
   homeShort,
   awayShort,
@@ -748,7 +612,7 @@ function FormationTile({
   );
 }
 
-function StatRow({ label, h, a, suffix = "" }: { label: string; h: number; a: number; suffix?: string }) {
+export function StatRow({ label, h, a, suffix = "" }: { label: string; h: number; a: number; suffix?: string }) {
   const total = h + a || 1;
   return (
     <div>
@@ -765,7 +629,7 @@ function StatRow({ label, h, a, suffix = "" }: { label: string; h: number; a: nu
   );
 }
 
-function MiniStat({ label, v }: { label: string; v: string }) {
+export function MiniStat({ label, v }: { label: string; v: string }) {
   return (
     <div className="rounded-lg border py-1.5" style={{ borderColor: "var(--border-soft)" }}>
       <div className="font-display text-sm font-bold tabular-nums">{v}</div>
@@ -774,139 +638,3 @@ function MiniStat({ label, v }: { label: string; v: string }) {
   );
 }
 
-function InlineTacticsPanel({
-  tactics,
-  formations,
-  club,
-  players,
-  calcOverall,
-  allowTactics,
-  t,
-  onPatch,
-  onAutoPick,
-  onLineupChange,
-}: {
-  tactics: Tactics;
-  formations: string[];
-  club: Club;
-  players: Record<string, Player>;
-  calcOverall: (player: Player) => number;
-  allowTactics: boolean;
-  t: (k: never) => string;
-  onPatch: (patch: Partial<Tactics>) => void;
-  onAutoPick: () => void;
-  onLineupChange: (lineup: string[], bench: string[]) => void;
-}) {
-  const lineupIds = tactics.lineup.filter((id) => players[id]);
-  const benchIds = tactics.bench.filter((id) => players[id] && !lineupIds.includes(id));
-  const fallbackBenchIds = club.squad.filter((id) => players[id] && !lineupIds.includes(id) && !benchIds.includes(id));
-  const selectableBenchIds = benchIds.length > 0 ? benchIds : fallbackBenchIds;
-  const [outId, setOutId] = useState(lineupIds[0] ?? "");
-  const [inId, setInId] = useState(selectableBenchIds[0] ?? "");
-  const selectedOutId = lineupIds.includes(outId) ? outId : lineupIds[0] ?? "";
-  const selectedInId = selectableBenchIds.includes(inId) ? inId : selectableBenchIds[0] ?? "";
-
-  function labelFor(id: string) {
-    const player = players[id];
-    if (!player) return id;
-    return `${playerDisplayName(player)} · ${player.positions[0]} · ${calcOverall(player)}`;
-  }
-
-  function applySubstitution() {
-    if (!selectedOutId || !selectedInId || selectedOutId === selectedInId || !lineupIds.includes(selectedOutId)) return;
-    const nextLineup = tactics.lineup.map((id) => (id === selectedOutId ? selectedInId : id));
-    const nextBench = Array.from(new Set([...tactics.bench.filter((id) => id !== selectedInId), selectedOutId]))
-      .filter((id) => players[id] && !nextLineup.includes(id));
-    onLineupChange(nextLineup, nextBench);
-  }
-
-  return (
-    <div className="mb-3 rounded-lg border p-3" style={{ borderColor: "var(--border-soft)" }}>
-      {allowTactics && (
-        <>
-          <div className="mb-2 flex items-center justify-between gap-2">
-            <h4 className="text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--muted-3)" }}>{t("tactics" as never)}</h4>
-            <button
-              onClick={onAutoPick}
-              className="rounded-md px-2 py-1 text-xs font-semibold"
-              style={{ color: "var(--muted-2)", background: "rgba(255,255,255,.05)" }}
-            >
-              {t("autoPick" as never)}
-            </button>
-          </div>
-          <div className="mb-2 grid grid-cols-2 gap-1.5">
-            {TACTIC_PRESETS.map((preset) => (
-              <button
-                key={preset.name}
-                onClick={() => onPatch(preset.patch)}
-                className="rounded-md px-2 py-1 text-xs font-semibold"
-                style={{ color: "var(--muted-2)", background: "rgba(255,255,255,.05)" }}
-              >
-                {preset.name}
-              </button>
-            ))}
-          </div>
-          <div className="grid gap-2 sm:grid-cols-2">
-            <BreakSelect label={t("formation" as never)} value={tactics.formation} options={formations} onChange={(formation) => onPatch({ formation })} />
-            <BreakSelect label={t("mentality" as never)} value={tactics.mentality} options={MENTALITY} onChange={(mentality) => onPatch({ mentality: mentality as Tactics["mentality"] })} t={t} />
-            <BreakSelect label={t("tempo" as never)} value={tactics.tempo} options={TEMPO} onChange={(tempo) => onPatch({ tempo: tempo as Tactics["tempo"] })} t={t} />
-            <BreakSelect label={t("pressing" as never)} value={tactics.pressing} options={PRESSING} onChange={(pressing) => onPatch({ pressing: pressing as Tactics["pressing"] })} t={t} />
-            <BreakSelect label={t("width" as never)} value={tactics.width} options={WIDTH} onChange={(width) => onPatch({ width: width as Tactics["width"] })} t={t} />
-          </div>
-        </>
-      )}
-      <div className={allowTactics ? "mt-3 border-t pt-3" : ""} style={allowTactics ? { borderColor: "var(--border-soft)" } : undefined}>
-        <div className="mb-2 flex items-center justify-between gap-2">
-          <h4 className="text-xs font-semibold uppercase tracking-wide" style={{ color: "var(--muted-3)" }}>선수 교체</h4>
-          <span className="text-[11px]" style={{ color: "var(--muted-2)" }}>라인업 {lineupIds.length}명 · 후보 {selectableBenchIds.length}명</span>
-        </div>
-        <div className="grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
-          <BreakSelect label="OUT" value={selectedOutId} options={lineupIds} onChange={setOutId} formatter={labelFor} />
-          <BreakSelect label="IN" value={selectedInId} options={selectableBenchIds} onChange={setInId} formatter={labelFor} />
-          <button
-            onClick={applySubstitution}
-            disabled={!selectedOutId || !selectedInId || selectedOutId === selectedInId}
-            className="self-end rounded-md px-3 py-1.5 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-40"
-            style={{ color: "#06140e", background: "var(--mint)" }}
-          >
-            교체 적용
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function BreakSelect({
-  label,
-  value,
-  options,
-  onChange,
-  t,
-  formatter,
-}: {
-  label: string;
-  value: string;
-  options: readonly string[];
-  onChange: (value: string) => void;
-  t?: (k: never) => string;
-  formatter?: (value: string) => string;
-}) {
-  return (
-    <label className="flex flex-col gap-1 text-left text-xs" style={{ color: "var(--muted-2)" }}>
-      {label}
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="rounded-md border bg-transparent px-2 py-1.5 text-sm"
-        style={{ borderColor: "var(--border-soft)", color: "var(--text)" }}
-      >
-        {options.map((option) => (
-          <option key={option} value={option} className="text-black">
-            {formatter ? formatter(option) : t ? t(option as never) : option}
-          </option>
-        ))}
-      </select>
-    </label>
-  );
-}

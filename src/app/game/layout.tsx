@@ -71,7 +71,9 @@ export default function GameLayout({ children }: { children: React.ReactNode }) 
   function handleContinue() {
     continueGame();
     const updated = useGameStore.getState().state;
-    if (updated?.lastResultFixtureId) {
+    if (updated?.activeMatch && !updated.activeMatch.finished) {
+      router.push("/game/match/live");
+    } else if (updated?.lastResultFixtureId) {
       router.push(`/game/match/${updated.lastResultFixtureId}`);
     }
   }

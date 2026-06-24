@@ -20,6 +20,9 @@ export function beginActiveMatch(state: GameState, fixture: Fixture): ActiveMatc
     homeScore: 0,
     awayScore: 0,
     segments: [],
+    subsMade: 0,
+    subbedOffIds: [],
+    teamTalkGiven: false,
   };
 }
 

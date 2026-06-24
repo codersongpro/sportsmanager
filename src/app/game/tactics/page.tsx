@@ -5,6 +5,7 @@ import { useGameStore } from "@/lib/store/gameStore";
 import { getSport } from "@/lib/sports";
 import { playerDisplayName, playerInitials } from "@/lib/utils/format";
 import { Avatar, RatingNumber, StatBar, Tile, conditionColor, groupColor, overallColor } from "@/components/Tile";
+import { TACTIC_PRESETS } from "@/lib/data/tacticPresets";
 import type { Player, Tactics } from "@/lib/types";
 
 const MENTALITY: Tactics["mentality"][] = ["defensive", "balanced", "attacking"];
@@ -12,14 +13,6 @@ const TEMPO: Tactics["tempo"][] = ["slow", "normal", "fast"];
 const PRESSING: Tactics["pressing"][] = ["low", "medium", "high"];
 const WIDTH: Tactics["width"][] = ["narrow", "normal", "wide"];
 const ACCENTS = ["var(--mint)", "var(--blue)", "var(--gold)", "var(--purple)"];
-const TACTIC_PRESETS: { name: string; patch: Partial<Tactics> }[] = [
-  { name: "점유 안정", patch: { mentality: "balanced", tempo: "slow", pressing: "medium", width: "narrow" } },
-  { name: "강한 압박", patch: { mentality: "attacking", tempo: "fast", pressing: "high", width: "normal" } },
-  { name: "측면 공략", patch: { mentality: "attacking", tempo: "normal", pressing: "medium", width: "wide" } },
-  { name: "역습 대기", patch: { mentality: "defensive", tempo: "fast", pressing: "low", width: "wide" } },
-  { name: "잠그기", patch: { mentality: "defensive", tempo: "slow", pressing: "low", width: "narrow" } },
-  { name: "균형 운영", patch: { mentality: "balanced", tempo: "normal", pressing: "medium", width: "normal" } },
-];
 
 function shortName(p: Player): string {
   if (p.nameKo) return p.nameKo;
@@ -123,12 +116,12 @@ export default function TacticsPage() {
             <div className="mb-3.5 grid grid-cols-2 gap-2">
               {TACTIC_PRESETS.map((preset) => (
                 <button
-                  key={preset.name}
+                  key={preset.name.en}
                   onClick={() => setTactics(preset.patch)}
                   className="rounded-lg px-2 py-1.5 text-xs font-semibold"
                   style={{ color: "var(--muted-2)", background: "rgba(255,255,255,.05)" }}
                 >
-                  {preset.name}
+                  {tl(preset.name)}
                 </button>
               ))}
             </div>
