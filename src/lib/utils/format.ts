@@ -13,6 +13,13 @@ export function clubDisplayName(club: Club): string {
   return club.nameKo && club.nameKo !== club.name ? `${club.nameKo} (${club.name})` : club.name;
 }
 
+/** Short on-pitch label (surname / Korean given name) for crowded live-viz markers. */
+export function playerShortName(p: Player): string {
+  if (p.nameKo) return p.nameKo;
+  const parts = p.name.split(" ");
+  return parts[parts.length - 1];
+}
+
 /** Korean first syllable, or initials of latin name parts (max 2 chars). */
 export function playerInitials(player: Player): string {
   const name = player.nameKo || player.name;

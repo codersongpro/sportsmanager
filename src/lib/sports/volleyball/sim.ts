@@ -136,22 +136,22 @@ export function simulateSegment(home: MatchTeam, away: MatchTeam, rng: RNG, kind
     const roll = rng.next();
     if (roll < 0.28) {
       const p = pick(rng, winningSide.spikers);
-      events.push({ minute, type: "spike", clubId: winningClub, playerId: p?.id, detail: phrase(rng, SPIKE), zone: wz });
+      events.push({ minute, type: "spike", clubId: winningClub, playerId: p?.id, detail: phrase(rng, SPIKE), zone: wz, homePoints: hPoints, awayPoints: aPoints });
     } else if (roll < 0.38) {
       const p = pick(rng, winningSide.servers);
-      events.push({ minute, type: "ace", clubId: winningClub, playerId: p?.id, detail: phrase(rng, ACE), zone: wz });
+      events.push({ minute, type: "ace", clubId: winningClub, playerId: p?.id, detail: phrase(rng, ACE), zone: wz, homePoints: hPoints, awayPoints: aPoints });
     } else if (roll < 0.5) {
       const p = pick(rng, winningSide.blockers);
-      events.push({ minute, type: "block", clubId: winningClub, playerId: p?.id, detail: phrase(rng, BLOCK), zone: wz });
+      events.push({ minute, type: "block", clubId: winningClub, playerId: p?.id, detail: phrase(rng, BLOCK), zone: wz, homePoints: hPoints, awayPoints: aPoints });
     } else if (roll < 0.6) {
       const p = pick(rng, losingSide.diggers);
-      events.push({ minute, type: "dig", clubId: losingClub, playerId: p?.id, detail: phrase(rng, DIG), zone: lz });
+      events.push({ minute, type: "dig", clubId: losingClub, playerId: p?.id, detail: phrase(rng, DIG), zone: lz, homePoints: hPoints, awayPoints: aPoints });
     } else if (roll < 0.68) {
-      events.push({ minute, type: "error", clubId: losingClub, detail: phrase(rng, ERR), zone: lz });
+      events.push({ minute, type: "error", clubId: losingClub, detail: phrase(rng, ERR), zone: lz, homePoints: hPoints, awayPoints: aPoints });
     } else if (roll < 0.82) {
       const item = EXTRA[rng.int(0, EXTRA.length - 1)];
       const p = pick(rng, rng.bool(0.5) ? winningSide.spikers : winningSide.servers);
-      events.push({ minute, type: item.type, clubId: winningClub, playerId: p?.id, detail: phrase(rng, item.detail), zone: wz });
+      events.push({ minute, type: item.type, clubId: winningClub, playerId: p?.id, detail: phrase(rng, item.detail), zone: wz, homePoints: hPoints, awayPoints: aPoints });
     }
   }
 
@@ -163,6 +163,8 @@ export function simulateSegment(home: MatchTeam, away: MatchTeam, rng: RNG, kind
     clubId: setClub,
     detail: { ko: `${hPoints}-${aPoints}. ${phrase(rng, SETWON).ko}`, en: `${phrase(rng, SETWON).en} ${hPoints}-${aPoints}` },
     zone: homeWonSet ? "right" : "left",
+    homePoints: hPoints,
+    awayPoints: aPoints,
   });
 
   return {

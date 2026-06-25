@@ -10,9 +10,9 @@ import { getSport } from "@/lib/sports";
 import { deriveMatchAdvice } from "@/lib/engine/matchAdvice";
 import { TACTIC_PRESETS } from "@/lib/data/tacticPresets";
 import { TEAM_TALK_OPTIONS } from "@/lib/data/teamTalks";
-import { momentumBuckets } from "@/lib/sports/playback";
+import { buildLiveVenue, lineupSlots, liveRallyScore, momentumBuckets } from "@/lib/sports/playback";
 import { BroadcastFeed, MatchViewer, MomentumBar, StatRow, type FeedItem } from "@/components/MatchViewer";
-import { LineupBoard } from "@/components/LineupBoard";
+import { Venue } from "@/components/Venue";
 import { Avatar, Tile } from "@/components/Tile";
 import { Button } from "@/components/ui";
 import { clubDisplayName } from "@/lib/utils/format";
@@ -89,6 +89,11 @@ export default function MatchLivePage() {
     for (const ev of knownEvents) feed.push({ kind: "event", minute: ev.minute, ev });
     feed.sort((a, b) => b.minute - a.minute || (a.kind === "marker" ? 1 : -1));
 
+    const homeSlots = lineupSlots(sport, home, state.players);
+    const awaySlots = lineupSlots(sport, away, state.players);
+    const { homeMarkers, awayMarkers, ballX, ballY } = buildLiveVenue(pres, knownEvents, homeSlots, awaySlots, state.players, home.id, away.id, clock);
+    const liveRally = liveRallyScore(knownEvents);
+
     const subOutOptions = myClub.tactics.lineup.filter((id) => state.players[id] && !active.subbedOffIds.includes(id));
     const subInOptions = myClub.tactics.bench.filter((id) => state.players[id] && !active.subbedOffIds.includes(id));
     const maxSubs = pres.maxSubs ?? 5;
@@ -114,6 +119,11 @@ export default function MatchLivePage() {
             <span className="font-display text-[36px] font-bold leading-none tabular-nums">
               {active.homeScore} <span style={{ color: "var(--muted-3)" }}>:</span> {active.awayScore}
             </span>
+            {liveRally && (
+              <span className="text-[11px] font-semibold tabular-nums" style={{ color: "var(--muted-3)" }}>
+                {liveRally.home}-{liveRally.away}
+              </span>
+            )}
           </div>
           <div className="flex min-w-0 flex-1 items-center justify-end gap-3">
             <span className="truncate text-right text-[13px] font-semibold">{away.shortName}</span>
@@ -123,8 +133,17 @@ export default function MatchLivePage() {
 
         <div className="grid min-h-0 flex-1 gap-3 overflow-hidden lg:grid-cols-[minmax(0,1fr)_minmax(320px,0.78fr)]">
           <div className="flex min-h-0 flex-col gap-3 overflow-hidden">
-            <Tile title={`${myClub.shortName} · ${t("formation")}`} className="shrink-0">
-              <LineupBoard sport={sport} tactics={myClub.tactics} players={state.players} maxHeight={220} />
+            <Tile title={t("watchMatch")} action={<span className="font-mono text-xs text-soft">{tl(pres.segmentLabel(active.phase))}</span>} className="shrink-0">
+              <Venue
+                venue={pres.venue}
+                ballX={ballX}
+                ballY={ballY}
+                homeShort={home.shortName}
+                awayShort={away.shortName}
+                flash={null}
+                homeMarkers={homeMarkers}
+                awayMarkers={awayMarkers}
+              />
             </Tile>
             <MomentumBar buckets={momentum} homeShort={home.shortName} awayShort={away.shortName} title={t("momentum")} />
             <Tile title={t("matchStats")}>

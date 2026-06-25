@@ -1,5 +1,13 @@
 import type { MatchPresentation } from "@/lib/types";
 
+export interface VenueMarker {
+  id: string;
+  x: number;
+  y: number;
+  label: string;
+  highlight?: boolean;
+}
+
 interface Props {
   venue: MatchPresentation["venue"];
   ballX: number;
@@ -7,13 +15,18 @@ interface Props {
   homeShort: string;
   awayShort: string;
   flash: string | null;
+  homeMarkers?: VenueMarker[];
+  awayMarkers?: VenueMarker[];
 }
 
 /** Per-sport playing surface for the live match viewer. */
-export function Venue({ venue, ballX, ballY, homeShort, awayShort, flash }: Props) {
+export function Venue({ venue, ballX, ballY, homeShort, awayShort, flash, homeMarkers, awayMarkers }: Props) {
   return (
     <div className={`relative aspect-[16/10] w-full overflow-hidden rounded-lg border ${venueFrameClass(venue)}`} style={venueBgStyle(venue)}>
       <VenueSurface venue={venue} />
+
+      {homeMarkers?.map((m) => <PlayerMarker key={`h${m.id}`} marker={m} color="var(--blue)" />)}
+      {awayMarkers?.map((m) => <PlayerMarker key={`a${m.id}`} marker={m} color="var(--red)" />)}
 
       {/* ball / play marker */}
       <div
@@ -29,6 +42,21 @@ export function Venue({ venue, ballX, ballY, homeShort, awayShort, flash }: Prop
           <div className="animate-bounce rounded-lg bg-black/55 px-6 py-3 text-2xl font-extrabold tracking-widest text-white">{flash}!</div>
         </div>
       )}
+    </div>
+  );
+}
+
+function PlayerMarker({ marker, color }: { marker: VenueMarker; color: string }) {
+  return (
+    <div
+      className="absolute z-[5] flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-0.5 transition-all duration-500 ease-out"
+      style={{ left: `${marker.x}%`, top: `${marker.y}%` }}
+    >
+      <div
+        className="h-2.5 w-2.5 rounded-full shadow ring-1 ring-black/30"
+        style={{ background: color, boxShadow: marker.highlight ? `0 0 0 4px ${color}55` : undefined }}
+      />
+      <span className="whitespace-nowrap rounded bg-black/45 px-1 text-[9px] leading-tight text-white">{marker.label}</span>
     </div>
   );
 }

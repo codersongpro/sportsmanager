@@ -5,8 +5,8 @@ import Link from "next/link";
 import type { Club, LocalizedText, MatchEvent, MatchPresentation, MatchResult, Player, SportId } from "@/lib/types";
 import { useI18n } from "@/lib/i18n/I18nProvider";
 import { getSport } from "@/lib/sports";
-import { feedToneRankFloor, momentumBuckets, progressPerSecond, toneRank } from "@/lib/sports/playback";
-import { playerDisplayName, clubDisplayName } from "@/lib/utils/format";
+import { buildLiveVenue, feedToneRankFloor, liveRallyScore, lineupSlots, momentumBuckets, progressPerSecond, toneRank, type SlotPlayer } from "@/lib/sports/playback";
+import { playerDisplayName, clubDisplayName, playerShortName } from "@/lib/utils/format";
 import { Avatar, Tile, conditionColor, ratingColor } from "./Tile";
 import { Venue, VenueSurface, venueFrameClass } from "./Venue";
 
@@ -18,13 +18,6 @@ interface Props {
   away: Club;
   players: Record<string, Player>;
   sportId: SportId;
-}
-
-interface SlotPlayer {
-  pos: string;
-  x: number;
-  y: number;
-  player?: Player;
 }
 
 export type FeedItem =
@@ -52,26 +45,15 @@ function toneAccent(tone?: string): string {
   }
 }
 
-export function shortName(p: Player): string {
-  if (p.nameKo) return p.nameKo;
-  const parts = p.name.split(" ");
-  return parts[parts.length - 1];
-}
+export { playerShortName as shortName };
 
 export function MatchViewer({ result, home, away, players, sportId }: Props) {
   const { t, tl } = useI18n();
   const sport = getSport(sportId);
   const pres = sport.matchPresentation;
 
-  const lineupSlots = (club: Club): SlotPlayer[] => {
-    const formation = sport.formations.find((f) => f.key === club.tactics.formation) ?? sport.formations[0];
-    if (!formation) return [];
-    let ids = club.tactics.lineup.filter((id) => players[id]);
-    if (ids.length < formation.slots.length) ids = sport.autoPickLineup(club, players).lineup;
-    return formation.slots.map((s, i) => ({ pos: s.position, x: s.x, y: s.y, player: players[ids[i]] }));
-  };
-  const homeSlots = useMemo(() => lineupSlots(home), [home, players, sport]); // eslint-disable-line react-hooks/exhaustive-deps
-  const awaySlots = useMemo(() => lineupSlots(away), [away, players, sport]); // eslint-disable-line react-hooks/exhaustive-deps
+  const homeSlots = useMemo(() => lineupSlots(sport, home, players), [sport, home, players]);
+  const awaySlots = useMemo(() => lineupSlots(sport, away, players), [sport, away, players]);
 
   const endMinute = useMemo(
     () => Math.max(pres.endProgress, result.events.reduce((m, e) => Math.max(m, e.minute), pres.endProgress)),
@@ -182,14 +164,18 @@ export function MatchViewer({ result, home, away, players, sportId }: Props) {
     return Math.round((6.6 + (final - 6.6) * prog) * 10) / 10;
   };
 
-  const lastPositional = [...revealed].reverse().find((e) => e.zone);
-  const ballX = lastPositional?.zone === "left" ? 14 : lastPositional?.zone === "right" ? 86 : 50;
-  const ballY = lastPositional ? 28 + ((lastPositional.minute * 53) % 44) : 50;
-
   const last = revealed[revealed.length - 1];
+
+  const { homeMarkers, awayMarkers, ballX, ballY } = useMemo(
+    () => buildLiveVenue(pres, revealed, homeSlots, awaySlots, players, home.id, away.id, clock),
+    [pres, revealed, homeSlots, awaySlots, players, home.id, away.id, clock],
+  );
+
   const newestScore =
     last && pres.eventMeta(last.type).tone === "score" && clock - last.minute < 3 ? last : null;
   const scoreFlash = newestScore ? pres.eventMeta(newestScore.type).label : null;
+
+  const liveRally = liveRallyScore(revealed);
 
   const feed = useMemo<FeedItem[]>(() => {
     const minRank = feedToneRankFloor(speed);
@@ -246,6 +232,11 @@ export function MatchViewer({ result, home, away, players, sportId }: Props) {
           <span className="font-display text-[36px] font-bold leading-none tabular-nums" style={{ color: newestScore ? "var(--mint)" : "var(--text)" }}>
             {homeScore} <span style={{ color: "var(--muted-3)" }}>:</span> {awayScore}
           </span>
+          {liveRally && !finished && (
+            <span className="text-[11px] font-semibold tabular-nums" style={{ color: "var(--muted-3)" }}>
+              {liveRally.home}-{liveRally.away}
+            </span>
+          )}
         </div>
         <div className="flex min-w-0 flex-1 items-center justify-end gap-3">
           <span className="truncate text-right text-[13px] font-semibold">{away.shortName}</span>
@@ -305,6 +296,8 @@ export function MatchViewer({ result, home, away, players, sportId }: Props) {
                 homeShort={home.shortName}
                 awayShort={away.shortName}
                 flash={scoreFlash ? tl(scoreFlash) : null}
+                homeMarkers={homeMarkers}
+                awayMarkers={awayMarkers}
               />
             </div>
             <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full" style={{ background: "rgba(255,255,255,.08)" }}>
@@ -391,7 +384,7 @@ export function MatchViewer({ result, home, away, players, sportId }: Props) {
             return (
               <div key={i} className="flex w-16 flex-col items-center gap-1 rounded-lg border border-zinc-100 p-1.5 text-center dark:border-zinc-800" title={playerDisplayName(p)}>
                 <span className="text-[10px] font-semibold text-zinc-400">{s.pos}</span>
-                <span className="w-full truncate text-[11px]">{shortName(p)}</span>
+                <span className="w-full truncate text-[11px]">{playerShortName(p)}</span>
                 <span className={`text-xs ${conditionColor(p.condition)}`}>♥ {Math.round(p.condition)}</span>
                 <span className={`rounded px-1.5 text-xs font-bold tabular-nums ${ratingColor(r)}`}>{r.toFixed(1)}</span>
               </div>
@@ -639,7 +632,7 @@ function FormationTile({
               title={p.nameKo ? `${p.nameKo} (${p.name})` : p.name}
             >
               <div className="flex h-6 w-6 items-center justify-center rounded-full bg-white text-[9px] font-bold text-zinc-900 shadow ring-1 ring-black/20">{s.pos}</div>
-              <PlayerNameLink player={p} className="mt-0.5 max-w-[52px] truncate rounded bg-black/40 px-1 text-[9px] text-white hover:bg-black/60" label={shortName(p)} />
+              <PlayerNameLink player={p} className="mt-0.5 max-w-[52px] truncate rounded bg-black/40 px-1 text-[9px] text-white hover:bg-black/60" label={playerShortName(p)} />
               <span className={`rounded px-1 text-[9px] font-bold ${ratingColor(r)}`}>{r.toFixed(1)}</span>
               <span className={`text-[9px] ${conditionColor(p.condition)}`} title={t("condition")}>♥{Math.round(p.condition)}</span>
             </div>

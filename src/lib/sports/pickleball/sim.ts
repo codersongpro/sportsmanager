@@ -123,28 +123,28 @@ export function simulateSegment(home: MatchTeam, away: MatchTeam, rng: RNG, kind
       if (homeWinsRally) hPts++; else aPts++;
     } else {
       serverHome = homeWinsRally;
-      events.push({ minute, type: "sideOut", clubId: winningClub, detail: { ko: "사이드아웃으로 서브권을 가져옵니다.", en: "Side-out earns the serve." }, zone: wz });
+      events.push({ minute, type: "sideOut", clubId: winningClub, detail: { ko: "사이드아웃으로 서브권을 가져옵니다.", en: "Side-out earns the serve." }, zone: wz, homePoints: hPts, awayPoints: aPts });
     }
 
     const roll = rng.next();
     if (roll < 0.18 && serverHome === homeWinsRally) {
       const p = pick(rng, winningSide.attackers);
-      events.push({ minute, type: "ace", clubId: winningClub, playerId: p?.id, detail: phrase(rng, ACE), zone: wz });
+      events.push({ minute, type: "ace", clubId: winningClub, playerId: p?.id, detail: phrase(rng, ACE), zone: wz, homePoints: hPts, awayPoints: aPts });
     } else if (roll < 0.34) {
       const p = pick(rng, winningSide.attackers);
-      events.push({ minute, type: "smash", clubId: winningClub, playerId: p?.id, detail: phrase(rng, SMASH), zone: wz });
+      events.push({ minute, type: "smash", clubId: winningClub, playerId: p?.id, detail: phrase(rng, SMASH), zone: wz, homePoints: hPts, awayPoints: aPts });
     } else if (roll < 0.5) {
       const p = pick(rng, winningSide.attackers);
-      events.push({ minute, type: "winner", clubId: winningClub, playerId: p?.id, detail: phrase(rng, WINNER), zone: wz });
+      events.push({ minute, type: "winner", clubId: winningClub, playerId: p?.id, detail: phrase(rng, WINNER), zone: wz, homePoints: hPts, awayPoints: aPts });
     } else if (roll < 0.65) {
       const p = pick(rng, winningSide.finesse);
-      events.push({ minute, type: "dink", clubId: winningClub, playerId: p?.id, detail: phrase(rng, DINK), zone: wz });
+      events.push({ minute, type: "dink", clubId: winningClub, playerId: p?.id, detail: phrase(rng, DINK), zone: wz, homePoints: hPts, awayPoints: aPts });
     } else if (roll < 0.75) {
-      events.push({ minute, type: "fault", clubId: losingClub, detail: phrase(rng, FAULT), zone: lz });
+      events.push({ minute, type: "fault", clubId: losingClub, detail: phrase(rng, FAULT), zone: lz, homePoints: hPts, awayPoints: aPts });
     } else if (roll < 0.9) {
       const item = EXTRA[rng.int(0, EXTRA.length - 1)];
       const p = pick(rng, rng.bool(0.55) ? winningSide.finesse : winningSide.attackers);
-      events.push({ minute, type: item.type, clubId: winningClub, playerId: p?.id, detail: phrase(rng, item.detail), zone: wz });
+      events.push({ minute, type: item.type, clubId: winningClub, playerId: p?.id, detail: phrase(rng, item.detail), zone: wz, homePoints: hPts, awayPoints: aPts });
     }
   }
 
@@ -156,6 +156,8 @@ export function simulateSegment(home: MatchTeam, away: MatchTeam, rng: RNG, kind
     clubId: wClub,
     detail: { ko: `${hPts}-${aPts}. ${phrase(rng, GAMEWON).ko}`, en: `${phrase(rng, GAMEWON).en} ${hPts}-${aPts}` },
     zone: homeWinsGame ? "right" : "left",
+    homePoints: hPts,
+    awayPoints: aPts,
   });
 
   return {

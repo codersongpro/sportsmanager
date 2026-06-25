@@ -116,6 +116,9 @@ export interface MatchEvent {
   detail?: LocalizedText;
   /** where on the playing surface this happened, for live visualization */
   zone?: PitchZone;
+  /** running in-segment rally/point score after this event, for sports scored by rally (volleyball, pickleball) */
+  homePoints?: number;
+  awayPoints?: number;
 }
 
 export interface MatchStats {
