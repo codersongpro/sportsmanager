@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import type { MatchSegmentKind } from "@/lib/types";
 import { useI18n } from "@/lib/i18n/I18nProvider";
 import { useGameStore } from "@/lib/store/gameStore";
@@ -24,14 +25,18 @@ const PHASE_KEY = {
 
 export default function MatchLivePage() {
   const { t, tl } = useI18n();
+  const router = useRouter();
   const state = useGameStore((s) => s.state);
   const playNextSegment = useGameStore((s) => s.playNextSegment);
+  const continueGame = useGameStore((s) => s.continue);
   const makeSubstitution = useGameStore((s) => s.makeSubstitution);
   const giveTeamTalk = useGameStore((s) => s.giveTeamTalk);
   const setTactics = useGameStore((s) => s.setTactics);
 
   const active = state?.activeMatch;
-  const [fixtureId] = useState<string | null>(() => active?.fixtureId ?? state?.lastResultFixtureId ?? null);
+  // Derived (not frozen) so that clicking "next match" naturally reveals
+  // whichever fixture `continue()` lands on, without a manual route change.
+  const fixtureId = active?.fixtureId ?? state?.lastResultFixtureId ?? null;
   const phaseRef = useRef<MatchSegmentKind | null>(null);
   const [tacticChanges, setTacticChanges] = useState(0);
   const [subOutId, setSubOutId] = useState("");
@@ -57,6 +62,11 @@ export default function MatchLivePage() {
   function bumpTactics(patch: Parameters<typeof setTactics>[0]) {
     setTactics(patch);
     setTacticChanges((n) => n + 1);
+  }
+
+  function handleContinueToNext() {
+    continueGame();
+    if (useGameStore.getState().state?.seasonOver) router.push("/game/dashboard");
   }
 
   function handleSub() {
@@ -127,7 +137,7 @@ export default function MatchLivePage() {
               </div>
             </Tile>
             <div className="min-h-0 flex-1 overflow-hidden">
-              <BroadcastFeed title={t("matchEvents")} feed={feed} players={state.players} home={home} away={away} pres={pres} tl={tl} t={t} />
+              <BroadcastFeed title={t("matchEvents")} feed={feed} players={state.players} home={home} away={away} pres={pres} endMinute={totalSpan} tl={tl} t={t} />
             </div>
           </div>
 
@@ -238,15 +248,20 @@ export default function MatchLivePage() {
     const away = state.clubs[fixture.result.awayId];
     return (
       <div className="flex h-full w-full flex-col gap-2 overflow-hidden p-2 sm:p-3">
-        <div className="flex shrink-0 items-center justify-between">
+        <div className="flex shrink-0 items-center justify-between gap-3">
           <h1 className="font-display text-lg font-bold">{clubDisplayName(home)} vs {clubDisplayName(away)}</h1>
-          <Link
-            href="/game/dashboard"
-            className="rounded-lg border px-3 py-1.5 text-sm font-semibold"
-            style={{ borderColor: "var(--border-soft)", color: "var(--muted-2)" }}
-          >
-            {t("backToDashboard")}
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link
+              href="/game/dashboard"
+              className="rounded-lg border px-3 py-1.5 text-sm font-semibold"
+              style={{ borderColor: "var(--border-soft)", color: "var(--muted-2)" }}
+            >
+              {t("backToDashboard")}
+            </Link>
+            <Button onClick={handleContinueToNext} className="px-3 py-1.5 text-sm">
+              {t("continueToNextMatchBtn")}
+            </Button>
+          </div>
         </div>
         <div className="min-h-0 flex-1 overflow-hidden">
           <MatchViewer result={fixture.result} home={home} away={away} players={state.players} sportId={state.sportId} />

@@ -219,6 +219,14 @@ export function MatchViewer({ result, home, away, players, sportId }: Props) {
 
   const clockLabel = activeBreak ? tl(activeBreak) : finished ? t("fullTime") : pres.clockLabel(clock, endMinute, false);
 
+  // Segment (quarter/set/inning/game) scores reveal in step with overall
+  // match progress, mirroring how the running score is revealed by clock.
+  const revealedSegmentCount = result.segmentScores
+    ? finished
+      ? result.segmentScores.length
+      : Math.min(result.segmentScores.length, Math.max(1, Math.ceil((clock / endMinute) * result.segmentScores.length)))
+    : 0;
+
   return (
     <div className="flex h-full min-h-0 flex-col gap-3 overflow-hidden p-2 sm:p-3">
       {/* Top scoreboard bar */}
@@ -255,6 +263,31 @@ export function MatchViewer({ result, home, away, players, sportId }: Props) {
         <p className="-mt-2 text-center text-xs" style={{ color: "var(--muted-3)" }}>
           {clubDisplayName(home)} {result.homePens} - {result.awayPens} {clubDisplayName(away)} · {t("afterPenalties")}
         </p>
+      )}
+
+      {result.segmentScores && result.segmentScores.length > 0 && (
+        <div
+          className="flex shrink-0 items-stretch gap-1.5 overflow-x-auto rounded-xl border px-2.5 py-2"
+          style={{ borderColor: "var(--line)", background: "var(--panel-2)" }}
+        >
+          {result.segmentScores.map((seg, i) => {
+            const revealed = i < revealedSegmentCount;
+            return (
+              <div
+                key={i}
+                className="flex shrink-0 flex-col items-center gap-0.5 rounded-lg px-2.5 py-1"
+                style={{ background: "var(--panel)", minWidth: 52 }}
+              >
+                <span className="text-[10px] font-semibold uppercase tracking-wide" style={{ color: "var(--muted-3)" }}>
+                  {tl(seg.label)}
+                </span>
+                <span className="font-mono text-[12px] font-bold tabular-nums">
+                  {revealed ? `${seg.homeScore}-${seg.awayScore}` : "–"}
+                </span>
+              </div>
+            );
+          })}
+        </div>
       )}
 
       <div className="grid min-h-0 flex-1 gap-3 overflow-hidden lg:grid-cols-[minmax(0,1fr)_minmax(320px,0.72fr)]">
@@ -342,6 +375,7 @@ export function MatchViewer({ result, home, away, players, sportId }: Props) {
             home={home}
             away={away}
             pres={pres}
+            endMinute={endMinute}
             tl={tl}
             t={t}
           />
@@ -466,6 +500,7 @@ export function BroadcastFeed({
   home,
   away,
   pres,
+  endMinute,
   tl,
   t,
 }: {
@@ -475,6 +510,7 @@ export function BroadcastFeed({
   home: Club;
   away: Club;
   pres: MatchPresentation;
+  endMinute: number;
   tl: (text: LocalizedText) => string;
   t: (key: never) => string;
 }) {
@@ -501,7 +537,9 @@ export function BroadcastFeed({
           const accent = toneAccent(meta.tone);
           return (
             <div key={`e${i}`} className="flex gap-3 border-b px-1.5 py-2.5" style={{ borderColor: "rgba(255,255,255,.04)" }}>
-              <span className="font-display w-9 shrink-0 text-[15px] font-bold" style={{ color: accent }}>{ev.minute}&apos;</span>
+              <span className="font-display shrink-0 whitespace-nowrap text-[13px] font-bold" style={{ color: accent, minWidth: 32 }}>
+                {pres.clockLabel(ev.minute, endMinute, false)}
+              </span>
               <span className="mt-[6px] h-2 w-2 shrink-0 rounded-full" style={{ background: accent }} />
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-1.5">

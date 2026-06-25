@@ -74,4 +74,12 @@ describe("buildWorld multi-sport data", () => {
     const names = Object.values(world.players).map((p) => p.name);
     expect(names.some((name) => /Jalen|Cade|Luka|Giannis|Aria/.test(name))).toBe(true);
   });
+
+  it("never gives two players (on the same or different teams) the same name", () => {
+    for (const id of SPORTS) {
+      const world = buildWorld(getSport(id), createRng(2026), 2026);
+      const names = Object.values(world.players).map((p) => p.name);
+      expect(new Set(names).size).toBe(names.length);
+    }
+  });
 });

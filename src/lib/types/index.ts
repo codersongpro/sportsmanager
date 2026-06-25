@@ -140,6 +140,8 @@ export interface MatchResult {
   decidedBy?: "normal" | "extra_time" | "penalties";
   homePens?: number;
   awayPens?: number;
+  /** score broken down by discrete segment (quarter/set/inning/game), for sports that play in those units */
+  segmentScores?: { label: LocalizedText; homeScore: number; awayScore: number }[];
 }
 
 /** Output of simulating a single match segment, before it's merged into a final MatchResult. */

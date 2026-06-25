@@ -153,6 +153,7 @@ export function simulateMatch(home: MatchTeam, away: MatchTeam, rng: RNG, opts: 
   let awayTotal = targetPoints(as.off, hs.def, false);
   const hQuarters = splitTotal(homeTotal, 4, rng);
   const aQuarters = splitTotal(awayTotal, 4, rng);
+  const segmentScores: MatchResult["segmentScores"] = [];
 
   for (let q = 0; q < 4; q++) {
     const start = q * 12;
@@ -160,6 +161,7 @@ export function simulateMatch(home: MatchTeam, away: MatchTeam, rng: RNG, opts: 
     emitPoints(events, rng, as, away.club.id, aQuarters[q], start, 12, false, pts);
     emitNonScoring(events, rng, hs, home.club.id, away.club.id, start, 12, true);
     emitNonScoring(events, rng, as, away.club.id, home.club.id, start, 12, false);
+    segmentScores.push({ label: { ko: `${q + 1}쿼터`, en: `Q${q + 1}` }, homeScore: hQuarters[q], awayScore: aQuarters[q] });
   }
 
   let overtime = 0;
@@ -175,6 +177,7 @@ export function simulateMatch(home: MatchTeam, away: MatchTeam, rng: RNG, opts: 
     emitPoints(events, rng, as, away.club.id, aOt, start, 5, false, pts);
     emitNonScoring(events, rng, hs, home.club.id, away.club.id, start, 5, true);
     emitNonScoring(events, rng, as, away.club.id, home.club.id, start, 5, false);
+    segmentScores.push({ label: { ko: `연장${overtime > 1 ? overtime : ""}`, en: `OT${overtime > 1 ? overtime : ""}` }, homeScore: hOt, awayScore: aOt });
   }
 
   events.sort((a, b) => a.minute - b.minute);
@@ -206,5 +209,6 @@ export function simulateMatch(home: MatchTeam, away: MatchTeam, rng: RNG, opts: 
     },
     winnerId: homeTotal > awayTotal ? home.club.id : away.club.id,
     decidedBy,
+    segmentScores,
   };
 }

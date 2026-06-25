@@ -105,6 +105,7 @@ export function simulateMatch(home: MatchTeam, away: MatchTeam, rng: RNG, opts: 
   let aSets = 0;
   let setNumber = 0;
   let serverHome = rng.bool(0.5);
+  const segmentScores: MatchResult["segmentScores"] = [];
 
   while (hSets < 3 && aSets < 3) {
     setNumber++;
@@ -163,6 +164,7 @@ export function simulateMatch(home: MatchTeam, away: MatchTeam, rng: RNG, opts: 
     });
     if (homeWonSet) hSets++; else aSets++;
     serverHome = !serverHome;
+    segmentScores.push({ label: { ko: `${setNumber}세트`, en: `Set ${setNumber}` }, homeScore: hPoints, awayScore: aPoints });
   }
 
   events.sort((a, b) => a.minute - b.minute);
@@ -194,5 +196,6 @@ export function simulateMatch(home: MatchTeam, away: MatchTeam, rng: RNG, opts: 
     },
     winnerId: hSets > aSets ? home.club.id : away.club.id,
     decidedBy: "normal",
+    segmentScores,
   };
 }

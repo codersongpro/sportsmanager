@@ -213,6 +213,7 @@ export const dict = {
   // match center (in-match intervention)
   matchCenter: { ko: "매치 센터", en: "Match Center" },
   continueMatchBtn: { ko: "경기 계속하기", en: "Continue Match" },
+  continueToNextMatchBtn: { ko: "다음 경기 준비하기", en: "Continue to Next Match" },
   phaseFirstHalf: { ko: "전반전", en: "First Half" },
   phaseSecondHalf: { ko: "후반전", en: "Second Half" },
   penaltyShootout: { ko: "승부차기", en: "Penalty Shootout" },

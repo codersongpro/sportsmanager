@@ -19,23 +19,61 @@ function pickNationality(seed: ClubSeed, rng: RNG): string {
   );
 }
 
-function makeName(sportId: SportId, code: string, rng: RNG, preferArchetype = false): { name: string; nameKo: string } {
-  const archetypes = getNameArchetypesForSport(sportId);
-  if (archetypes.length > 0 && (preferArchetype || rng.bool(0.18))) {
-    return archetypes[rng.int(0, archetypes.length - 1)];
-  }
-
-  const country = COUNTRY_BY_CODE[code] ?? COUNTRIES[0];
-  const fi = rng.int(0, country.firstNames.length - 1);
-  const li = rng.int(0, country.lastNames.length - 1);
+function nameFromCountry(country: (typeof COUNTRIES)[number], fi: number, li: number): { name: string; nameKo: string } {
   const first = country.firstNames[fi];
   const last = country.lastNames[li];
   const firstKo = country.firstNamesKo[fi];
   const lastKo = country.lastNamesKo[li];
   const name = `${first} ${last}`;
   // Korean names render family-name-first with no space, matching local convention.
-  const nameKo = code === "KR" ? `${lastKo}${firstKo}` : `${firstKo} ${lastKo}`;
+  const nameKo = country.code === "KR" ? `${lastKo}${firstKo}` : `${firstKo} ${lastKo}`;
   return { name, nameKo };
+}
+
+/**
+ * Generates a player name guaranteed not to collide with any name already
+ * handed out this world build, so players on different teams never share a
+ * name. Tries the player's own nation first, then falls through every other
+ * nation's name pool before finally disambiguating with a numeric suffix
+ * (which should only ever happen once every combination is exhausted).
+ */
+function makeName(sportId: SportId, code: string, rng: RNG, usedNames: Set<string>, preferArchetype = false): { name: string; nameKo: string } {
+  const archetypes = getNameArchetypesForSport(sportId);
+  const availableArchetypes = archetypes.filter((a) => !usedNames.has(a.name));
+  if (availableArchetypes.length > 0 && (preferArchetype || rng.bool(0.18))) {
+    const choice = availableArchetypes[rng.int(0, availableArchetypes.length - 1)];
+    usedNames.add(choice.name);
+    return choice;
+  }
+
+  const country = COUNTRY_BY_CODE[code] ?? COUNTRIES[0];
+  for (let attempt = 0; attempt < 30; attempt++) {
+    const fi = rng.int(0, country.firstNames.length - 1);
+    const li = rng.int(0, country.lastNames.length - 1);
+    const candidate = nameFromCountry(country, fi, li);
+    if (!usedNames.has(candidate.name)) {
+      usedNames.add(candidate.name);
+      return candidate;
+    }
+  }
+  // The home nation's pool is exhausted (rare); search every other nation's pool.
+  for (const fallback of COUNTRIES) {
+    for (let fi = 0; fi < fallback.firstNames.length; fi++) {
+      for (let li = 0; li < fallback.lastNames.length; li++) {
+        const candidate = nameFromCountry(fallback, fi, li);
+        if (!usedNames.has(candidate.name)) {
+          usedNames.add(candidate.name);
+          return candidate;
+        }
+      }
+    }
+  }
+  // Every combination in every nation is taken (extreme edge case): disambiguate.
+  let n = 2;
+  const candidate = nameFromCountry(country, 0, 0);
+  while (usedNames.has(`${candidate.name} ${n}`)) n++;
+  usedNames.add(`${candidate.name} ${n}`);
+  return { name: `${candidate.name} ${n}`, nameKo: `${candidate.nameKo}${n}` };
 }
 
 function clubFinances(reputation: number, weeklyWageTotal: number): Finances {
@@ -54,6 +92,7 @@ function clubFinances(reputation: number, weeklyWageTotal: number): Finances {
 export function buildWorld(sport: SportModule, rng: RNG, startSeason: number): World {
   const clubs: Record<string, Club> = {};
   const players: Record<string, Player> = {};
+  const usedNames = new Set<string>();
 
   for (const seed of getClubsForSport(sport.id)) {
     const squad: string[] = [];
@@ -66,7 +105,7 @@ export function buildWorld(sport: SportModule, rng: RNG, startSeason: number): W
         const depthPenalty = i === 0 ? rng.range(-1, 4) : -rng.range(3, 11);
         const target = Math.max(40, Math.min(94, seed.reputation + depthPenalty + rng.gaussian(0, 3)));
         const nat = pickNationality(seed, rng);
-        const nm = makeName(sport.id, nat, rng, sport.id !== "soccer" && i === 0);
+        const nm = makeName(sport.id, nat, rng, usedNames, sport.id !== "soccer" && i === 0);
         const id = `p_${seed.id}_${depthIndex++}`;
         const player = sport.generatePlayer(
           {

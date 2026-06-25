@@ -162,6 +162,7 @@ export function simulateMatch(home: MatchTeam, away: MatchTeam, rng: RNG, opts: 
   let homeScore = 0;
   let awayScore = 0;
   let inning = 1;
+  const segmentScores: MatchResult["segmentScores"] = [];
 
   while (inning <= 9 || homeScore === awayScore) {
     const awayRuns = poisson(rng, halfInningLambda(as.batRating, hs.pitchRating, false, inning));
@@ -169,11 +170,13 @@ export function simulateMatch(home: MatchTeam, away: MatchTeam, rng: RNG, opts: 
     emitHalfInning({ events, rng, batting: as, pitching: hs, battingClub: away.club.id, fieldingClub: home.club.id, runs: awayRuns, inning, top: true, hits });
 
     const skipBottomNinth = inning >= 9 && homeScore > awayScore;
+    let homeRuns = 0;
     if (!skipBottomNinth) {
-      const homeRuns = poisson(rng, halfInningLambda(homeBat.batRating, as.pitchRating, true, inning));
+      homeRuns = poisson(rng, halfInningLambda(homeBat.batRating, as.pitchRating, true, inning));
       homeScore += homeRuns;
       emitHalfInning({ events, rng, batting: homeBat, pitching: as, battingClub: home.club.id, fieldingClub: away.club.id, runs: homeRuns, inning, top: false, hits });
     }
+    segmentScores.push({ label: { ko: `${inning}회`, en: `${inning}` }, homeScore: homeRuns, awayScore: awayRuns });
     inning++;
   }
 
@@ -214,5 +217,6 @@ export function simulateMatch(home: MatchTeam, away: MatchTeam, rng: RNG, opts: 
     },
     winnerId: homeScore > awayScore ? home.club.id : away.club.id,
     decidedBy: inning > 10 ? "extra_time" : "normal",
+    segmentScores,
   };
 }

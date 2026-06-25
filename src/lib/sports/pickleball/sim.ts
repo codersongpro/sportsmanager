@@ -95,6 +95,7 @@ export function simulateMatch(home: MatchTeam, away: MatchTeam, rng: RNG, opts: 
   let aG = 0;
   let game = 0;
   let serverHome = rng.bool(0.5);
+  const segmentScores: MatchResult["segmentScores"] = [];
 
   while (hG < 2 && aG < 2) {
     game++;
@@ -157,6 +158,7 @@ export function simulateMatch(home: MatchTeam, away: MatchTeam, rng: RNG, opts: 
     });
     if (homeWinsGame) hG++; else aG++;
     serverHome = !serverHome;
+    segmentScores.push({ label: { ko: `${game}게임`, en: `Game ${game}` }, homeScore: hPts, awayScore: aPts });
   }
 
   events.sort((a, b) => a.minute - b.minute);
@@ -188,5 +190,6 @@ export function simulateMatch(home: MatchTeam, away: MatchTeam, rng: RNG, opts: 
     },
     winnerId: hG > aG ? home.club.id : away.club.id,
     decidedBy: "normal",
+    segmentScores,
   };
 }
