@@ -1,5 +1,5 @@
 import { del, get, keys, set } from "idb-keyval";
-import type { GameState } from "@/lib/types";
+import type { GameState, SportId } from "@/lib/types";
 
 const PREFIX = "sm_save_";
 
@@ -16,7 +16,7 @@ export interface SaveSummary {
   id: string;
   managerName: string;
   clubName: string;
-  sportId: string;
+  sportId: SportId;
   season: number;
   day: number;
   updatedAt: number;

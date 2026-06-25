@@ -6,7 +6,7 @@ import { useEffect, useState } from "react";
 import { useI18n } from "@/lib/i18n/I18nProvider";
 import { LocaleToggle } from "@/components/LocaleToggle";
 import { useGameStore } from "@/lib/store/gameStore";
-import { loadGame } from "@/lib/store/persistence";
+import { loadGame, saveGame } from "@/lib/store/persistence";
 import { getSport } from "@/lib/sports";
 import { clubDisplayName, formatMoney } from "@/lib/utils/format";
 import { Avatar } from "@/components/Tile";
@@ -78,6 +78,12 @@ export default function GameLayout({ children }: { children: React.ReactNode }) 
     }
   }
 
+  async function handleSaveAndExit() {
+    const cur = useGameStore.getState().state;
+    if (cur) await saveGame(cur);
+    router.push("/");
+  }
+
   return (
     <div className={`flex min-h-screen flex-1 ${matchView ? "overflow-hidden" : ""}`} style={{ background: "var(--bg-base)" }}>
       <aside
@@ -95,12 +101,23 @@ export default function GameLayout({ children }: { children: React.ReactNode }) 
           >
             SM
           </div>
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <div className="font-display truncate text-[17px] font-bold leading-none tracking-wide">PRO MANAGER</div>
             <div className="mt-1 text-[10px] tracking-[2px]" style={{ color: "var(--muted-3)" }}>
               {t("season").toUpperCase()} {state.season}
             </div>
           </div>
+          <button
+            onClick={handleSaveAndExit}
+            title={t("saveAndExit")}
+            aria-label={t("saveAndExit")}
+            className="shrink-0 rounded-[9px] p-2"
+            style={{ color: "var(--muted-2)", background: "rgba(255,255,255,.04)" }}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" />
+            </svg>
+          </button>
         </div>
 
         <nav className="mt-1 flex flex-col gap-0.5">
@@ -153,7 +170,20 @@ export default function GameLayout({ children }: { children: React.ReactNode }) 
               {tl(sport.name)} · {t("day")} {state.day}
             </p>
           </div>
-          <LocaleToggle />
+          <div className="flex shrink-0 items-center gap-1.5">
+            <button
+              onClick={handleSaveAndExit}
+              title={t("saveAndExit")}
+              aria-label={t("saveAndExit")}
+              className="rounded-[9px] p-2"
+              style={{ color: "var(--muted-2)", background: "rgba(255,255,255,.04)" }}
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" />
+              </svg>
+            </button>
+            <LocaleToggle />
+          </div>
         </header>
 
         {!matchView && (

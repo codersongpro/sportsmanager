@@ -256,6 +256,8 @@ export const dict = {
   injury: { ko: "부상", en: "Injury" },
   noSavedGame: { ko: "저장된 게임이 없습니다", en: "No saved game found" },
   deleteSave: { ko: "세이브 삭제", en: "Delete Save" },
+  saveAndExit: { ko: "저장하고 메인 메뉴로", en: "Save & Exit to Title" },
+  gameSaved: { ko: "저장 완료!", en: "Saved!" },
 
   // dashboard (design system)
   seasonStatus: { ko: "시즌 현황", en: "Season Status" },
