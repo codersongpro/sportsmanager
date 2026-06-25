@@ -1,4 +1,9 @@
-import type { MatchEventMeta, MatchPresentation, MatchStatRow } from "@/lib/types";
+import type { LocalizedText, MatchEventMeta, MatchPresentation, MatchStatRow } from "@/lib/types";
+
+function segmentLabel(kind: string): LocalizedText {
+  const n = parseInt(kind.slice(1), 10);
+  return { ko: `${n}회`, en: `${n}` };
+}
 
 const META: Record<string, MatchEventMeta> = {
   run: { emoji: "R", label: { ko: "득점", en: "Run" }, tone: "score" },
@@ -79,4 +84,6 @@ export const baseballPresentation: MatchPresentation = {
       { label: { ko: "실책", en: "Errors" }, h: c.hE, a: c.aE },
     ];
   },
+  segmentLabel,
+  maxSubs: 9,
 };

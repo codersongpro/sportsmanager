@@ -16,7 +16,7 @@ import {
 } from "./constants";
 import { BB_PLAYSTYLES, bbPlaystylesFor } from "./playstyles";
 import { basketballPresentation } from "./match";
-import { simulateMatch } from "./sim";
+import { finalizeSegments, firstSegment, nextSegment, simulateMatch, simulateSegment } from "./sim";
 
 const calcOverall = makeCalcOverall(BB_POSITION_WEIGHTS, "SF");
 const generatePlayer = makeGenerator({
@@ -62,6 +62,10 @@ export const basketballModule: SportModule = {
   autoPickLineup,
   validateLineup,
   simulateMatch,
+  simulateSegment,
+  finalizeSegments,
+  firstSegment,
+  nextSegment,
   trainPlayer: weeklyTrain,
   generatePlayer,
 };

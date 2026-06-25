@@ -1,4 +1,4 @@
-import type { LocalizedText, MatchEvent, MatchResult, MatchTeam, Player, PitchZone, SimOptions } from "@/lib/types";
+import type { LocalizedText, MatchEvent, MatchResult, MatchSegmentResult, MatchTeam, Player, PitchZone, SimOptions } from "@/lib/types";
 import type { RNG } from "@/lib/sim/rng";
 import { avgAttr, buildPool, phrase, poisson, pick, type Pool } from "../common/simutil";
 import { BSB_POSITION_GROUP } from "./constants";
@@ -151,33 +151,86 @@ function emitHalfInning({
   }
 }
 
-export function simulateMatch(home: MatchTeam, away: MatchTeam, rng: RNG, opts: SimOptions = {}): MatchResult {
+// ---------------------------------------------------------------------------
+// Segments (resumable matches: a segment is one independently simulatable
+// full inning (top + bottom). `simulateMatch` below is a thin composition of
+// these, mirroring soccer's segment engine so the Match Center can pause and
+// substitute between innings.)
+// ---------------------------------------------------------------------------
+
+function segIndex(kind: string): number {
+  return parseInt(kind.slice(1), 10);
+}
+
+/** Simulate one full inning (top + bottom). Lineups are read fresh, so mid-match substitutions apply from the next inning onward. */
+export function simulateSegment(home: MatchTeam, away: MatchTeam, rng: RNG, kind: string, opts: SimOptions = {}): MatchSegmentResult {
   const neutral = opts.neutralVenue ?? false;
   const hs = side(home);
   const as = side(away);
   const homeBat = { ...hs, batRating: hs.batRating + (neutral ? 0 : 1.5) };
+  const inning = segIndex(kind);
 
   const events: MatchEvent[] = [];
   const hits: Record<string, number> = {};
+
+  const awayRuns = poisson(rng, halfInningLambda(as.batRating, hs.pitchRating, false, inning));
+  emitHalfInning({ events, rng, batting: as, pitching: hs, battingClub: away.club.id, fieldingClub: home.club.id, runs: awayRuns, inning, top: true, hits });
+
+  const homeRuns = poisson(rng, halfInningLambda(homeBat.batRating, as.pitchRating, true, inning));
+  emitHalfInning({ events, rng, batting: homeBat, pitching: as, battingClub: home.club.id, fieldingClub: away.club.id, runs: homeRuns, inning, top: false, hits });
+
+  return {
+    events,
+    homeGoals: homeRuns,
+    awayGoals: awayRuns,
+    homeShots: events.filter((e) => e.clubId === home.club.id && (e.type === "run" || e.type === "homeRun" || e.type === "double")).length,
+    awayShots: events.filter((e) => e.clubId === away.club.id && (e.type === "run" || e.type === "homeRun" || e.type === "double")).length,
+    homeShotsOnTarget: 0,
+    awayShotsOnTarget: 0,
+    scorerIds: [],
+    assistIds: [],
+    saves: {},
+  };
+}
+
+/** The segment a fresh match starts on. */
+export function firstSegment(): string {
+  return "i1";
+}
+
+/** Decide which segment comes after the one just played, given the running score. Baseball never draws, so innings keep extending past 9 until decided. */
+export function nextSegment(kind: string, homeScore: number, awayScore: number): string | null {
+  const n = segIndex(kind);
+  if (n < 9) return `i${n + 1}`;
+  return homeScore === awayScore ? `i${n + 1}` : null;
+}
+
+/** Merge already-simulated innings into a final MatchResult (ratings, segment scores, decider). */
+export function finalizeSegments(
+  home: MatchTeam,
+  away: MatchTeam,
+  segments: { kind: string; result: MatchSegmentResult }[],
+  opts: SimOptions,
+  rng: RNG,
+): MatchResult {
+  const hs = side(home);
+  const as = side(away);
+
   let homeScore = 0;
   let awayScore = 0;
-  let inning = 1;
+  const events: MatchEvent[] = [];
+  const hits: Record<string, number> = {};
   const segmentScores: MatchResult["segmentScores"] = [];
 
-  while (inning <= 9 || homeScore === awayScore) {
-    const awayRuns = poisson(rng, halfInningLambda(as.batRating, hs.pitchRating, false, inning));
-    awayScore += awayRuns;
-    emitHalfInning({ events, rng, batting: as, pitching: hs, battingClub: away.club.id, fieldingClub: home.club.id, runs: awayRuns, inning, top: true, hits });
-
-    const skipBottomNinth = inning >= 9 && homeScore > awayScore;
-    let homeRuns = 0;
-    if (!skipBottomNinth) {
-      homeRuns = poisson(rng, halfInningLambda(homeBat.batRating, as.pitchRating, true, inning));
-      homeScore += homeRuns;
-      emitHalfInning({ events, rng, batting: homeBat, pitching: as, battingClub: home.club.id, fieldingClub: away.club.id, runs: homeRuns, inning, top: false, hits });
+  for (const { kind, result } of segments) {
+    homeScore += result.homeGoals;
+    awayScore += result.awayGoals;
+    events.push(...result.events);
+    for (const e of result.events) {
+      if ((e.type === "run" || e.type === "homeRun") && e.playerId) hits[e.playerId] = (hits[e.playerId] ?? 0) + 1;
     }
-    segmentScores.push({ label: { ko: `${inning}회`, en: `${inning}` }, homeScore: homeRuns, awayScore: awayRuns });
-    inning++;
+    const n = segIndex(kind);
+    segmentScores.push({ label: { ko: `${n}회`, en: `${n}` }, homeScore: result.homeGoals, awayScore: result.awayGoals });
   }
 
   events.sort((a, b) => a.minute - b.minute);
@@ -216,7 +269,29 @@ export function simulateMatch(home: MatchTeam, away: MatchTeam, rng: RNG, opts: 
       awayShotsOnTarget: 0,
     },
     winnerId: homeScore > awayScore ? home.club.id : away.club.id,
-    decidedBy: inning > 10 ? "extra_time" : "normal",
+    decidedBy: segments.length > 9 ? "extra_time" : "normal",
     segmentScores,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Public entry point
+// ---------------------------------------------------------------------------
+
+export function simulateMatch(home: MatchTeam, away: MatchTeam, rng: RNG, opts: SimOptions = {}): MatchResult {
+  const segments: { kind: string; result: MatchSegmentResult }[] = [];
+  let homeScore = 0;
+  let awayScore = 0;
+  let inning = 1;
+
+  while (inning <= 9 || homeScore === awayScore) {
+    const kind = `i${inning}`;
+    const r = simulateSegment(home, away, rng, kind, opts);
+    segments.push({ kind, result: r });
+    homeScore += r.homeGoals;
+    awayScore += r.awayGoals;
+    inning++;
+  }
+
+  return finalizeSegments(home, away, segments, opts, rng);
 }

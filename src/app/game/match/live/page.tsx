@@ -12,16 +12,10 @@ import { TACTIC_PRESETS } from "@/lib/data/tacticPresets";
 import { TEAM_TALK_OPTIONS } from "@/lib/data/teamTalks";
 import { momentumBuckets } from "@/lib/sports/playback";
 import { BroadcastFeed, MatchViewer, MomentumBar, StatRow, type FeedItem } from "@/components/MatchViewer";
+import { LineupBoard } from "@/components/LineupBoard";
 import { Avatar, Tile } from "@/components/Tile";
 import { Button } from "@/components/ui";
 import { clubDisplayName } from "@/lib/utils/format";
-
-const PHASE_KEY = {
-  first_half: "phaseFirstHalf",
-  second_half: "phaseSecondHalf",
-  extra_time: "extraTime",
-  penalties: "penaltyShootout",
-} as const satisfies Record<MatchSegmentKind, "phaseFirstHalf" | "phaseSecondHalf" | "extraTime" | "penaltyShootout">;
 
 export default function MatchLivePage() {
   const { t, tl } = useI18n();
@@ -97,7 +91,9 @@ export default function MatchLivePage() {
 
     const subOutOptions = myClub.tactics.lineup.filter((id) => state.players[id] && !active.subbedOffIds.includes(id));
     const subInOptions = myClub.tactics.bench.filter((id) => state.players[id] && !active.subbedOffIds.includes(id));
-    const canTeamTalk = active.phase !== "first_half" && !active.teamTalkGiven;
+    const maxSubs = pres.maxSubs ?? 5;
+    const isFirstSegment = active.phase === (sport.firstSegment?.(active.opts) ?? "first_half");
+    const canTeamTalk = !isFirstSegment && !active.teamTalkGiven;
     const tips = deriveMatchAdvice(active, myClub.id);
 
     return (
@@ -113,7 +109,7 @@ export default function MatchLivePage() {
           <div className="flex flex-col items-center gap-1.5 px-3">
             <span className="flex items-center gap-[7px] text-[11px] font-bold" style={{ color: "var(--red)" }}>
               <span className="inline-block h-[7px] w-[7px] animate-pulse rounded-full" style={{ background: "var(--red)" }} />
-              {t(PHASE_KEY[active.phase])}
+              {tl(pres.segmentLabel(active.phase))}
             </span>
             <span className="font-display text-[36px] font-bold leading-none tabular-nums">
               {active.homeScore} <span style={{ color: "var(--muted-3)" }}>:</span> {active.awayScore}
@@ -127,6 +123,9 @@ export default function MatchLivePage() {
 
         <div className="grid min-h-0 flex-1 gap-3 overflow-hidden lg:grid-cols-[minmax(0,1fr)_minmax(320px,0.78fr)]">
           <div className="flex min-h-0 flex-col gap-3 overflow-hidden">
+            <Tile title={`${myClub.shortName} · ${t("formation")}`} className="shrink-0">
+              <LineupBoard sport={sport} tactics={myClub.tactics} players={state.players} maxHeight={220} />
+            </Tile>
             <MomentumBar buckets={momentum} homeShort={home.shortName} awayShort={away.shortName} title={t("momentum")} />
             <Tile title={t("matchStats")}>
               <div className="flex flex-col gap-2">
@@ -141,7 +140,8 @@ export default function MatchLivePage() {
             </div>
           </div>
 
-          <div className="flex min-h-0 flex-col gap-3 overflow-y-auto pr-1">
+          <div className="flex min-h-0 flex-col gap-3">
+          <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto pr-1">
             <Tile title={t("tacticalAdvice")}>
               {tips.length === 0 ? (
                 <p className="text-sm" style={{ color: "var(--muted-3)" }}>{t("noAdvice")}</p>
@@ -154,8 +154,8 @@ export default function MatchLivePage() {
               )}
             </Tile>
 
-            <Tile title={t("substitutionsTitle")} subtitle={`${t("subsUsed")}: ${active.subsMade} / 5`}>
-              {active.subsMade >= 5 ? (
+            <Tile title={t("substitutionsTitle")} subtitle={`${t("subsUsed")}: ${active.subsMade} / ${maxSubs}`}>
+              {active.subsMade >= maxSubs ? (
                 <p className="text-sm" style={{ color: "var(--muted-3)" }}>{t("noSubsRemaining")}</p>
               ) : (
                 <div className="flex flex-col gap-2">
@@ -228,13 +228,14 @@ export default function MatchLivePage() {
 
             <Tile title={t("decisionRecap")}>
               <div className="flex flex-col gap-1.5 text-sm" style={{ color: "var(--muted-2)" }}>
-                <div className="flex justify-between"><span>{t("subsUsed")}</span><span className="font-semibold">{active.subsMade} / 5</span></div>
+                <div className="flex justify-between"><span>{t("subsUsed")}</span><span className="font-semibold">{active.subsMade} / {maxSubs}</span></div>
                 <div className="flex justify-between"><span>{t("teamTalk")}</span><span className="font-semibold">{active.teamTalkGiven ? "✓" : "—"}</span></div>
                 <div className="flex justify-between"><span>{t("tacticChangesCount")}</span><span className="font-semibold">{tacticChanges}</span></div>
               </div>
             </Tile>
 
-            <Button onClick={() => playNextSegment()} className="w-full">
+          </div>
+            <Button onClick={() => playNextSegment()} className="w-full shrink-0">
               {t("continueMatchBtn")}
             </Button>
           </div>

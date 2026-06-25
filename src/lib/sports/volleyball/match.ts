@@ -1,4 +1,9 @@
-import type { MatchEventMeta, MatchPresentation, MatchStatRow } from "@/lib/types";
+import type { LocalizedText, MatchEventMeta, MatchPresentation, MatchStatRow } from "@/lib/types";
+
+function segmentLabel(kind: string): LocalizedText {
+  const n = parseInt(kind.slice(1), 10);
+  return { ko: `${n}세트`, en: `Set ${n}` };
+}
 
 const META: Record<string, MatchEventMeta> = {
   setWon: { emoji: "SW", label: { ko: "세트 승리", en: "Set Won" }, tone: "score" },
@@ -79,4 +84,6 @@ export const volleyballPresentation: MatchPresentation = {
       { label: { ko: "디그", en: "Digs" }, h: c.hDg, a: c.aDg },
     ];
   },
+  segmentLabel,
+  maxSubs: 6,
 };

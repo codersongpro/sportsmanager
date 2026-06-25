@@ -5,7 +5,7 @@ import { getClubsForSport } from "@/data/clubs";
 import { getSport } from "@/lib/sports";
 import type { SportId } from "@/lib/types";
 
-const SPORTS: SportId[] = ["basketball", "baseball", "volleyball", "pickleball"];
+const SPORTS = ["basketball", "baseball", "volleyball", "pickleball"] as const satisfies readonly SportId[];
 const VENUES: Record<(typeof SPORTS)[number], string> = {
   basketball: "hardwood",
   baseball: "diamond",

@@ -65,8 +65,8 @@ export interface Finances {
   wageBudget: number; // weekly wage cap
 }
 
-/** One phase of a match that can be simulated and revealed independently. */
-export type MatchSegmentKind = "first_half" | "second_half" | "extra_time" | "penalties";
+/** One phase of a match that can be simulated and revealed independently (sport-defined: "first_half", "q1", "i3", "s2", "g1", ...). */
+export type MatchSegmentKind = string;
 
 export interface Tactics {
   formation: string; // e.g. "4-3-3"
@@ -411,6 +411,10 @@ export interface MatchPresentation {
   scoreOf: (events: MatchEvent[], clubId: string) => number;
   /** live stat rows derived from the revealed events */
   liveStats: (events: MatchEvent[], homeId: string, awayId: string) => MatchStatRow[];
+  /** display label for a segment kind (e.g. "first_half" -> "전반전", "q3" -> "3쿼터") */
+  segmentLabel: (kind: MatchSegmentKind) => LocalizedText;
+  /** how many user substitutions are allowed per match (defaults to 5 if omitted) */
+  maxSubs?: number;
 }
 
 export interface SquadSlot {
@@ -460,7 +464,7 @@ export interface SportModule {
   autoPickLineup(club: Club, players: Record<string, Player>): { lineup: string[]; bench: string[] };
   validateLineup(club: Club, players: Record<string, Player>): ValidationResult;
   simulateMatch(home: MatchTeam, away: MatchTeam, rng: RNG, opts?: SimOptions): MatchResult;
-  /** simulate one segment of a match (e.g. a half); sports that support resumable matches implement this */
+  /** simulate one segment of a match (e.g. a half/quarter/inning/set/game); sports that support resumable matches implement this trio */
   simulateSegment?(home: MatchTeam, away: MatchTeam, rng: RNG, kind: MatchSegmentKind, opts?: SimOptions): MatchSegmentResult;
   /** merge previously simulated segments into a final MatchResult (ratings, possession, decider) */
   finalizeSegments?(
@@ -470,6 +474,10 @@ export interface SportModule {
     opts: SimOptions,
     rng: RNG,
   ): MatchResult;
+  /** the segment a fresh match starts on */
+  firstSegment?(opts: SimOptions): MatchSegmentKind;
+  /** the segment that follows `kind`, given the running score, or null if the match is over */
+  nextSegment?(kind: MatchSegmentKind, homeScore: number, awayScore: number, opts: SimOptions): MatchSegmentKind | null;
   /** returns a NEW player object with developed attributes */
   trainPlayer(player: Player, focusKey: string, rng: RNG): Player;
   generatePlayer(opts: GenPlayerOpts, rng: RNG): Player;

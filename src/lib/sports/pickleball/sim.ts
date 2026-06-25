@@ -1,4 +1,4 @@
-import type { LocalizedText, MatchEvent, MatchResult, MatchTeam, PitchZone, SimOptions } from "@/lib/types";
+import type { LocalizedText, MatchEvent, MatchResult, MatchSegmentResult, MatchTeam, PitchZone, SimOptions } from "@/lib/types";
 import type { RNG } from "@/lib/sim/rng";
 import { avgAttr, buildPool, phrase, pick, type Pool } from "../common/simutil";
 
@@ -81,84 +81,132 @@ function gameMinute(game: number, rally: number): number {
   return game - 1 + Math.min(0.96, rally / 38);
 }
 
-export function simulateMatch(home: MatchTeam, away: MatchTeam, rng: RNG, opts: SimOptions = {}): MatchResult {
+// ---------------------------------------------------------------------------
+// Segments (resumable matches: a segment is one independently simulatable
+// full game. `simulateMatch` below is a thin composition of these, mirroring
+// soccer's segment engine so the Match Center can pause and substitute
+// between games. Since the final score is games won (not rally points),
+// `homeGoals`/`awayGoals` here are 1/0 for the game winner; the actual rally
+// point tally is carried in `homeShots`/`awayShots` for display purposes.)
+// ---------------------------------------------------------------------------
+
+function gameIndex(kind: string): number {
+  return parseInt(kind.slice(1), 10);
+}
+
+/** Simulate one full game, rally by rally. Lineups are read fresh, so mid-match substitutions apply from the next game onward. */
+export function simulateSegment(home: MatchTeam, away: MatchTeam, rng: RNG, kind: string, opts: SimOptions = {}): MatchSegmentResult {
   const neutral = opts.neutralVenue ?? false;
   const hs = side(home);
   const as = side(away);
   const hStrength = hs.strength + (neutral ? 0 : 1.5);
+  const game = gameIndex(kind);
 
   const events: MatchEvent[] = [];
-  const points: Record<string, number> = {};
-  const bump = (id?: string) => { if (id) points[id] = (points[id] ?? 0) + 1; };
-
-  let hG = 0;
-  let aG = 0;
-  let game = 0;
+  let hPts = 0;
+  let aPts = 0;
+  let rally = 0;
   let serverHome = rng.bool(0.5);
-  const segmentScores: MatchResult["segmentScores"] = [];
 
-  while (hG < 2 && aG < 2) {
-    game++;
-    let hPts = 0;
-    let aPts = 0;
-    let rally = 0;
+  while (!gameFinished(hPts, aPts)) {
+    rally++;
+    const homeWinsRally = rng.bool(rallyWinProb(hStrength, as.strength, serverHome, hs.serve, as.serve));
+    const servingTeamWon = homeWinsRally === serverHome;
+    const winningSide = homeWinsRally ? hs : as;
+    const winningClub = homeWinsRally ? home.club.id : away.club.id;
+    const losingClub = homeWinsRally ? away.club.id : home.club.id;
+    const wz: PitchZone = homeWinsRally ? "right" : "left";
+    const lz: PitchZone = homeWinsRally ? "left" : "right";
+    const minute = gameMinute(game, rally);
 
-    while (!gameFinished(hPts, aPts)) {
-      rally++;
-      const homeWinsRally = rng.bool(rallyWinProb(hStrength, as.strength, serverHome, hs.serve, as.serve));
-      const servingTeamWon = homeWinsRally === serverHome;
-      const winningSide = homeWinsRally ? hs : as;
-      const winningClub = homeWinsRally ? home.club.id : away.club.id;
-      const losingClub = homeWinsRally ? away.club.id : home.club.id;
-      const wz: PitchZone = homeWinsRally ? "right" : "left";
-      const lz: PitchZone = homeWinsRally ? "left" : "right";
-      const minute = gameMinute(game, rally);
-
-      if (servingTeamWon) {
-        if (homeWinsRally) hPts++; else aPts++;
-      } else {
-        serverHome = homeWinsRally;
-        events.push({ minute, type: "sideOut", clubId: winningClub, detail: { ko: "사이드아웃으로 서브권을 가져옵니다.", en: "Side-out earns the serve." }, zone: wz });
-      }
-
-      const roll = rng.next();
-      if (roll < 0.18 && serverHome === homeWinsRally) {
-        const p = pick(rng, winningSide.attackers);
-        bump(p?.id);
-        events.push({ minute, type: "ace", clubId: winningClub, playerId: p?.id, detail: phrase(rng, ACE), zone: wz });
-      } else if (roll < 0.34) {
-        const p = pick(rng, winningSide.attackers);
-        bump(p?.id);
-        events.push({ minute, type: "smash", clubId: winningClub, playerId: p?.id, detail: phrase(rng, SMASH), zone: wz });
-      } else if (roll < 0.5) {
-        const p = pick(rng, winningSide.attackers);
-        bump(p?.id);
-        events.push({ minute, type: "winner", clubId: winningClub, playerId: p?.id, detail: phrase(rng, WINNER), zone: wz });
-      } else if (roll < 0.65) {
-        const p = pick(rng, winningSide.finesse);
-        bump(p?.id);
-        events.push({ minute, type: "dink", clubId: winningClub, playerId: p?.id, detail: phrase(rng, DINK), zone: wz });
-      } else if (roll < 0.75) {
-        events.push({ minute, type: "fault", clubId: losingClub, detail: phrase(rng, FAULT), zone: lz });
-      } else if (roll < 0.9) {
-        const item = EXTRA[rng.int(0, EXTRA.length - 1)];
-        const p = pick(rng, rng.bool(0.55) ? winningSide.finesse : winningSide.attackers);
-        events.push({ minute, type: item.type, clubId: winningClub, playerId: p?.id, detail: phrase(rng, item.detail), zone: wz });
-      }
+    if (servingTeamWon) {
+      if (homeWinsRally) hPts++; else aPts++;
+    } else {
+      serverHome = homeWinsRally;
+      events.push({ minute, type: "sideOut", clubId: winningClub, detail: { ko: "사이드아웃으로 서브권을 가져옵니다.", en: "Side-out earns the serve." }, zone: wz });
     }
 
-    const homeWinsGame = hPts > aPts;
-    const wClub = homeWinsGame ? home.club.id : away.club.id;
-    events.push({
-      minute: game,
-      type: "gameWon",
-      clubId: wClub,
-      detail: { ko: `${hPts}-${aPts}. ${phrase(rng, GAMEWON).ko}`, en: `${phrase(rng, GAMEWON).en} ${hPts}-${aPts}` },
-      zone: homeWinsGame ? "right" : "left",
-    });
-    if (homeWinsGame) hG++; else aG++;
-    serverHome = !serverHome;
-    segmentScores.push({ label: { ko: `${game}게임`, en: `Game ${game}` }, homeScore: hPts, awayScore: aPts });
+    const roll = rng.next();
+    if (roll < 0.18 && serverHome === homeWinsRally) {
+      const p = pick(rng, winningSide.attackers);
+      events.push({ minute, type: "ace", clubId: winningClub, playerId: p?.id, detail: phrase(rng, ACE), zone: wz });
+    } else if (roll < 0.34) {
+      const p = pick(rng, winningSide.attackers);
+      events.push({ minute, type: "smash", clubId: winningClub, playerId: p?.id, detail: phrase(rng, SMASH), zone: wz });
+    } else if (roll < 0.5) {
+      const p = pick(rng, winningSide.attackers);
+      events.push({ minute, type: "winner", clubId: winningClub, playerId: p?.id, detail: phrase(rng, WINNER), zone: wz });
+    } else if (roll < 0.65) {
+      const p = pick(rng, winningSide.finesse);
+      events.push({ minute, type: "dink", clubId: winningClub, playerId: p?.id, detail: phrase(rng, DINK), zone: wz });
+    } else if (roll < 0.75) {
+      events.push({ minute, type: "fault", clubId: losingClub, detail: phrase(rng, FAULT), zone: lz });
+    } else if (roll < 0.9) {
+      const item = EXTRA[rng.int(0, EXTRA.length - 1)];
+      const p = pick(rng, rng.bool(0.55) ? winningSide.finesse : winningSide.attackers);
+      events.push({ minute, type: item.type, clubId: winningClub, playerId: p?.id, detail: phrase(rng, item.detail), zone: wz });
+    }
+  }
+
+  const homeWinsGame = hPts > aPts;
+  const wClub = homeWinsGame ? home.club.id : away.club.id;
+  events.push({
+    minute: game,
+    type: "gameWon",
+    clubId: wClub,
+    detail: { ko: `${hPts}-${aPts}. ${phrase(rng, GAMEWON).ko}`, en: `${phrase(rng, GAMEWON).en} ${hPts}-${aPts}` },
+    zone: homeWinsGame ? "right" : "left",
+  });
+
+  return {
+    events,
+    homeGoals: homeWinsGame ? 1 : 0,
+    awayGoals: homeWinsGame ? 0 : 1,
+    homeShots: hPts,
+    awayShots: aPts,
+    homeShotsOnTarget: 0,
+    awayShotsOnTarget: 0,
+    scorerIds: [],
+    assistIds: [],
+    saves: {},
+  };
+}
+
+/** The segment a fresh match starts on. */
+export function firstSegment(): string {
+  return "g1";
+}
+
+/** Decide which segment comes after the one just played. Best-of-three: ends once either side reaches 2 games. */
+export function nextSegment(kind: string, homeScore: number, awayScore: number): string | null {
+  if (homeScore >= 2 || awayScore >= 2) return null;
+  return `g${gameIndex(kind) + 1}`;
+}
+
+/** Merge already-simulated games into a final MatchResult (ratings, segment scores, decider). */
+export function finalizeSegments(
+  home: MatchTeam,
+  away: MatchTeam,
+  segments: { kind: string; result: MatchSegmentResult }[],
+  _opts: SimOptions,
+  rng: RNG,
+): MatchResult {
+  let hG = 0;
+  let aG = 0;
+  const events: MatchEvent[] = [];
+  const points: Record<string, number> = {};
+  const bump = (id: string | undefined) => { if (id) points[id] = (points[id] ?? 0) + 1; };
+  const segmentScores: MatchResult["segmentScores"] = [];
+
+  for (const { kind, result } of segments) {
+    hG += result.homeGoals;
+    aG += result.awayGoals;
+    events.push(...result.events);
+    for (const e of result.events) {
+      if (e.type === "ace" || e.type === "smash" || e.type === "winner" || e.type === "dink") bump(e.playerId);
+    }
+    const n = gameIndex(kind);
+    segmentScores.push({ label: { ko: `${n}게임`, en: `Game ${n}` }, homeScore: result.homeShots, awayScore: result.awayShots });
   }
 
   events.sort((a, b) => a.minute - b.minute);
@@ -192,4 +240,26 @@ export function simulateMatch(home: MatchTeam, away: MatchTeam, rng: RNG, opts: 
     decidedBy: "normal",
     segmentScores,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Public entry point
+// ---------------------------------------------------------------------------
+
+export function simulateMatch(home: MatchTeam, away: MatchTeam, rng: RNG, opts: SimOptions = {}): MatchResult {
+  const segments: { kind: string; result: MatchSegmentResult }[] = [];
+  let hG = 0;
+  let aG = 0;
+  let game = 0;
+
+  while (hG < 2 && aG < 2) {
+    game++;
+    const kind = `g${game}`;
+    const r = simulateSegment(home, away, rng, kind, opts);
+    segments.push({ kind, result: r });
+    hG += r.homeGoals;
+    aG += r.awayGoals;
+  }
+
+  return finalizeSegments(home, away, segments, opts, rng);
 }

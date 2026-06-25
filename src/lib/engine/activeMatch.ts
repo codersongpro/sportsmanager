@@ -1,9 +1,9 @@
-import type { ActiveMatchState, Fixture, GameState, MatchSegmentKind, SimOptions, SportModule } from "@/lib/types";
+import type { ActiveMatchState, Fixture, GameState, SimOptions, SportModule } from "@/lib/types";
 import { createRng } from "@/lib/sim/rng";
 import { resolveTeam, finishMatch } from "./matchFlow";
 
 /** Build the initial (unplayed) state for a user fixture that's about to be played out segment by segment. */
-export function beginActiveMatch(state: GameState, fixture: Fixture): ActiveMatchState {
+export function beginActiveMatch(state: GameState, fixture: Fixture, sport: SportModule): ActiveMatchState {
   const comp = state.competition;
   const opts: SimOptions = {
     allowDraw: comp.format === "league",
@@ -15,7 +15,7 @@ export function beginActiveMatch(state: GameState, fixture: Fixture): ActiveMatc
     homeId: fixture.homeId,
     awayId: fixture.awayId as string,
     opts,
-    phase: "first_half",
+    phase: sport.firstSegment?.(opts) ?? "first_half",
     finished: false,
     homeScore: 0,
     awayScore: 0,
@@ -24,15 +24,6 @@ export function beginActiveMatch(state: GameState, fixture: Fixture): ActiveMatc
     subbedOffIds: [],
     teamTalkGiven: false,
   };
-}
-
-/** Decide which segment comes after the one just played, given the running score and the match's options. */
-function nextPhase(kind: MatchSegmentKind, homeScore: number, awayScore: number, opts: SimOptions): MatchSegmentKind | null {
-  const level = homeScore === awayScore;
-  if (kind === "first_half") return "second_half";
-  if (kind === "second_half") return !opts.allowDraw && level ? "extra_time" : null;
-  if (kind === "extra_time") return level ? "penalties" : null;
-  return null; // penalties always finishes
 }
 
 /**
@@ -62,7 +53,7 @@ export function advanceActiveMatch(state: GameState, sport: SportModule): GameSt
     nextActive.homeScore += result.homeGoals;
     nextActive.awayScore += result.awayGoals;
 
-    const upcoming = nextPhase(kind, nextActive.homeScore, nextActive.awayScore, nextActive.opts);
+    const upcoming = sport.nextSegment?.(kind, nextActive.homeScore, nextActive.awayScore, nextActive.opts) ?? null;
     if (upcoming) {
       nextActive.phase = upcoming;
     } else {

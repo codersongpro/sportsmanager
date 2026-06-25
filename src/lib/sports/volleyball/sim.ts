@@ -1,4 +1,4 @@
-import type { LocalizedText, MatchEvent, MatchResult, MatchTeam, Player, PitchZone, SimOptions } from "@/lib/types";
+import type { LocalizedText, MatchEvent, MatchResult, MatchSegmentResult, MatchTeam, Player, PitchZone, SimOptions } from "@/lib/types";
 import type { RNG } from "@/lib/sim/rng";
 import { avgAttr, buildPool, phrase, pick, type Pool } from "../common/simutil";
 import { VB_POSITION_GROUP } from "./constants";
@@ -91,80 +91,129 @@ function rallyMinute(setNumber: number, rally: number): number {
   return setNumber - 1 + Math.min(0.96, rally / 55);
 }
 
-export function simulateMatch(home: MatchTeam, away: MatchTeam, rng: RNG, opts: SimOptions = {}): MatchResult {
+// ---------------------------------------------------------------------------
+// Segments (resumable matches: a segment is one independently simulatable
+// full set. `simulateMatch` below is a thin composition of these, mirroring
+// soccer's segment engine so the Match Center can pause and substitute
+// between sets. Since the final score is sets won (not rally points),
+// `homeGoals`/`awayGoals` here are 1/0 for the set winner; the actual rally
+// point tally is carried in `homeShots`/`awayShots` for display purposes.)
+// ---------------------------------------------------------------------------
+
+function setIndex(kind: string): number {
+  return parseInt(kind.slice(1), 10);
+}
+
+/** Simulate one full set, rally by rally. Lineups are read fresh, so mid-match substitutions apply from the next set onward. */
+export function simulateSegment(home: MatchTeam, away: MatchTeam, rng: RNG, kind: string, opts: SimOptions = {}): MatchSegmentResult {
   const neutral = opts.neutralVenue ?? false;
   const hs = side(home);
   const as = side(away);
   const hStrength = hs.strength + (neutral ? 0 : 2);
+  const setNumber = setIndex(kind);
+  const target = setTarget(setNumber);
 
+  const events: MatchEvent[] = [];
+  let hPoints = 0;
+  let aPoints = 0;
+  let rally = 0;
+  let serverHome = rng.bool(0.5);
+
+  while (!setFinished(hPoints, aPoints, target)) {
+    rally++;
+    const homeWinsRally = rng.bool(setWinProb(hStrength, as.strength, serverHome));
+    const winningSide = homeWinsRally ? hs : as;
+    const losingSide = homeWinsRally ? as : hs;
+    const winningClub = homeWinsRally ? home.club.id : away.club.id;
+    const losingClub = homeWinsRally ? away.club.id : home.club.id;
+    const wz: PitchZone = homeWinsRally ? "right" : "left";
+    const lz: PitchZone = homeWinsRally ? "left" : "right";
+    const minute = rallyMinute(setNumber, rally);
+
+    if (homeWinsRally) hPoints++; else aPoints++;
+    serverHome = homeWinsRally;
+
+    const roll = rng.next();
+    if (roll < 0.28) {
+      const p = pick(rng, winningSide.spikers);
+      events.push({ minute, type: "spike", clubId: winningClub, playerId: p?.id, detail: phrase(rng, SPIKE), zone: wz });
+    } else if (roll < 0.38) {
+      const p = pick(rng, winningSide.servers);
+      events.push({ minute, type: "ace", clubId: winningClub, playerId: p?.id, detail: phrase(rng, ACE), zone: wz });
+    } else if (roll < 0.5) {
+      const p = pick(rng, winningSide.blockers);
+      events.push({ minute, type: "block", clubId: winningClub, playerId: p?.id, detail: phrase(rng, BLOCK), zone: wz });
+    } else if (roll < 0.6) {
+      const p = pick(rng, losingSide.diggers);
+      events.push({ minute, type: "dig", clubId: losingClub, playerId: p?.id, detail: phrase(rng, DIG), zone: lz });
+    } else if (roll < 0.68) {
+      events.push({ minute, type: "error", clubId: losingClub, detail: phrase(rng, ERR), zone: lz });
+    } else if (roll < 0.82) {
+      const item = EXTRA[rng.int(0, EXTRA.length - 1)];
+      const p = pick(rng, rng.bool(0.5) ? winningSide.spikers : winningSide.servers);
+      events.push({ minute, type: item.type, clubId: winningClub, playerId: p?.id, detail: phrase(rng, item.detail), zone: wz });
+    }
+  }
+
+  const homeWonSet = hPoints > aPoints;
+  const setClub = homeWonSet ? home.club.id : away.club.id;
+  events.push({
+    minute: setNumber,
+    type: "setWon",
+    clubId: setClub,
+    detail: { ko: `${hPoints}-${aPoints}. ${phrase(rng, SETWON).ko}`, en: `${phrase(rng, SETWON).en} ${hPoints}-${aPoints}` },
+    zone: homeWonSet ? "right" : "left",
+  });
+
+  return {
+    events,
+    homeGoals: homeWonSet ? 1 : 0,
+    awayGoals: homeWonSet ? 0 : 1,
+    homeShots: hPoints,
+    awayShots: aPoints,
+    homeShotsOnTarget: 0,
+    awayShotsOnTarget: 0,
+    scorerIds: [],
+    assistIds: [],
+    saves: {},
+  };
+}
+
+/** The segment a fresh match starts on. */
+export function firstSegment(): string {
+  return "s1";
+}
+
+/** Decide which segment comes after the one just played. Best-of-five: ends once either side reaches 3 sets. */
+export function nextSegment(kind: string, homeScore: number, awayScore: number): string | null {
+  if (homeScore >= 3 || awayScore >= 3) return null;
+  return `s${setIndex(kind) + 1}`;
+}
+
+/** Merge already-simulated sets into a final MatchResult (ratings, segment scores, decider). */
+export function finalizeSegments(
+  home: MatchTeam,
+  away: MatchTeam,
+  segments: { kind: string; result: MatchSegmentResult }[],
+  _opts: SimOptions,
+  rng: RNG,
+): MatchResult {
+  let hSets = 0;
+  let aSets = 0;
   const events: MatchEvent[] = [];
   const points: Record<string, number> = {};
   const bump = (id: string | undefined) => { if (id) points[id] = (points[id] ?? 0) + 1; };
-
-  let hSets = 0;
-  let aSets = 0;
-  let setNumber = 0;
-  let serverHome = rng.bool(0.5);
   const segmentScores: MatchResult["segmentScores"] = [];
 
-  while (hSets < 3 && aSets < 3) {
-    setNumber++;
-    const target = setTarget(setNumber);
-    let hPoints = 0;
-    let aPoints = 0;
-    let rally = 0;
-
-    while (!setFinished(hPoints, aPoints, target)) {
-      rally++;
-      const homeWinsRally = rng.bool(setWinProb(hStrength, as.strength, serverHome));
-      const winningSide = homeWinsRally ? hs : as;
-      const losingSide = homeWinsRally ? as : hs;
-      const winningClub = homeWinsRally ? home.club.id : away.club.id;
-      const losingClub = homeWinsRally ? away.club.id : home.club.id;
-      const wz: PitchZone = homeWinsRally ? "right" : "left";
-      const lz: PitchZone = homeWinsRally ? "left" : "right";
-      const minute = rallyMinute(setNumber, rally);
-
-      if (homeWinsRally) hPoints++; else aPoints++;
-      serverHome = homeWinsRally;
-
-      const roll = rng.next();
-      if (roll < 0.28) {
-        const p = pick(rng, winningSide.spikers);
-        bump(p?.id);
-        events.push({ minute, type: "spike", clubId: winningClub, playerId: p?.id, detail: phrase(rng, SPIKE), zone: wz });
-      } else if (roll < 0.38) {
-        const p = pick(rng, winningSide.servers);
-        bump(p?.id);
-        events.push({ minute, type: "ace", clubId: winningClub, playerId: p?.id, detail: phrase(rng, ACE), zone: wz });
-      } else if (roll < 0.5) {
-        const p = pick(rng, winningSide.blockers);
-        bump(p?.id);
-        events.push({ minute, type: "block", clubId: winningClub, playerId: p?.id, detail: phrase(rng, BLOCK), zone: wz });
-      } else if (roll < 0.6) {
-        const p = pick(rng, losingSide.diggers);
-        events.push({ minute, type: "dig", clubId: losingClub, playerId: p?.id, detail: phrase(rng, DIG), zone: lz });
-      } else if (roll < 0.68) {
-        events.push({ minute, type: "error", clubId: losingClub, detail: phrase(rng, ERR), zone: lz });
-      } else if (roll < 0.82) {
-        const item = EXTRA[rng.int(0, EXTRA.length - 1)];
-        const p = pick(rng, rng.bool(0.5) ? winningSide.spikers : winningSide.servers);
-        events.push({ minute, type: item.type, clubId: winningClub, playerId: p?.id, detail: phrase(rng, item.detail), zone: wz });
-      }
+  for (const { kind, result } of segments) {
+    hSets += result.homeGoals;
+    aSets += result.awayGoals;
+    events.push(...result.events);
+    for (const e of result.events) {
+      if (e.type === "spike" || e.type === "ace" || e.type === "block") bump(e.playerId);
     }
-
-    const homeWonSet = hPoints > aPoints;
-    const setClub = homeWonSet ? home.club.id : away.club.id;
-    events.push({
-      minute: setNumber,
-      type: "setWon",
-      clubId: setClub,
-      detail: { ko: `${hPoints}-${aPoints}. ${phrase(rng, SETWON).ko}`, en: `${phrase(rng, SETWON).en} ${hPoints}-${aPoints}` },
-      zone: homeWonSet ? "right" : "left",
-    });
-    if (homeWonSet) hSets++; else aSets++;
-    serverHome = !serverHome;
-    segmentScores.push({ label: { ko: `${setNumber}세트`, en: `Set ${setNumber}` }, homeScore: hPoints, awayScore: aPoints });
+    const n = setIndex(kind);
+    segmentScores.push({ label: { ko: `${n}세트`, en: `Set ${n}` }, homeScore: result.homeShots, awayScore: result.awayShots });
   }
 
   events.sort((a, b) => a.minute - b.minute);
@@ -198,4 +247,26 @@ export function simulateMatch(home: MatchTeam, away: MatchTeam, rng: RNG, opts: 
     decidedBy: "normal",
     segmentScores,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Public entry point
+// ---------------------------------------------------------------------------
+
+export function simulateMatch(home: MatchTeam, away: MatchTeam, rng: RNG, opts: SimOptions = {}): MatchResult {
+  const segments: { kind: string; result: MatchSegmentResult }[] = [];
+  let hSets = 0;
+  let aSets = 0;
+  let setNumber = 0;
+
+  while (hSets < 3 && aSets < 3) {
+    setNumber++;
+    const kind = `s${setNumber}`;
+    const r = simulateSegment(home, away, rng, kind, opts);
+    segments.push({ kind, result: r });
+    hSets += r.homeGoals;
+    aSets += r.awayGoals;
+  }
+
+  return finalizeSegments(home, away, segments, opts, rng);
 }

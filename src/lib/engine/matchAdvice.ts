@@ -38,7 +38,7 @@ function tally(active: ActiveMatchState, userClubId: string) {
  */
 export function deriveMatchAdvice(active: ActiveMatchState, userClubId: string): MatchAdviceTip[] {
   const { myShots, myShotsOnTarget, myYellows, myReds, oppReds, diff } = tally(active, userClubId);
-  const isLate = active.phase !== "first_half";
+  const isLate = active.segments.length > 0;
   const tips: MatchAdviceTip[] = [];
 
   if (myReds > 0) {

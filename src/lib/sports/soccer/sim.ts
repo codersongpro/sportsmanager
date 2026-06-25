@@ -713,6 +713,20 @@ export function finalizeSegments(
   };
 }
 
+/** The segment a fresh match starts on. */
+export function firstSegment(): MatchSegmentKind {
+  return "first_half";
+}
+
+/** Decide which segment comes after the one just played, given the running score and the match's options. */
+export function nextSegment(kind: MatchSegmentKind, homeScore: number, awayScore: number, opts: SimOptions): MatchSegmentKind | null {
+  const level = homeScore === awayScore;
+  if (kind === "first_half") return "second_half";
+  if (kind === "second_half") return !opts.allowDraw && level ? "extra_time" : null;
+  if (kind === "extra_time") return level ? "penalties" : null;
+  return null; // penalties always finishes
+}
+
 // ---------------------------------------------------------------------------
 // Public entry point
 // ---------------------------------------------------------------------------

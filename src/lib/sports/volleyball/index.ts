@@ -16,7 +16,7 @@ import {
 } from "./constants";
 import { VB_PLAYSTYLES, vbPlaystylesFor } from "./playstyles";
 import { volleyballPresentation } from "./match";
-import { simulateMatch } from "./sim";
+import { finalizeSegments, firstSegment, nextSegment, simulateMatch, simulateSegment } from "./sim";
 
 const FALLBACK = "OH";
 const calcOverall = makeCalcOverall(VB_POSITION_WEIGHTS, FALLBACK);
@@ -64,6 +64,10 @@ export const volleyballModule: SportModule = {
   autoPickLineup,
   validateLineup,
   simulateMatch,
+  simulateSegment,
+  finalizeSegments,
+  firstSegment,
+  nextSegment,
   trainPlayer: weeklyTrain,
   generatePlayer,
 };

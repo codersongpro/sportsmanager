@@ -91,7 +91,8 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
     if (!cur) return fail("", "");
     const active = cur.activeMatch;
     if (!active || active.finished) return fail("진행 중인 경기가 없습니다", "No match in progress");
-    if (active.subsMade >= 5) return fail("교체 횟수를 모두 사용했습니다", "No substitutions remaining");
+    const maxSubs = getSport(cur.sportId).matchPresentation.maxSubs ?? 5;
+    if (active.subsMade >= maxSubs) return fail("교체 횟수를 모두 사용했습니다", "No substitutions remaining");
     if (active.subbedOffIds.includes(outId)) return fail("이미 교체되어 나간 선수입니다", "That player has already been substituted off");
 
     const myClub = cur.clubs[cur.manager.clubId];

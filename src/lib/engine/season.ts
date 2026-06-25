@@ -21,7 +21,7 @@ function playMatchesForDay(state: GameState, sport: SportModule, rng: RNG) {
     const isUserMatch = fixture.homeId === state.manager.clubId || fixture.awayId === state.manager.clubId;
     if (isUserMatch && sport.simulateSegment && sport.finalizeSegments) {
       // play the user's own match out segment by segment instead of resolving it atomically
-      if (!state.activeMatch) state.activeMatch = beginActiveMatch(state, fixture);
+      if (!state.activeMatch) state.activeMatch = beginActiveMatch(state, fixture, sport);
       continue;
     }
 

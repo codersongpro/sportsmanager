@@ -11,7 +11,7 @@ import { SOCCER_PLAYSTYLES, playstylesForPosition } from "./playstyles";
 import { calcOverall } from "./ratings";
 import { generatePlayer } from "./generate";
 import { ageAndDevelop, weeklyTrain } from "./growth";
-import { finalizeSegments, simulateMatch, simulateSegment } from "./sim";
+import { finalizeSegments, firstSegment, nextSegment, simulateMatch, simulateSegment } from "./sim";
 import { autoPickLineup, validateLineup } from "./lineup";
 import { soccerPresentation } from "./match";
 import { tacticTags } from "./tactics";
@@ -49,6 +49,8 @@ export const soccerModule: SportModule = {
   simulateMatch,
   simulateSegment,
   finalizeSegments,
+  firstSegment,
+  nextSegment,
   trainPlayer: weeklyTrain,
   ageAndDevelop,
   generatePlayer,

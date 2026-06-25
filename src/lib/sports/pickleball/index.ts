@@ -16,7 +16,7 @@ import {
 } from "./constants";
 import { PB_PLAYSTYLES, pbPlaystylesFor } from "./playstyles";
 import { pickleballPresentation } from "./match";
-import { simulateMatch } from "./sim";
+import { finalizeSegments, firstSegment, nextSegment, simulateMatch, simulateSegment } from "./sim";
 
 const FALLBACK = "BL";
 const calcOverall = makeCalcOverall(PB_POSITION_WEIGHTS, FALLBACK);
@@ -63,6 +63,10 @@ export const pickleballModule: SportModule = {
   autoPickLineup,
   validateLineup,
   simulateMatch,
+  simulateSegment,
+  finalizeSegments,
+  firstSegment,
+  nextSegment,
   trainPlayer: weeklyTrain,
   generatePlayer,
 };

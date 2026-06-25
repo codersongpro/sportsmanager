@@ -1,4 +1,13 @@
-import type { MatchEventMeta, MatchPresentation, MatchStatRow } from "@/lib/types";
+import type { LocalizedText, MatchEventMeta, MatchPresentation, MatchStatRow } from "@/lib/types";
+
+function segmentLabel(kind: string): LocalizedText {
+  if (kind.startsWith("ot")) {
+    const n = parseInt(kind.slice(2), 10);
+    return { ko: `연장${n > 1 ? n : ""}`, en: `OT${n > 1 ? n : ""}` };
+  }
+  const q = parseInt(kind.slice(1), 10);
+  return { ko: `${q}쿼터`, en: `Q${q}` };
+}
 
 const META: Record<string, MatchEventMeta> = {
   three: { emoji: "3", label: { ko: "3점슛", en: "3PT" }, tone: "score" },
@@ -89,4 +98,6 @@ export const basketballPresentation: MatchPresentation = {
       { label: { ko: "블록", en: "Blocks" }, h: c.hb, a: c.ab },
     ];
   },
+  segmentLabel,
+  maxSubs: 20,
 };

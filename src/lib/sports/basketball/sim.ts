@@ -1,4 +1,4 @@
-import type { LocalizedText, MatchEvent, MatchResult, MatchTeam, Player, PitchZone, SimOptions } from "@/lib/types";
+import type { LocalizedText, MatchEvent, MatchResult, MatchSegmentResult, MatchTeam, Player, PitchZone, SimOptions } from "@/lib/types";
 import type { RNG } from "@/lib/sim/rng";
 import { avgAttr, buildPool, phrase, pick, poisson, type Pool } from "../common/simutil";
 import { BB_POSITION_GROUP } from "./constants";
@@ -82,14 +82,6 @@ function targetPoints(off: number, def: number, home: boolean, minutes = 48): nu
   return Math.max(minutes === 48 ? 82 : 4, Math.min(minutes === 48 ? 138 : 20, Math.round(base + (home ? 2.5 : -2.5))));
 }
 
-function splitTotal(total: number, parts: number, rng: RNG): number[] {
-  const weights = Array.from({ length: parts }, () => rng.range(0.85, 1.15));
-  const sum = weights.reduce((s, w) => s + w, 0);
-  const values = weights.map((w) => Math.max(0, Math.floor((total * w) / sum)));
-  while (values.reduce((s, v) => s + v, 0) < total) values[rng.int(0, parts - 1)]++;
-  return values;
-}
-
 function decompose(total: number, threeSkill: number, rng: RNG): { threes: number; twos: number; fts: number } {
   const threeShare = 0.26 + (threeSkill - 50) / 250 + rng.range(-0.04, 0.04);
   let threes = Math.max(0, Math.round((total * Math.max(0.12, threeShare)) / 3));
@@ -141,43 +133,123 @@ function emitNonScoring(events: MatchEvent[], rng: RNG, s: Side, clubId: string,
   }
 }
 
-export function simulateMatch(home: MatchTeam, away: MatchTeam, rng: RNG, opts: SimOptions = {}): MatchResult {
+// ---------------------------------------------------------------------------
+// Segments (resumable matches: a segment is one independently simulatable
+// quarter/OT period. `simulateMatch` below is a thin composition of these,
+// mirroring soccer's segment engine so the Match Center can pause and
+// substitute between quarters.)
+// ---------------------------------------------------------------------------
+
+const REGULATION_QUARTERS = 4;
+const QUARTER_MINUTES = 12;
+const OT_MINUTES = 5;
+
+function isOt(kind: string): boolean {
+  return kind.startsWith("ot");
+}
+
+function segIndex(kind: string): number {
+  return parseInt(kind.replace(/\D/g, ""), 10);
+}
+
+function quarterTarget(off: number, def: number, homeAdv: boolean, rng: RNG): number {
+  const base = 26 * Math.pow(off / Math.max(30, def), 1.05);
+  return Math.max(14, Math.min(38, Math.round(base * rng.range(0.85, 1.15) + (homeAdv ? 0.6 : -0.6))));
+}
+
+/** Simulate one quarter (or OT period) of a match. Lineups are read fresh, so mid-match substitutions apply from the next segment onward. */
+export function simulateSegment(home: MatchTeam, away: MatchTeam, rng: RNG, kind: string, opts: SimOptions = {}): MatchSegmentResult {
   const neutral = opts.neutralVenue ?? false;
   const hs = side(home);
   const as = side(away);
   const events: MatchEvent[] = [];
   const pts: Record<string, number> = {};
-  let decidedBy: MatchResult["decidedBy"] = "normal";
 
-  let homeTotal = targetPoints(hs.off, as.def, !neutral);
-  let awayTotal = targetPoints(as.off, hs.def, false);
-  const hQuarters = splitTotal(homeTotal, 4, rng);
-  const aQuarters = splitTotal(awayTotal, 4, rng);
-  const segmentScores: MatchResult["segmentScores"] = [];
-
-  for (let q = 0; q < 4; q++) {
-    const start = q * 12;
-    emitPoints(events, rng, hs, home.club.id, hQuarters[q], start, 12, true, pts);
-    emitPoints(events, rng, as, away.club.id, aQuarters[q], start, 12, false, pts);
-    emitNonScoring(events, rng, hs, home.club.id, away.club.id, start, 12, true);
-    emitNonScoring(events, rng, as, away.club.id, home.club.id, start, 12, false);
-    segmentScores.push({ label: { ko: `${q + 1}쿼터`, en: `Q${q + 1}` }, homeScore: hQuarters[q], awayScore: aQuarters[q] });
+  let homePts: number, awayPts: number, start: number, duration: number;
+  if (isOt(kind)) {
+    const n = segIndex(kind);
+    duration = OT_MINUTES;
+    start = REGULATION_QUARTERS * QUARTER_MINUTES + (n - 1) * OT_MINUTES;
+    homePts = targetPoints(hs.off, as.def, false, OT_MINUTES) + rng.int(0, 4);
+    awayPts = targetPoints(as.off, hs.def, false, OT_MINUTES) + rng.int(0, 4);
+  } else {
+    const q = segIndex(kind);
+    duration = QUARTER_MINUTES;
+    start = (q - 1) * QUARTER_MINUTES;
+    homePts = quarterTarget(hs.off, as.def, !neutral, rng);
+    awayPts = quarterTarget(as.off, hs.def, false, rng);
   }
 
+  emitPoints(events, rng, hs, home.club.id, homePts, start, duration, true, pts);
+  emitPoints(events, rng, as, away.club.id, awayPts, start, duration, false, pts);
+  emitNonScoring(events, rng, hs, home.club.id, away.club.id, start, duration, true);
+  emitNonScoring(events, rng, as, away.club.id, home.club.id, start, duration, false);
+
+  return {
+    events,
+    homeGoals: homePts,
+    awayGoals: awayPts,
+    homeShots: events.filter((e) => e.clubId === home.club.id && ["two", "three", "dunk"].includes(e.type)).length,
+    awayShots: events.filter((e) => e.clubId === away.club.id && ["two", "three", "dunk"].includes(e.type)).length,
+    homeShotsOnTarget: 0,
+    awayShotsOnTarget: 0,
+    scorerIds: [],
+    assistIds: [],
+    saves: {},
+  };
+}
+
+/** The segment a fresh match starts on. */
+export function firstSegment(): string {
+  return "q1";
+}
+
+/** Decide which segment comes after the one just played, given the running score. */
+export function nextSegment(kind: string, homeScore: number, awayScore: number): string | null {
+  if (!isOt(kind)) {
+    const q = segIndex(kind);
+    if (q < REGULATION_QUARTERS) return `q${q + 1}`;
+    return homeScore === awayScore ? "ot1" : null;
+  }
+  const n = segIndex(kind);
+  return homeScore === awayScore ? `ot${n + 1}` : null;
+}
+
+/** Merge already-simulated segments into a final MatchResult (ratings, segment scores, decider). */
+export function finalizeSegments(
+  home: MatchTeam,
+  away: MatchTeam,
+  segments: { kind: string; result: MatchSegmentResult }[],
+  opts: SimOptions,
+  rng: RNG,
+): MatchResult {
+  let homeScore = 0,
+    awayScore = 0,
+    homeShots = 0,
+    awayShots = 0;
+  const events: MatchEvent[] = [];
+  const pts: Record<string, number> = {};
+  const segmentScores: MatchResult["segmentScores"] = [];
   let overtime = 0;
-  while (homeTotal === awayTotal) {
-    decidedBy = "extra_time";
-    overtime++;
-    const start = 48 + (overtime - 1) * 5;
-    const hOt = targetPoints(hs.off, as.def, false, 5) + rng.int(0, 4);
-    const aOt = targetPoints(as.off, hs.def, false, 5) + rng.int(0, 4);
-    homeTotal += hOt;
-    awayTotal += aOt;
-    emitPoints(events, rng, hs, home.club.id, hOt, start, 5, true, pts);
-    emitPoints(events, rng, as, away.club.id, aOt, start, 5, false, pts);
-    emitNonScoring(events, rng, hs, home.club.id, away.club.id, start, 5, true);
-    emitNonScoring(events, rng, as, away.club.id, home.club.id, start, 5, false);
-    segmentScores.push({ label: { ko: `연장${overtime > 1 ? overtime : ""}`, en: `OT${overtime > 1 ? overtime : ""}` }, homeScore: hOt, awayScore: aOt });
+
+  for (const { kind, result } of segments) {
+    homeScore += result.homeGoals;
+    awayScore += result.awayGoals;
+    homeShots += result.homeShots;
+    awayShots += result.awayShots;
+    events.push(...result.events);
+    for (const e of result.events) {
+      if (!e.playerId) continue;
+      const value = e.type === "three" ? 3 : e.type === "two" || e.type === "dunk" ? 2 : e.type === "freeThrow" ? 1 : 0;
+      if (value) pts[e.playerId] = (pts[e.playerId] ?? 0) + value;
+    }
+    if (isOt(kind)) {
+      overtime++;
+      segmentScores.push({ label: { ko: `연장${overtime > 1 ? overtime : ""}`, en: `OT${overtime > 1 ? overtime : ""}` }, homeScore: result.homeGoals, awayScore: result.awayGoals });
+    } else {
+      const q = segIndex(kind);
+      segmentScores.push({ label: { ko: `${q}쿼터`, en: `Q${q}` }, homeScore: result.homeGoals, awayScore: result.awayGoals });
+    }
   }
 
   events.sort((a, b) => a.minute - b.minute);
@@ -189,26 +261,51 @@ export function simulateMatch(home: MatchTeam, away: MatchTeam, rng: RNG, opts: 
       playerRatings[p.id] = Math.max(4, Math.min(10, Math.round(r * 10) / 10));
     }
   };
-  rate(home, homeTotal > awayTotal);
-  rate(away, awayTotal > homeTotal);
+  rate(home, homeScore > awayScore);
+  rate(away, awayScore > homeScore);
 
   return {
     fixtureId: "",
     homeId: home.club.id,
     awayId: away.club.id,
-    homeScore: homeTotal,
-    awayScore: awayTotal,
+    homeScore,
+    awayScore,
     events,
     playerRatings,
     stats: {
       homePossession: 50,
-      homeShots: events.filter((e) => e.clubId === home.club.id && ["two", "three", "dunk"].includes(e.type)).length,
-      awayShots: events.filter((e) => e.clubId === away.club.id && ["two", "three", "dunk"].includes(e.type)).length,
+      homeShots,
+      awayShots,
       homeShotsOnTarget: 0,
       awayShotsOnTarget: 0,
     },
-    winnerId: homeTotal > awayTotal ? home.club.id : away.club.id,
-    decidedBy,
+    winnerId: homeScore > awayScore ? home.club.id : away.club.id,
+    decidedBy: overtime > 0 ? "extra_time" : "normal",
     segmentScores,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Public entry point
+// ---------------------------------------------------------------------------
+
+export function simulateMatch(home: MatchTeam, away: MatchTeam, rng: RNG, opts: SimOptions = {}): MatchResult {
+  const segments: { kind: string; result: MatchSegmentResult }[] = [];
+  for (let q = 1; q <= REGULATION_QUARTERS; q++) {
+    segments.push({ kind: `q${q}`, result: simulateSegment(home, away, rng, `q${q}`, opts) });
+  }
+  let homeScore = segments.reduce((s, x) => s + x.result.homeGoals, 0);
+  let awayScore = segments.reduce((s, x) => s + x.result.awayGoals, 0);
+
+  let overtime = 0;
+  while (homeScore === awayScore) {
+    overtime++;
+    const kind = `ot${overtime}`;
+    const r = simulateSegment(home, away, rng, kind, opts);
+    segments.push({ kind, result: r });
+    homeScore += r.homeGoals;
+    awayScore += r.awayGoals;
+  }
+
+  return finalizeSegments(home, away, segments, opts, rng);
 }

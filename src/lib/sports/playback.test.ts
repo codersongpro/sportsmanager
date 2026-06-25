@@ -13,6 +13,7 @@ function presentation(endProgress: number, regulationMinutes: number): MatchPres
     eventMeta: () => ({ emoji: "", label: { ko: "", en: "" } }),
     scoreOf: () => 0,
     liveStats: () => [],
+    segmentLabel: () => ({ ko: "", en: "" }),
   };
 }
 

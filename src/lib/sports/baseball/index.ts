@@ -18,7 +18,7 @@ import {
 } from "./constants";
 import { BSB_PLAYSTYLES, bsbPlaystylesFor } from "./playstyles";
 import { baseballPresentation } from "./match";
-import { simulateMatch } from "./sim";
+import { finalizeSegments, firstSegment, nextSegment, simulateMatch, simulateSegment } from "./sim";
 
 const FALLBACK = "CF";
 const calcOverall = makeCalcOverall(BSB_POSITION_WEIGHTS, FALLBACK);
@@ -70,6 +70,10 @@ export const baseballModule: SportModule = {
   autoPickLineup,
   validateLineup,
   simulateMatch,
+  simulateSegment,
+  finalizeSegments,
+  firstSegment,
+  nextSegment,
   trainPlayer: weeklyTrain,
   generatePlayer,
 };

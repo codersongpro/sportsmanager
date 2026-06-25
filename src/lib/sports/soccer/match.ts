@@ -1,4 +1,11 @@
-import type { MatchEventMeta, MatchPresentation, MatchStatRow } from "@/lib/types";
+import type { LocalizedText, MatchEventMeta, MatchPresentation, MatchStatRow } from "@/lib/types";
+
+const SEGMENT_LABELS: Record<string, LocalizedText> = {
+  first_half: { ko: "전반전", en: "First Half" },
+  second_half: { ko: "후반전", en: "Second Half" },
+  extra_time: { ko: "연장전", en: "Extra Time" },
+  penalties: { ko: "승부차기", en: "Penalty Shootout" },
+};
 
 const META: Record<string, MatchEventMeta> = {
   goal: { emoji: "G", label: { ko: "골", en: "GOAL" }, tone: "score" },
@@ -80,4 +87,6 @@ export const soccerPresentation: MatchPresentation = {
       { label: { ko: "파울", en: "Fouls" }, h: hFoul, a: aFoul },
     ];
   },
+  segmentLabel: (kind) => SEGMENT_LABELS[kind] ?? { ko: kind, en: kind },
+  maxSubs: 5,
 };
