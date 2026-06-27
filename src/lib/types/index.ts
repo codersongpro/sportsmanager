@@ -174,6 +174,8 @@ export interface ActiveMatchState {
   day: number;
   homeId: string;
   awayId: string;
+  /** which competition registry this fixture belongs to; defaults to "domestic" for old saves */
+  scope?: "domestic" | "worldcup" | "clubcup";
   opts: SimOptions;
   /** the next segment to simulate when advanced */
   phase: MatchSegmentKind;
@@ -318,6 +320,8 @@ export interface GameState {
   rngState: number; // serialized RNG state for continued determinism
   trainingFocus: string; // user team's weekly training focus key
   lastResultFixtureId?: string; // most recent user match, for highlighting
+  /** which competition registry `lastResultFixtureId` belongs to; defaults to "domestic" when absent */
+  lastResultScope?: "domestic" | "worldcup" | "clubcup";
   seasonOver: boolean;
   /** pending press-conference prompts for the user */
   press?: PressItem[];

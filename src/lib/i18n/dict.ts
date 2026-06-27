@@ -197,6 +197,7 @@ export const dict = {
   chooseNation: { ko: "국가 선택", en: "Choose a Nation" },
   startWorldCup: { ko: "월드컵 시작", en: "Start World Cup" },
   simulateRound: { ko: "라운드 시뮬레이션", en: "Simulate Round" },
+  playMyMatch: { ko: "내 경기 플레이", en: "Play My Match" },
 
   // club cup
   clubCup: { ko: "클럽컵", en: "Club Cup" },

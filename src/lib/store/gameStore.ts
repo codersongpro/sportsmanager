@@ -1,10 +1,10 @@
 import { create } from "zustand";
-import type { GameState, LocalizedText, Locale, Tactics } from "@/lib/types";
+import type { Club, GameState, LocalizedText, Locale, Tactics } from "@/lib/types";
 import { getSport } from "@/lib/sports";
 import { createNewGame, type NewGameOptions } from "@/lib/engine/newGame";
 import { continueGame, rolloverSeason } from "@/lib/engine/season";
-import { advanceActiveMatch } from "@/lib/engine/activeMatch";
-import { createWorldCup, simulateWorldCupRound, createClubCup, simulateClubCupRound } from "@/lib/engine/worldcup";
+import { advanceActiveMatch, beginActiveMatch } from "@/lib/engine/activeMatch";
+import { createWorldCup, simulateWorldCupRound, createClubCup, simulateClubCupRound, findUserPendingFixture } from "@/lib/engine/worldcup";
 import { TEAM_TALK_OPTIONS } from "@/lib/data/teamTalks";
 import { saveGame } from "./persistence";
 
@@ -30,8 +30,10 @@ interface GameStoreState {
   answerPress: (itemId: string, optionIndex: number) => void;
   startWorldCup: (userNationId?: string) => void;
   simulateWorldCupRound: () => void;
+  playWorldCupMatch: () => void;
   startClubCup: () => void;
   simulateClubCupRound: () => void;
+  playClubCupMatch: () => void;
 }
 
 export interface TransferResult {
@@ -51,6 +53,21 @@ function persist(state: GameState) {
   saveGame(state).catch(() => {
     /* best-effort autosave; ignore quota/availability errors */
   });
+}
+
+/**
+ * The club the user is currently directing tactics/subs/team-talk for: their
+ * domestic club normally, or (mid an interactive World Cup match) their
+ * nation, which lives in a separate `worldCup.clubs` registry. Club Cup
+ * matches need no special case since entrants are domestic clubs already in
+ * `clubs`, controlled by the same manager.
+ */
+function controlledClub(state: GameState): { clubId: string; clubs: Record<string, Club> } | null {
+  if (state.activeMatch?.scope === "worldcup") {
+    const clubId = state.worldCup?.userNationId;
+    return clubId ? { clubId, clubs: state.worldCup!.clubs } : null;
+  }
+  return { clubId: state.manager.clubId, clubs: state.clubs };
 }
 
 export const useGameStore = create<GameStoreState>((set, get) => ({
@@ -97,14 +114,16 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
     if (active.subsMade >= maxSubs) return fail("교체 횟수를 모두 사용했습니다", "No substitutions remaining");
     if (active.subbedOffIds.includes(outId)) return fail("이미 교체되어 나간 선수입니다", "That player has already been substituted off");
 
-    const myClub = cur.clubs[cur.manager.clubId];
+    const ref = controlledClub(cur);
+    if (!ref) return fail("", "");
+    const myClub = ref.clubs[ref.clubId];
     if (!myClub.tactics.lineup.includes(outId)) return fail("선발 명단에 없는 선수입니다", "That player isn't in the lineup");
     if (!myClub.tactics.bench.includes(inId) || active.subbedOffIds.includes(inId)) {
       return fail("교체로 투입할 수 없는 선수입니다", "That player can't be brought on");
     }
 
     const next: GameState = structuredClone(cur);
-    const club = next.clubs[cur.manager.clubId];
+    const club = active.scope === "worldcup" ? next.worldCup!.clubs[ref.clubId] : next.clubs[ref.clubId];
     club.tactics.lineup = club.tactics.lineup.map((id) => (id === outId ? inId : id));
     club.tactics.bench = club.tactics.bench.filter((id) => id !== inId);
     next.activeMatch!.subsMade += 1;
@@ -124,9 +143,11 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
     if (active.teamTalkGiven) return fail("이미 팀토크를 진행했습니다", "You've already given a team talk this match");
     const option = TEAM_TALK_OPTIONS.find((o) => o.key === optionKey);
     if (!option) return fail("알 수 없는 선택지입니다", "Unknown team talk option");
+    const ref = controlledClub(cur);
+    if (!ref) return fail("", "");
 
     const next: GameState = structuredClone(cur);
-    const myClub = next.clubs[next.manager.clubId];
+    const myClub = active.scope === "worldcup" ? next.worldCup!.clubs[ref.clubId] : next.clubs[ref.clubId];
     for (const id of myClub.tactics.lineup) {
       const p = next.players[id];
       if (p) p.morale = clamp(p.morale + option.moraleDelta, 0, 100);
@@ -166,10 +187,13 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
   setTactics: (patch) => {
     const cur = get().state;
     if (!cur) return;
-    const club = cur.clubs[cur.manager.clubId];
+    const ref = controlledClub(cur);
+    if (!ref) return;
+    const club = ref.clubs[ref.clubId];
     if (!club) return;
     const next: GameState = structuredClone(cur);
-    next.clubs[cur.manager.clubId].tactics = { ...club.tactics, ...patch };
+    const targetClub = cur.activeMatch?.scope === "worldcup" ? next.worldCup!.clubs[ref.clubId] : next.clubs[ref.clubId];
+    targetClub.tactics = { ...club.tactics, ...patch };
     next.updatedAt = Date.now();
     set({ state: next });
     persist(next);
@@ -309,10 +333,21 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
 
   simulateWorldCupRound: () => {
     const cur = get().state;
-    if (!cur || !cur.worldCup) return;
+    if (!cur || !cur.worldCup || cur.activeMatch) return;
     const sport = getSport(cur.sportId);
     const { worldCup } = simulateWorldCupRound(cur.worldCup, cur.players, sport);
     const next: GameState = { ...cur, worldCup, updatedAt: Date.now() };
+    set({ state: next });
+    persist(next);
+  },
+
+  playWorldCupMatch: () => {
+    const cur = get().state;
+    if (!cur || !cur.worldCup || cur.activeMatch) return;
+    const fixture = findUserPendingFixture(cur.worldCup.competition, cur.worldCup.userNationId);
+    if (!fixture) return;
+    const sport = getSport(cur.sportId);
+    const next: GameState = { ...cur, activeMatch: beginActiveMatch(cur, fixture, sport, "worldcup"), updatedAt: Date.now() };
     set({ state: next });
     persist(next);
   },
@@ -328,10 +363,21 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
 
   simulateClubCupRound: () => {
     const cur = get().state;
-    if (!cur || !cur.clubCup) return;
+    if (!cur || !cur.clubCup || cur.activeMatch) return;
     const sport = getSport(cur.sportId);
     const { clubCup } = simulateClubCupRound(cur.clubCup, cur.clubs, cur.players, sport);
     const next: GameState = { ...cur, clubCup, updatedAt: Date.now() };
+    set({ state: next });
+    persist(next);
+  },
+
+  playClubCupMatch: () => {
+    const cur = get().state;
+    if (!cur || !cur.clubCup || cur.activeMatch) return;
+    const fixture = findUserPendingFixture(cur.clubCup.competition, cur.clubCup.userClubId);
+    if (!fixture) return;
+    const sport = getSport(cur.sportId);
+    const next: GameState = { ...cur, activeMatch: beginActiveMatch(cur, fixture, sport, "clubcup"), updatedAt: Date.now() };
     set({ state: next });
     persist(next);
   },

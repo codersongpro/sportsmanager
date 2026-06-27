@@ -214,7 +214,7 @@ export function MatchViewer({ result, home, away, players, sportId }: Props) {
     : 0;
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-3 overflow-hidden p-2 sm:p-3">
+    <div className="flex flex-col gap-3 p-2 sm:p-3 lg:h-full lg:min-h-0 lg:overflow-hidden">
       {/* Top scoreboard bar */}
       <div
         className="z-10 flex shrink-0 flex-wrap items-center justify-between gap-4 rounded-2xl border px-5 py-3.5"
@@ -281,12 +281,12 @@ export function MatchViewer({ result, home, away, players, sportId }: Props) {
         </div>
       )}
 
-      <div className="grid min-h-0 flex-1 gap-3 overflow-hidden lg:grid-cols-[minmax(0,1fr)_minmax(320px,0.72fr)]">
+      <div className="grid gap-3 lg:min-h-0 lg:flex-1 lg:grid-cols-[minmax(0,1fr)_minmax(320px,0.72fr)] lg:overflow-hidden">
         <div className="hidden">
           <FormationTile title={`${home.shortName} · ${t("formation")}`} slots={homeSlots} attackUp ratingOf={ratingOf} t={t} venue={pres.venue} />
         </div>
 
-        <div className="flex min-h-0 flex-col gap-3 overflow-hidden">
+        <div className="flex flex-col gap-3 lg:min-h-0 lg:overflow-hidden">
           <Tile title={t("watchMatch")} action={<span className="font-mono text-xs text-soft">{clockLabel}</span>} className="min-h-0 shrink-0">
             <div className="mx-auto w-full max-w-3xl">
               <Venue
@@ -347,7 +347,7 @@ export function MatchViewer({ result, home, away, players, sportId }: Props) {
 
           <MomentumBar buckets={momentum} homeShort={home.shortName} awayShort={away.shortName} title={t("momentum")} />
 
-          <div className="grid min-h-0 flex-1 gap-3 overflow-hidden sm:grid-cols-2">
+          <div className="grid gap-3 sm:grid-cols-2 lg:min-h-0 lg:flex-1 lg:overflow-hidden">
             <Tile title={t("matchStats")}>
               <div className="flex flex-col gap-2">
                 {liveStats.map((row, i) => (
@@ -360,7 +360,7 @@ export function MatchViewer({ result, home, away, players, sportId }: Props) {
           </div>
         </div>
 
-        <div className="min-h-0 overflow-hidden">
+        <div className="lg:min-h-0 lg:overflow-hidden">
           <BroadcastFeed
             title={t("matchEvents")}
             feed={feed}
@@ -508,8 +508,8 @@ export function BroadcastFeed({
   t: (key: never) => string;
 }) {
   return (
-    <Tile title={title} className="flex h-full min-h-0 flex-col" bodyClassName="min-h-0">
-      <div className="flex h-full min-h-0 flex-col-reverse gap-0.5 overflow-y-auto pr-1 text-sm">
+    <Tile title={title} className="flex flex-col lg:h-full lg:min-h-0" bodyClassName="min-h-0">
+      <div className="flex max-h-[50vh] flex-col-reverse gap-0.5 overflow-y-auto pr-1 text-sm lg:h-full lg:max-h-none lg:min-h-0">
         {feed.length === 0 && <p style={{ color: "var(--muted-3)" }}>—</p>}
         {feed.map((item, i) => {
           if (item.kind === "marker") {

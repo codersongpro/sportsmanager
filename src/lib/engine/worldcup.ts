@@ -1,4 +1,4 @@
-import type { Club, CompetitionState, GameState, LocalizedText, MatchTeam, Player, SportModule } from "@/lib/types";
+import type { Club, CompetitionState, Fixture, GameState, LocalizedText, MatchTeam, Player, SportModule } from "@/lib/types";
 import { createRng, hashSeed } from "@/lib/sim/rng";
 import { createGroupTournament, createTournament, recordResult } from "./competition";
 import { buildNationalTeams } from "./world";
@@ -51,6 +51,22 @@ function resolveTeam(club: Club, players: Record<string, Player>, sport: SportMo
   return { club, lineup: ids.map((id) => players[id]) };
 }
 
+/** Fixtures still to be resolved in the current group stage / bracket round. */
+export function pendingFixtures(comp: CompetitionState): Fixture[] {
+  return comp.groups && !comp.bracket
+    ? comp.fixtures.filter((f) => f.groupId && !f.played)
+    : (comp.bracket?.[comp.currentRound]?.matches ?? [])
+        .filter((m) => m.fixtureId && m.winnerId === null)
+        .map((m) => comp.fixtures.find((f) => f.id === m.fixtureId))
+        .filter((f): f is NonNullable<typeof f> => !!f && !f.played);
+}
+
+/** The pending fixture (if any) in which the given club/nation id is playing this round. */
+export function findUserPendingFixture(comp: CompetitionState, clubId: string | undefined): Fixture | undefined {
+  if (!clubId) return undefined;
+  return pendingFixtures(comp).find((f) => f.homeId === clubId || f.awayId === clubId);
+}
+
 /**
  * Simulate one stage of an international tournament: if still in the group
  * stage, every unplayed group fixture resolves at once (this automatically
@@ -67,12 +83,7 @@ function simulateTournamentStage(
   rng: ReturnType<typeof createRng>,
 ): string[] {
   const played: string[] = [];
-  const pending = comp.groups && !comp.bracket
-    ? comp.fixtures.filter((f) => f.groupId && !f.played)
-    : (comp.bracket?.[comp.currentRound]?.matches ?? [])
-        .filter((m) => m.fixtureId && m.winnerId === null)
-        .map((m) => comp.fixtures.find((f) => f.id === m.fixtureId))
-        .filter((f): f is NonNullable<typeof f> => !!f && !f.played);
+  const pending = pendingFixtures(comp);
 
   for (const fixture of pending) {
     const home = clubs[fixture.homeId];

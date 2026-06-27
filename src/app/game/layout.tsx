@@ -259,7 +259,7 @@ export default function GameLayout({ children }: { children: React.ReactNode }) 
         <main
           className={
             matchView
-              ? "h-screen overflow-hidden p-0"
+              ? "flex-1 overflow-y-auto p-0 pb-20 lg:h-screen lg:overflow-hidden lg:pb-0"
               : "flex-1 overflow-y-auto px-4 pb-24 pt-5 lg:px-6 lg:pb-6"
           }
           style={
