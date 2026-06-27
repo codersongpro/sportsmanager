@@ -1,6 +1,7 @@
 import type {
   BracketRound,
   Club,
+  CompetitionGroup,
   CompetitionState,
   Fixture,
   LeagueRow,
@@ -220,6 +221,142 @@ export function createTournament(
   };
 }
 
+// ---------------------------------------------------------------------------
+// Group stage + knockout (international tournaments: World Cup, club cups)
+// ---------------------------------------------------------------------------
+
+/** Snake-draft seeded clubs into balanced groups (1st seed each group, then reverse, ...). */
+function distributeIntoGroups(clubs: Club[], groupCount: number): Club[][] {
+  const seeded = [...clubs].sort((a, b) => b.reputation - a.reputation);
+  const groups: Club[][] = Array.from({ length: groupCount }, () => []);
+  seeded.forEach((club, i) => {
+    const lap = Math.floor(i / groupCount);
+    const posInLap = i % groupCount;
+    const g = lap % 2 === 0 ? posInLap : groupCount - 1 - posInLap;
+    groups[g].push(club);
+  });
+  return groups;
+}
+
+function groupName(index: number): LocalizedText {
+  const letter = String.fromCharCode(65 + index);
+  return { ko: `${letter}조`, en: `Group ${letter}` };
+}
+
+/**
+ * Builds the group stage of an international tournament: clubs are seeded
+ * into balanced groups of ~4 and play a single round-robin within their
+ * group. The knockout bracket isn't built yet — `recordResult` builds it
+ * automatically once every group fixture has been played.
+ */
+export function createGroupTournament(
+  id: string,
+  name: LocalizedText,
+  country: string,
+  kind: "club" | "national",
+  clubs: Club[],
+  season: number,
+  groupSize = 4,
+  advancePerGroup = 2,
+): CompetitionState {
+  const groupCount = Math.max(1, Math.round(clubs.length / groupSize));
+  const distributed = distributeIntoGroups(clubs, groupCount);
+
+  const groups: CompetitionGroup[] = [];
+  const fixtures: Fixture[] = [];
+  let fid = 0;
+  distributed.forEach((groupClubs, gi) => {
+    const ids = groupClubs.map((c) => c.id);
+    const matches = roundRobin(ids);
+    for (const m of matches) {
+      const fixture = mkFixture(`g${fid++}`, m.round, m.home, m.away, m.round * WEEK + 3);
+      fixture.groupId = `grp${gi}`;
+      fixtures.push(fixture);
+    }
+    groups.push({ id: `grp${gi}`, name: groupName(gi), clubIds: ids, table: ids.map(emptyRow) });
+  });
+
+  return {
+    id,
+    name,
+    format: "tournament",
+    kind,
+    country,
+    clubIds: clubs.map((c) => c.id),
+    fixtures,
+    season,
+    currentRound: 0,
+    totalRounds: 0, // unknown until the knockout bracket is seeded from the final group standings
+    groups,
+    groupAdvancePerGroup: advancePerGroup,
+    championId: null,
+  };
+}
+
+/** Seeds round 0 of the knockout bracket and appends its fixtures, continuing the existing fixture id sequence. */
+function buildBracketFromClubIds(state: CompetitionState, slotClubIds: string[]) {
+  const P = nextPow2(slotClubIds.length);
+  const totalRounds = Math.log2(P);
+  const bracket: BracketRound[] = [];
+  for (let r = 0; r < totalRounds; r++) {
+    const matchesInRound = P / 2 ** (r + 1);
+    bracket.push({
+      name: roundName(matchesInRound),
+      roundIndex: r,
+      matches: Array.from({ length: matchesInRound }, () => ({
+        fixtureId: null,
+        homeId: null,
+        awayId: null,
+        winnerId: null,
+      })),
+    });
+  }
+
+  const lastDay = state.fixtures.length ? Math.max(...state.fixtures.map((f) => f.day)) : 0;
+  let fid = state.fixtures.length;
+  for (let m = 0; m < bracket[0].matches.length; m++) {
+    const home = slotClubIds[m * 2] ?? null;
+    const away = slotClubIds[m * 2 + 1] ?? null;
+    const match = bracket[0].matches[m];
+    match.homeId = home;
+    match.awayId = away;
+    if (home && away) {
+      const fixture = mkFixture(`k${fid++}`, 0, home, away, lastDay + WEEK);
+      fixture.bracketSlot = m;
+      match.fixtureId = fixture.id;
+      state.fixtures.push(fixture);
+    } else {
+      match.winnerId = home ?? away ?? null;
+    }
+  }
+
+  state.bracket = bracket;
+  state.currentRound = 0;
+  state.totalRounds = totalRounds;
+}
+
+/** Pairs each group's winner against a different group's runner-up, so round 1 never repeats a group-stage matchup. */
+function seedKnockoutFromGroups(groups: CompetitionGroup[], advancePerGroup: number): string[] {
+  if (advancePerGroup !== 2) {
+    return groups.flatMap((g) => sortTable(g.table).slice(0, advancePerGroup).map((r) => r.clubId));
+  }
+  const n = groups.length;
+  const winners = groups.map((g) => sortTable(g.table)[0].clubId);
+  const runnersUp = groups.map((g) => sortTable(g.table)[1].clubId);
+  const slots: string[] = [];
+  for (let i = 0; i < n; i++) {
+    slots.push(winners[i], runnersUp[(i + 1) % n]);
+  }
+  return slots;
+}
+
+function advanceFromGroups(state: CompetitionState) {
+  const groups = state.groups!;
+  const advancePerGroup = state.groupAdvancePerGroup ?? 2;
+  const slots = seedKnockoutFromGroups(groups, advancePerGroup);
+  buildBracketFromClubIds(state, slots);
+}
+
 function buildNextRound(state: CompetitionState) {
   const bracket = state.bracket!;
   const r = state.currentRound;
@@ -254,6 +391,16 @@ export function recordResult(state: CompetitionState, result: MatchResult) {
   if (!fixture || fixture.played) return;
   fixture.played = true;
   fixture.result = result;
+
+  if (state.groups && !state.bracket) {
+    const group = state.groups.find((g) => g.id === fixture.groupId);
+    if (group) applyToTable(group.table, result);
+    const groupFixtures = state.fixtures.filter((f) => f.groupId);
+    if (groupFixtures.every((f) => f.played)) {
+      advanceFromGroups(state);
+    }
+    return;
+  }
 
   if (state.format === "league" && state.table) {
     applyToTable(state.table, result);

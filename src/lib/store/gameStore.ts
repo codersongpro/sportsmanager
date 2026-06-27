@@ -4,7 +4,7 @@ import { getSport } from "@/lib/sports";
 import { createNewGame, type NewGameOptions } from "@/lib/engine/newGame";
 import { continueGame, rolloverSeason } from "@/lib/engine/season";
 import { advanceActiveMatch } from "@/lib/engine/activeMatch";
-import { createWorldCup, simulateWorldCupRound } from "@/lib/engine/worldcup";
+import { createWorldCup, simulateWorldCupRound, createClubCup, simulateClubCupRound } from "@/lib/engine/worldcup";
 import { TEAM_TALK_OPTIONS } from "@/lib/data/teamTalks";
 import { saveGame } from "./persistence";
 
@@ -30,6 +30,8 @@ interface GameStoreState {
   answerPress: (itemId: string, optionIndex: number) => void;
   startWorldCup: (userNationId?: string) => void;
   simulateWorldCupRound: () => void;
+  startClubCup: () => void;
+  simulateClubCupRound: () => void;
 }
 
 export interface TransferResult {
@@ -298,7 +300,6 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
   startWorldCup: (userNationId) => {
     const cur = get().state;
     if (!cur) return;
-    if (cur.sportId !== "soccer") return;
     const sport = getSport(cur.sportId);
     const worldCup = createWorldCup(cur.players, sport, cur.season, userNationId);
     const next: GameState = { ...cur, worldCup, updatedAt: Date.now() };
@@ -309,10 +310,28 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
   simulateWorldCupRound: () => {
     const cur = get().state;
     if (!cur || !cur.worldCup) return;
-    if (cur.sportId !== "soccer") return;
     const sport = getSport(cur.sportId);
     const { worldCup } = simulateWorldCupRound(cur.worldCup, cur.players, sport);
     const next: GameState = { ...cur, worldCup, updatedAt: Date.now() };
+    set({ state: next });
+    persist(next);
+  },
+
+  startClubCup: () => {
+    const cur = get().state;
+    if (!cur) return;
+    const clubCup = createClubCup(cur.clubs, cur.season, cur.manager.clubId);
+    const next: GameState = { ...cur, clubCup, updatedAt: Date.now() };
+    set({ state: next });
+    persist(next);
+  },
+
+  simulateClubCupRound: () => {
+    const cur = get().state;
+    if (!cur || !cur.clubCup) return;
+    const sport = getSport(cur.sportId);
+    const { clubCup } = simulateClubCupRound(cur.clubCup, cur.clubs, cur.players, sport);
+    const next: GameState = { ...cur, clubCup, updatedAt: Date.now() };
     set({ state: next });
     persist(next);
   },

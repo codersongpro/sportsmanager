@@ -38,15 +38,31 @@ export function LeagueTable({
   table,
   clubs,
   highlightClubId,
+  promotionZone,
+  relegationZone,
 }: {
   table: LeagueRow[];
   clubs: Record<string, Club>;
   highlightClubId?: string;
+  /** when set, overrides the default ratio-based ACL/relegation zones with an exact promotion-zone count (e.g. the top 2 rows of a partner division) */
+  promotionZone?: number;
+  /** when set, overrides the default ratio-based bottom zone with an exact relegation-zone count */
+  relegationZone?: number;
 }) {
   const { t } = useI18n();
   const sorted = sortTable(table);
   const total = sorted.length;
-  const showLegend = total >= 6;
+  const usePromoMode = promotionZone !== undefined || relegationZone !== undefined;
+  const showLegend = usePromoMode || total >= 6;
+
+  function zoneFor(rank: number): Zone {
+    if (usePromoMode) {
+      if (promotionZone && rank <= promotionZone) return "top";
+      if (relegationZone && rank > total - relegationZone) return "bottom";
+      return null;
+    }
+    return leagueZone(rank, total);
+  }
 
   return (
     <div className="overflow-hidden rounded-2xl border" style={{ borderColor: "var(--line)", background: "var(--panel)" }}>
@@ -55,9 +71,18 @@ export function LeagueTable({
           className="flex flex-wrap items-center gap-4 border-b px-5 py-2.5 text-[10.5px]"
           style={{ borderColor: "var(--border-soft)", color: "var(--muted-2)" }}
         >
-          <LegendDot color="var(--mint)" label={t("aclDirect")} />
-          <LegendDot color="var(--blue)" label={t("aclPlayoff")} />
-          <LegendDot color="var(--red)" label={t("relegation")} />
+          {usePromoMode ? (
+            <>
+              {promotionZone ? <LegendDot color="var(--mint)" label={t("promotion")} /> : null}
+              {relegationZone ? <LegendDot color="var(--red)" label={t("relegation")} /> : null}
+            </>
+          ) : (
+            <>
+              <LegendDot color="var(--mint)" label={t("aclDirect")} />
+              <LegendDot color="var(--blue)" label={t("aclPlayoff")} />
+              <LegendDot color="var(--red)" label={t("relegation")} />
+            </>
+          )}
         </div>
       )}
       <div
@@ -78,7 +103,7 @@ export function LeagueTable({
       {sorted.map((row, i) => {
         const rank = i + 1;
         const club = clubs[row.clubId];
-        const zone = leagueZone(rank, total);
+        const zone = zoneFor(rank);
         const isMe = row.clubId === highlightClubId;
         const gd = row.goalsFor - row.goalsAgainst;
         return (

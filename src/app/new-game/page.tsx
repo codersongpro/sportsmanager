@@ -24,13 +24,16 @@ export default function NewGamePage() {
   const [managerName, setManagerName] = useState("");
   const [starting, setStarting] = useState(false);
 
-  const leagues = useMemo(() => getLeaguesForSport(sportId), [sportId]);
+  const leagues = useMemo(
+    () => getLeaguesForSport(sportId).filter((l) => (l.tier ?? 1) === 1),
+    [sportId],
+  );
   const clubs = useMemo(() => getClubsForSport(sportId), [sportId]);
   const activeLeagueId = leagues.some((l) => l.id === leagueId) ? leagueId : leagues[0]?.id ?? "";
   const clubsInLeague = clubs.filter((c) => c.leagueId === activeLeagueId);
 
   function chooseSport(id: SportId) {
-    const nextLeagues = getLeaguesForSport(id);
+    const nextLeagues = getLeaguesForSport(id).filter((l) => (l.tier ?? 1) === 1);
     setSportId(id);
     setLeagueId(nextLeagues[0]?.id ?? "");
     setClubId("");

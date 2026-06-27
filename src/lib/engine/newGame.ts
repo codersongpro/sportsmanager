@@ -31,6 +31,17 @@ export function createNewGame(opts: NewGameOptions): GameState {
       ? createLeague(`${league.id}-${startSeason}`, league.name, league.country, clubsInLeague, startSeason)
       : createTournament(`${league.id}-${startSeason}`, league.name, league.country, "club", clubsInLeague, startSeason);
 
+  const partnerLeague = leagues.find((l) => l.divisionId === league.id && l.id !== league.id);
+  const partnerCompetition = partnerLeague
+    ? createLeague(
+        `${partnerLeague.id}-${startSeason}`,
+        partnerLeague.name,
+        partnerLeague.country,
+        Object.values(world.clubs).filter((c) => c.leagueId === partnerLeague.id),
+        startSeason,
+      )
+    : undefined;
+
   const manager: Manager = {
     name: opts.managerName,
     sportId: opts.sportId,
@@ -52,6 +63,7 @@ export function createNewGame(opts: NewGameOptions): GameState {
     clubs: world.clubs,
     players: world.players,
     competition,
+    partnerCompetition,
     news: [
       {
         id: "n0",

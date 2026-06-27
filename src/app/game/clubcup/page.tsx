@@ -1,55 +1,38 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
 import { useI18n } from "@/lib/i18n/I18nProvider";
 import { useGameStore } from "@/lib/store/gameStore";
 import { BracketView } from "@/components/BracketView";
 import { LeagueTable } from "@/components/LeagueTable";
 import { clubDisplayName } from "@/lib/utils/format";
-import { COUNTRIES } from "@/data/countries";
 
-export default function WorldCupPage() {
+export default function ClubCupPage() {
   const { t, tl } = useI18n();
   const state = useGameStore((s) => s.state);
-  const startWorldCup = useGameStore((s) => s.startWorldCup);
-  const simulateRound = useGameStore((s) => s.simulateWorldCupRound);
-  const [nationCode, setNationCode] = useState(COUNTRIES[0]?.code ?? "");
+  const startClubCup = useGameStore((s) => s.startClubCup);
+  const simulateRound = useGameStore((s) => s.simulateClubCupRound);
 
   if (!state) return null;
-  const wc = state.worldCup;
+  const cc = state.clubCup;
 
-  if (!wc) {
+  if (!cc) {
     return (
       <div className="mx-auto flex w-full max-w-2xl flex-col gap-4">
-        <h1 className="text-2xl font-bold">{t("worldCup")}</h1>
-        <p className="text-sm text-zinc-500">{t("worldCupDesc")}</p>
-        <label className="flex flex-col gap-1 text-sm">
-          {t("chooseNation")}
-          <select
-            value={nationCode}
-            onChange={(e) => setNationCode(e.target.value)}
-            className="rounded-md border border-zinc-300 px-2 py-1.5 dark:border-zinc-700 dark:bg-zinc-900"
-          >
-            {COUNTRIES.map((c) => (
-              <option key={c.code} value={c.code}>
-                {tl(c.name)}
-              </option>
-            ))}
-          </select>
-        </label>
+        <h1 className="text-2xl font-bold">{t("clubCup")}</h1>
+        <p className="text-sm text-zinc-500">{t("clubCupDesc")}</p>
         <button
-          onClick={() => startWorldCup(`nat-${nationCode}`)}
+          onClick={() => startClubCup()}
           className="self-start rounded-md bg-blue-600 px-5 py-2.5 font-semibold text-white hover:bg-blue-700"
         >
-          {t("startWorldCup")}
+          {t("startClubCup")}
         </button>
       </div>
     );
   }
 
-  const comp = wc.competition;
-  const userClub = wc.userNationId ? wc.clubs[wc.userNationId] : null;
+  const comp = cc.competition;
+  const userClub = cc.userClubId ? state.clubs[cc.userClubId] : null;
   const done = !!comp.championId;
   const userEliminated =
     !done &&
@@ -77,7 +60,7 @@ export default function WorldCupPage() {
       {done && comp.championId && (
         <div className="rounded-lg border border-emerald-300 bg-emerald-50 p-4 dark:border-emerald-800 dark:bg-emerald-950/40">
           <p className="font-semibold">
-            {t("champion")}: {clubDisplayName(wc.clubs[comp.championId])}
+            {t("champion")}: {clubDisplayName(state.clubs[comp.championId])}
           </p>
         </div>
       )}
@@ -94,13 +77,13 @@ export default function WorldCupPage() {
           {comp.groups.map((g) => (
             <div key={g.id} className="flex flex-col gap-2">
               <h2 className="text-sm font-bold" style={{ color: "var(--muted-2)" }}>{tl(g.name)}</h2>
-              <LeagueTable table={g.table} clubs={wc.clubs} highlightClubId={wc.userNationId} />
+              <LeagueTable table={g.table} clubs={state.clubs} highlightClubId={cc.userClubId} />
             </div>
           ))}
         </div>
       )}
 
-      {comp.bracket && <BracketView bracket={comp.bracket} clubs={wc.clubs} userClubId={wc.userNationId} />}
+      {comp.bracket && <BracketView bracket={comp.bracket} clubs={state.clubs} userClubId={cc.userClubId} />}
 
       <Link href="/game/competition" className="text-sm text-blue-600 hover:underline">
         ← {t("competition")}

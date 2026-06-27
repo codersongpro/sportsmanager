@@ -170,6 +170,10 @@ export const dict = {
   aclDirect: { ko: "ACL 직행", en: "Continental (direct)" },
   aclPlayoff: { ko: "ACL 플레이오프", en: "Continental (playoff)" },
   relegation: { ko: "강등권", en: "Relegation" },
+  promotion: { ko: "승격권", en: "Promotion" },
+  partnerDivision: { ko: "2부 리그", en: "Division 2" },
+  promoted: { ko: "승격", en: "Promoted" },
+  relegated: { ko: "강등", en: "Relegated" },
   matchResult: { ko: "경기 결과", en: "Match Result" },
   matchStats: { ko: "경기 통계", en: "Match Stats" },
   matchEvents: { ko: "주요 이벤트", en: "Match Events" },
@@ -193,6 +197,14 @@ export const dict = {
   chooseNation: { ko: "국가 선택", en: "Choose a Nation" },
   startWorldCup: { ko: "월드컵 시작", en: "Start World Cup" },
   simulateRound: { ko: "라운드 시뮬레이션", en: "Simulate Round" },
+
+  // club cup
+  clubCup: { ko: "클럽컵", en: "Club Cup" },
+  clubCupDesc: {
+    ko: "전 세계 상위 클럽들이 모여 조별리그와 토너먼트로 우승을 다투는 대륙별 클럽컵입니다.",
+    en: "The world's top clubs compete in a continental cup, group stage followed by knockout.",
+  },
+  startClubCup: { ko: "클럽컵 시작", en: "Start Club Cup" },
 
   // live match viewer
   watchMatch: { ko: "경기 관전", en: "Watch Match" },

@@ -7,6 +7,10 @@ export interface LeagueSeed {
   id: string;
   name: LocalizedText;
   country: string;
+  /** promotion/relegation tier, 1 = top flight; defaults to 1 when absent */
+  tier?: number;
+  /** id shared by every tier of the same division, for promotion/relegation pairing */
+  divisionId?: string;
 }
 
 export interface ClubSeed {
@@ -19,7 +23,7 @@ export interface ClubSeed {
   color: string;
 }
 
-export const LEAGUES: LeagueSeed[] = [
+const LEAGUES_TIER1: LeagueSeed[] = [
   { id: "eng", name: { ko: "잉글랜드 프리미어", en: "England Premier" }, country: "EN" },
   { id: "esp", name: { ko: "스페인 프리메라", en: "Spain Primera" }, country: "ES" },
   { id: "ger", name: { ko: "독일 분데스", en: "Germany Bundes" }, country: "DE" },
@@ -43,7 +47,89 @@ function c(
   return { id, name: { ko, en }, short, leagueId, country, reputation, color };
 }
 
-export const CLUBS: ClubSeed[] = [
+// ---------------------------------------------------------------------------
+// Procedural second tier: every league above gets a "Division 2" sibling for
+// promotion/relegation, built from generic town+suffix combinations rather
+// than hand-authored names. 16 towns x 8 suffixes = 128 unique combos, which
+// exactly covers every league's 8-club second tier across all 5 sports.
+// ---------------------------------------------------------------------------
+
+const TIER2_TOWNS: { en: string; ko: string }[] = [
+  { en: "Ashford", ko: "애쉬포드" },
+  { en: "Brightmoor", ko: "브라이트무어" },
+  { en: "Clayton", ko: "클레이턴" },
+  { en: "Dunmore", ko: "던모어" },
+  { en: "Elmridge", ko: "엘름리지" },
+  { en: "Fairview", ko: "페어뷰" },
+  { en: "Greenhill", ko: "그린힐" },
+  { en: "Hartley", ko: "하틀리" },
+  { en: "Ironwood", ko: "아이언우드" },
+  { en: "Kingsley", ko: "킹슬리" },
+  { en: "Lakeside", ko: "레이크사이드" },
+  { en: "Millbrook", ko: "밀브룩" },
+  { en: "Norwood", ko: "노어우드" },
+  { en: "Oakdale", ko: "오크데일" },
+  { en: "Pinehurst", ko: "파인허스트" },
+  { en: "Queensbury", ko: "퀸즈버리" },
+];
+
+const TIER2_SUFFIXES: { en: string; ko: string }[] = [
+  { en: "Rovers", ko: "로버스" },
+  { en: "Athletic", ko: "애슬레틱" },
+  { en: "United", ko: "유나이티드" },
+  { en: "Town", ko: "타운" },
+  { en: "Wanderers", ko: "원더러스" },
+  { en: "City", ko: "시티" },
+  { en: "Albion", ko: "알비온" },
+  { en: "Rangers", ko: "레인저스" },
+];
+
+const TIER2_COLORS = ["#5B6B73", "#7A8450", "#8C5E58", "#4F6D7A", "#7D5A75", "#5C8374", "#8A6D3B", "#516072"];
+
+let tier2Counter = 0;
+
+function genSecondTierClubs(tier1Clubs: ClubSeed[], tier2LeagueId: string, country: string): ClubSeed[] {
+  const avgRep = Math.round(tier1Clubs.reduce((s, cl) => s + cl.reputation, 0) / tier1Clubs.length);
+  return tier1Clubs.map((_, i) => {
+    const counter = tier2Counter++;
+    const town = TIER2_TOWNS[counter % TIER2_TOWNS.length];
+    const suffix = TIER2_SUFFIXES[Math.floor(counter / TIER2_TOWNS.length) % TIER2_SUFFIXES.length];
+    const color = TIER2_COLORS[counter % TIER2_COLORS.length];
+    const reputation = Math.max(45, Math.min(99, avgRep - 14 - i));
+    return c(
+      `${tier2LeagueId}-${i}`,
+      `${town.ko} ${suffix.ko}`,
+      `${town.en} ${suffix.en}`,
+      (town.en.slice(0, 2) + suffix.en.slice(0, 1)).toUpperCase(),
+      tier2LeagueId,
+      country,
+      reputation,
+      color,
+    );
+  });
+}
+
+/** Tags every league as tier 1 and appends a generated tier-2 sibling division for promotion/relegation. */
+function expandWithTiers(leagues: LeagueSeed[], clubs: ClubSeed[]): { leagues: LeagueSeed[]; clubs: ClubSeed[] } {
+  const outLeagues: LeagueSeed[] = [];
+  const outClubs: ClubSeed[] = [...clubs];
+  for (const league of leagues) {
+    outLeagues.push({ ...league, tier: 1, divisionId: league.id });
+    const tier1Clubs = clubs.filter((cl) => cl.leagueId === league.id);
+    const tier2Id = `${league.id}-2`;
+    outLeagues.push({
+      id: tier2Id,
+      name: { ko: `${league.name.ko} 2부`, en: `${league.name.en} Division 2` },
+      country: league.country,
+      tier: 2,
+      divisionId: league.id,
+    });
+    outClubs.push(...genSecondTierClubs(tier1Clubs, tier2Id, league.country));
+  }
+  return { leagues: outLeagues, clubs: outClubs };
+}
+
+const CLUBS_TIER1: ClubSeed[] = [
   // England
   c("eng-skyblue", "맨체스터 스카이", "Manchester Sky", "MCS", "eng", "EN", 90, "#6CABDD"),
   c("eng-merseyred", "머지사이드 레즈", "Merseyside Reds", "MSR", "eng", "EN", 89, "#C8102E"),
@@ -118,16 +204,18 @@ export const CLUBS: ClubSeed[] = [
   c("kor-fc", "강원 FC", "Gangwon FC", "GWF", "kor", "KR", 69, "#F47920"),
 ];
 
+export const { leagues: LEAGUES, clubs: CLUBS } = expandWithTiers(LEAGUES_TIER1, CLUBS_TIER1);
+
 export const CLUB_BY_ID: Record<string, ClubSeed> = Object.fromEntries(
   CLUBS.map((cl) => [cl.id, cl]),
 );
 
-const BASKETBALL_LEAGUES: LeagueSeed[] = [
+const BASKETBALL_LEAGUES_TIER1: LeagueSeed[] = [
   { id: "bb-na", name: { ko: "콘티넨털 후프스", en: "Continental Hoops" }, country: "US" },
   { id: "bb-global", name: { ko: "글로벌 하드우드", en: "Global Hardwood" }, country: "EU" },
 ];
 
-const BASKETBALL_CLUBS: ClubSeed[] = [
+const BASKETBALL_CLUBS_TIER1: ClubSeed[] = [
   c("bb-la-stars", "LA 스타라인", "LA Starline", "LAS", "bb-na", "US", 90, "#552583"),
   c("bb-bay-splash", "베이 스플래시", "Bay Splash", "BSP", "bb-na", "US", 89, "#1D428A"),
   c("bb-boston-clovers", "보스턴 클로버스", "Boston Clovers", "BCL", "bb-na", "US", 88, "#007A33"),
@@ -146,12 +234,14 @@ const BASKETBALL_CLUBS: ClubSeed[] = [
   c("bb-manila-kings", "마닐라 킹스", "Manila Kings", "MNK", "bb-global", "PH", 75, "#0038A8"),
 ];
 
-const BASEBALL_LEAGUES: LeagueSeed[] = [
+const { leagues: BASKETBALL_LEAGUES, clubs: BASKETBALL_CLUBS } = expandWithTiers(BASKETBALL_LEAGUES_TIER1, BASKETBALL_CLUBS_TIER1);
+
+const BASEBALL_LEAGUES_TIER1: LeagueSeed[] = [
   { id: "bsb-majors", name: { ko: "그랜드 다이아몬드 리그", en: "Grand Diamond League" }, country: "US" },
   { id: "bsb-pacific", name: { ko: "퍼시픽 프로 베이스볼", en: "Pacific Pro Baseball" }, country: "JP" },
 ];
 
-const BASEBALL_CLUBS: ClubSeed[] = [
+const BASEBALL_CLUBS_TIER1: ClubSeed[] = [
   c("bsb-newyork-pinstripes", "뉴욕 핀스트라이프스", "New York Pinstripes", "NYP", "bsb-majors", "US", 90, "#132448"),
   c("bsb-la-sunsets", "LA 선셋츠", "LA Sunsets", "LAS", "bsb-majors", "US", 89, "#005A9C"),
   c("bsb-boston-harbor", "보스턴 하버", "Boston Harbor", "BOH", "bsb-majors", "US", 86, "#BD3039"),
@@ -170,12 +260,14 @@ const BASEBALL_CLUBS: ClubSeed[] = [
   c("bsb-sydney-southern", "시드니 서던", "Sydney Southern", "SYS", "bsb-pacific", "AU", 73, "#006341"),
 ];
 
-const VOLLEYBALL_LEAGUES: LeagueSeed[] = [
+const { leagues: BASEBALL_LEAGUES, clubs: BASEBALL_CLUBS } = expandWithTiers(BASEBALL_LEAGUES_TIER1, BASEBALL_CLUBS_TIER1);
+
+const VOLLEYBALL_LEAGUES_TIER1: LeagueSeed[] = [
   { id: "vb-korea", name: { ko: "코리아 스파이크 리그", en: "Korea Spike League" }, country: "KR" },
   { id: "vb-world", name: { ko: "월드 발리 서킷", en: "World Volley Circuit" }, country: "IT" },
 ];
 
-const VOLLEYBALL_CLUBS: ClubSeed[] = [
+const VOLLEYBALL_CLUBS_TIER1: ClubSeed[] = [
   c("vb-seoul-wings", "서울 윙스", "Seoul Wings", "SLW", "vb-korea", "KR", 80, "#0057B8"),
   c("vb-incheon-air", "인천 에어", "Incheon Air", "ICA", "vb-korea", "KR", 79, "#00A3E0"),
   c("vb-suwon-hillstate", "수원 힐스테이트", "Suwon Hillstate", "SWH", "vb-korea", "KR", 79, "#006341"),
@@ -194,12 +286,14 @@ const VOLLEYBALL_CLUBS: ClubSeed[] = [
   c("vb-warsaw-spire", "바르샤바 스파이어", "Warsaw Spire", "WSP", "vb-world", "PL", 78, "#DC143C"),
 ];
 
-const PICKLEBALL_LEAGUES: LeagueSeed[] = [
+const { leagues: VOLLEYBALL_LEAGUES, clubs: VOLLEYBALL_CLUBS } = expandWithTiers(VOLLEYBALL_LEAGUES_TIER1, VOLLEYBALL_CLUBS_TIER1);
+
+const PICKLEBALL_LEAGUES_TIER1: LeagueSeed[] = [
   { id: "pb-pro", name: { ko: "프리미어 패들 리그", en: "Premier Paddle League" }, country: "US" },
   { id: "pb-open", name: { ko: "글로벌 피클 투어", en: "Global Pickle Tour" }, country: "US" },
 ];
 
-const PICKLEBALL_CLUBS: ClubSeed[] = [
+const PICKLEBALL_CLUBS_TIER1: ClubSeed[] = [
   c("pb-austin-dinks", "오스틴 딩크스", "Austin Dinks", "ATD", "pb-pro", "US", 84, "#BF5700"),
   c("pb-miami-smash", "마이애미 스매시", "Miami Smash", "MIS", "pb-pro", "US", 83, "#00B2A9"),
   c("pb-seattle-kitchen", "시애틀 키친", "Seattle Kitchen", "SEK", "pb-pro", "US", 82, "#69BE28"),
@@ -217,6 +311,8 @@ const PICKLEBALL_CLUBS: ClubSeed[] = [
   c("pb-paris-paddlers", "파리 패들러스", "Paris Paddlers", "PRP", "pb-open", "FR", 74, "#0055A4"),
   c("pb-mexico-drive", "멕시코 드라이브", "Mexico Drive", "MXD", "pb-open", "MX", 73, "#006847"),
 ];
+
+const { leagues: PICKLEBALL_LEAGUES, clubs: PICKLEBALL_CLUBS } = expandWithTiers(PICKLEBALL_LEAGUES_TIER1, PICKLEBALL_CLUBS_TIER1);
 
 const SPORT_LEAGUES: Record<SportId, LeagueSeed[]> = {
   soccer: LEAGUES,

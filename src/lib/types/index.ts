@@ -205,6 +205,8 @@ export interface Fixture {
   result?: MatchResult;
   /** slot inside the bracket round, for tournament wiring */
   bracketSlot?: number;
+  /** which group this fixture belongs to, while the competition is still in its group stage */
+  groupId?: string;
 }
 
 export interface LeagueRow {
@@ -231,6 +233,13 @@ export interface BracketRound {
   matches: BracketMatch[];
 }
 
+export interface CompetitionGroup {
+  id: string;
+  name: LocalizedText;
+  clubIds: string[];
+  table: LeagueRow[];
+}
+
 export interface CompetitionState {
   id: string;
   name: LocalizedText;
@@ -245,7 +254,14 @@ export interface CompetitionState {
   totalRounds: number;
   championId?: string | null;
   table?: LeagueRow[]; // league only
-  bracket?: BracketRound[]; // tournament only
+  bracket?: BracketRound[]; // tournament only, populated once any group stage has concluded
+  /** group stage of an international tournament; cleared (left in place but superseded) once `bracket` is built */
+  groups?: CompetitionGroup[];
+  groupAdvancePerGroup?: number;
+  /** promotion/relegation tier, 1 = top flight; leagues only */
+  tier?: number;
+  /** id shared by every tier of the same country/sport division, for promotion/relegation pairing */
+  divisionId?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -315,6 +331,16 @@ export interface GameState {
     userNationId?: string;
     rngState: number;
   };
+  /** optional side competition: international club cup, entrants drawn from the existing domestic clubs */
+  clubCup?: {
+    competition: CompetitionState;
+    userClubId?: string;
+    rngState: number;
+  };
+  /** the promotion/relegation partner division (the other tier of the user's league), simulated in parallel */
+  partnerCompetition?: CompetitionState;
+  /** clubs that moved between tiers at the last season rollover, for the news feed */
+  lastPromotions?: { clubId: string; direction: "promoted" | "relegated" }[];
 }
 
 // ---------------------------------------------------------------------------
