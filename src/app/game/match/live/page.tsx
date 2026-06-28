@@ -185,6 +185,9 @@ export default function MatchLivePage() {
             <div className="order-first lg:order-none lg:min-h-0 lg:flex-1 lg:overflow-hidden">
               <BroadcastFeed title={t("matchEvents")} feed={feed} players={state.players} home={home} away={away} pres={pres} endMinute={totalSpan} tl={tl} t={t} />
             </div>
+            <Button onClick={() => playNextSegment()} className="order-[-1] w-full shrink-0 lg:hidden">
+              {t("continueMatchBtn")}
+            </Button>
           </div>
 
           <div className="flex flex-col gap-3 lg:min-h-0">
@@ -282,9 +285,11 @@ export default function MatchLivePage() {
             </Tile>
 
           </div>
-            <Button onClick={() => playNextSegment()} className="w-full shrink-0">
-              {t("continueMatchBtn")}
-            </Button>
+            <div className="hidden lg:block">
+              <Button onClick={() => playNextSegment()} className="w-full shrink-0">
+                {t("continueMatchBtn")}
+              </Button>
+            </div>
           </div>
         </div>
       </div>
