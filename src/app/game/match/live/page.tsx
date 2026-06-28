@@ -50,8 +50,18 @@ export default function MatchLivePage() {
 
   const sport = getSport(state.sportId);
   const pres = sport.matchPresentation;
-  const myClub = state.clubs[state.manager.clubId];
-  const fixture = state.competition.fixtures.find((f) => f.id === fixtureId);
+  // Use whichever competition/club registry the active (or just-finished) match belongs to:
+  // the World Cup keeps nations in a separate registry, Club Cup entrants are domestic clubs.
+  const scope = state.activeMatch?.scope ?? state.lastResultScope ?? "domestic";
+  const clubsMap = scope === "worldcup" ? state.worldCup?.clubs ?? state.clubs : state.clubs;
+  const myClubId = scope === "worldcup" ? state.worldCup?.userNationId ?? state.manager.clubId : state.manager.clubId;
+  const myClub = clubsMap[myClubId];
+  const fixtures = scope === "worldcup"
+    ? state.worldCup?.competition.fixtures ?? []
+    : scope === "clubcup"
+      ? state.clubCup?.competition.fixtures ?? []
+      : state.competition.fixtures;
+  const fixture = fixtures.find((f) => f.id === fixtureId);
 
   function bumpTactics(patch: Parameters<typeof setTactics>[0]) {
     setTactics(patch);
@@ -76,8 +86,8 @@ export default function MatchLivePage() {
   }
 
   if (active) {
-    const home = state.clubs[active.homeId];
-    const away = state.clubs[active.awayId];
+    const home = clubsMap[active.homeId];
+    const away = clubsMap[active.awayId];
     const knownEvents = active.segments.flatMap((s) => s.result.events).sort((a, b) => a.minute - b.minute);
     const totalSpan = Math.max(pres.endProgress, ...knownEvents.map((e) => e.minute), 1);
     const clock = knownEvents.length ? Math.max(...knownEvents.map((e) => e.minute)) : 0;
@@ -102,7 +112,7 @@ export default function MatchLivePage() {
     const tips = deriveMatchAdvice(active, myClub.id);
 
     return (
-      <div className="flex h-full min-h-0 flex-col gap-3 overflow-hidden p-2 sm:p-3">
+      <div className="flex flex-col gap-3 p-2 sm:p-3 lg:h-full lg:min-h-0 lg:overflow-hidden">
         <div
           className="flex shrink-0 flex-wrap items-center justify-between gap-4 rounded-2xl border px-5 py-3.5"
           style={{ borderColor: "var(--line)", background: "linear-gradient(120deg,#10243a,#0d1727)" }}
@@ -131,8 +141,8 @@ export default function MatchLivePage() {
           </div>
         </div>
 
-        <div className="grid min-h-0 flex-1 gap-3 overflow-hidden lg:grid-cols-[minmax(0,1fr)_minmax(320px,0.78fr)]">
-          <div className="flex min-h-0 flex-col gap-3 overflow-hidden">
+        <div className="grid gap-3 lg:min-h-0 lg:flex-1 lg:grid-cols-[minmax(0,1fr)_minmax(320px,0.78fr)] lg:overflow-hidden">
+          <div className="flex flex-col gap-3 lg:min-h-0 lg:overflow-hidden">
             <Tile title={t("watchMatch")} action={<span className="font-mono text-xs text-soft">{tl(pres.segmentLabel(active.phase))}</span>} className="shrink-0">
               <Venue
                 venue={pres.venue}
@@ -154,13 +164,13 @@ export default function MatchLivePage() {
                 {liveStats.length === 0 && <p className="text-sm" style={{ color: "var(--muted-3)" }}>—</p>}
               </div>
             </Tile>
-            <div className="min-h-0 flex-1 overflow-hidden">
+            <div className="lg:min-h-0 lg:flex-1 lg:overflow-hidden">
               <BroadcastFeed title={t("matchEvents")} feed={feed} players={state.players} home={home} away={away} pres={pres} endMinute={totalSpan} tl={tl} t={t} />
             </div>
           </div>
 
-          <div className="flex min-h-0 flex-col gap-3">
-          <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto pr-1">
+          <div className="flex flex-col gap-3 lg:min-h-0">
+          <div className="flex flex-col gap-3 pr-1 lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
             <Tile title={t("tacticalAdvice")}>
               {tips.length === 0 ? (
                 <p className="text-sm" style={{ color: "var(--muted-3)" }}>{t("noAdvice")}</p>
@@ -264,10 +274,10 @@ export default function MatchLivePage() {
   }
 
   if (fixture?.result && fixture.played) {
-    const home = state.clubs[fixture.result.homeId];
-    const away = state.clubs[fixture.result.awayId];
+    const home = clubsMap[fixture.result.homeId];
+    const away = clubsMap[fixture.result.awayId];
     return (
-      <div className="flex h-full w-full flex-col gap-2 overflow-hidden p-2 sm:p-3">
+      <div className="flex w-full flex-col gap-2 p-2 sm:p-3 lg:h-full lg:overflow-hidden">
         <div className="flex shrink-0 items-center justify-between gap-3">
           <h1 className="font-display text-lg font-bold">{clubDisplayName(home)} vs {clubDisplayName(away)}</h1>
           <div className="flex items-center gap-2">
@@ -278,12 +288,14 @@ export default function MatchLivePage() {
             >
               {t("backToDashboard")}
             </Link>
-            <Button onClick={handleContinueToNext} className="px-3 py-1.5 text-sm">
-              {t("continueToNextMatchBtn")}
-            </Button>
+            {scope === "domestic" && (
+              <Button onClick={handleContinueToNext} className="px-3 py-1.5 text-sm">
+                {t("continueToNextMatchBtn")}
+              </Button>
+            )}
           </div>
         </div>
-        <div className="min-h-0 flex-1 overflow-hidden">
+        <div className="lg:min-h-0 lg:flex-1 lg:overflow-hidden">
           <MatchViewer result={fixture.result} home={home} away={away} players={state.players} sportId={state.sportId} />
         </div>
       </div>

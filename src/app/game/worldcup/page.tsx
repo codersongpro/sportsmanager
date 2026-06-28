@@ -2,18 +2,22 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useI18n } from "@/lib/i18n/I18nProvider";
 import { useGameStore } from "@/lib/store/gameStore";
 import { BracketView } from "@/components/BracketView";
 import { LeagueTable } from "@/components/LeagueTable";
 import { clubDisplayName } from "@/lib/utils/format";
 import { COUNTRIES } from "@/data/countries";
+import { findUserPendingFixture } from "@/lib/engine/worldcup";
 
 export default function WorldCupPage() {
   const { t, tl } = useI18n();
+  const router = useRouter();
   const state = useGameStore((s) => s.state);
   const startWorldCup = useGameStore((s) => s.startWorldCup);
   const simulateRound = useGameStore((s) => s.simulateWorldCupRound);
+  const playMyMatch = useGameStore((s) => s.playWorldCupMatch);
   const [nationCode, setNationCode] = useState(COUNTRIES[0]?.code ?? "");
 
   if (!state) return null;
@@ -51,6 +55,14 @@ export default function WorldCupPage() {
   const comp = wc.competition;
   const userClub = wc.userNationId ? wc.clubs[wc.userNationId] : null;
   const done = !!comp.championId;
+  const myPendingFixture = findUserPendingFixture(comp, wc.userNationId);
+  const hasActiveMatch = !!state.activeMatch;
+
+  function handlePlayMyMatch() {
+    playMyMatch();
+    router.push("/game/match/live");
+  }
+
   const userEliminated =
     !done &&
     !!userClub &&
@@ -68,9 +80,26 @@ export default function WorldCupPage() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-bold">{tl(comp.name)}</h1>
         {!done && (
-          <button onClick={() => simulateRound()} className="rounded-md bg-blue-600 px-5 py-2.5 font-semibold text-white hover:bg-blue-700">
-            {t("simulateRound")}
-          </button>
+          <div className="flex flex-wrap gap-2">
+            {hasActiveMatch && state.activeMatch?.scope === "worldcup" ? (
+              <Link href="/game/match/live" className="rounded-md bg-emerald-600 px-5 py-2.5 font-semibold text-white hover:bg-emerald-700">
+                {t("continueMatchBtn")}
+              </Link>
+            ) : (
+              myPendingFixture && !hasActiveMatch && (
+                <button onClick={handlePlayMyMatch} className="rounded-md bg-emerald-600 px-5 py-2.5 font-semibold text-white hover:bg-emerald-700">
+                  {t("playMyMatch")}
+                </button>
+              )
+            )}
+            <button
+              onClick={() => simulateRound()}
+              disabled={hasActiveMatch}
+              className="rounded-md bg-blue-600 px-5 py-2.5 font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
+            >
+              {t("simulateRound")}
+            </button>
+          </div>
         )}
       </div>
 

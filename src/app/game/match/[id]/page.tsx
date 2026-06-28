@@ -17,14 +17,18 @@ export default function MatchResultPage() {
   if (!state) return null;
 
   const inWorldCup = state.worldCup?.competition.fixtures.some((f) => f.id === params.id) ?? false;
+  const inClubCup = !inWorldCup && (state.clubCup?.competition.fixtures.some((f) => f.id === params.id) ?? false);
   const fixture: Fixture | undefined = inWorldCup
     ? state.worldCup!.competition.fixtures.find((f) => f.id === params.id)
-    : state.competition.fixtures.find((f) => f.id === params.id);
+    : inClubCup
+      ? state.clubCup!.competition.fixtures.find((f) => f.id === params.id)
+      : state.competition.fixtures.find((f) => f.id === params.id);
 
   if (!fixture || !fixture.result || fixture.awayId === null) {
     return <p className="p-4 text-soft">{t("matchResult")}</p>;
   }
 
+  // Club Cup entrants are existing domestic clubs, so they're resolved from the main club registry.
   const clubs = inWorldCup ? state.worldCup!.clubs : state.clubs;
   const home = clubs[fixture.result.homeId];
   const away = clubs[fixture.result.awayId];
@@ -32,7 +36,7 @@ export default function MatchResultPage() {
 
   // Only the user's own most-recently-resolved fixture can be "continued" from here;
   // older results browsed via history are just read-only.
-  const canContinue = !inWorldCup && !state.activeMatch && state.lastResultFixtureId === fixture.id;
+  const canContinue = !inWorldCup && !inClubCup && !state.activeMatch && state.lastResultFixtureId === fixture.id;
 
   function handleContinueToNext() {
     continueGame();
@@ -47,7 +51,7 @@ export default function MatchResultPage() {
   }
 
   return (
-    <div className="flex h-full w-full flex-col gap-2 overflow-hidden">
+    <div className="flex w-full flex-col gap-2 lg:h-full lg:overflow-hidden">
       {canContinue && (
         <div className="flex shrink-0 justify-end p-2 pb-0">
           <Button onClick={handleContinueToNext} className="px-3 py-1.5 text-sm">
@@ -55,7 +59,7 @@ export default function MatchResultPage() {
           </Button>
         </div>
       )}
-      <div className="min-h-0 flex-1 overflow-hidden">
+      <div className="lg:min-h-0 lg:flex-1 lg:overflow-hidden">
         <MatchViewer result={fixture.result} home={home} away={away} players={state.players} sportId={state.sportId} />
       </div>
     </div>

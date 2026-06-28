@@ -2,18 +2,27 @@ import type { ActiveMatchState, Fixture, GameState, SimOptions, SportModule } fr
 import { createRng } from "@/lib/sim/rng";
 import { resolveTeam, finishMatch } from "./matchFlow";
 
+type MatchScope = "domestic" | "worldcup" | "clubcup";
+
 /** Build the initial (unplayed) state for a user fixture that's about to be played out segment by segment. */
-export function beginActiveMatch(state: GameState, fixture: Fixture, sport: SportModule): ActiveMatchState {
-  const comp = state.competition;
-  const opts: SimOptions = {
-    allowDraw: comp.format === "league",
-    neutralVenue: comp.kind === "national",
-  };
+export function beginActiveMatch(
+  state: GameState,
+  fixture: Fixture,
+  sport: SportModule,
+  scope: MatchScope = "domestic",
+): ActiveMatchState {
+  // International knockout/group fixtures are always single-leg, neutral-venue, no-draw,
+  // matching `simulateTournamentStage`'s atomic-simulation semantics in worldcup.ts.
+  const opts: SimOptions =
+    scope === "domestic"
+      ? { allowDraw: state.competition.format === "league", neutralVenue: state.competition.kind === "national" }
+      : { allowDraw: false, neutralVenue: true };
   return {
     fixtureId: fixture.id,
     day: fixture.day,
     homeId: fixture.homeId,
     awayId: fixture.awayId as string,
+    scope,
     opts,
     phase: sport.firstSegment?.(opts) ?? "first_half",
     finished: false,
@@ -39,12 +48,26 @@ export function advanceActiveMatch(state: GameState, sport: SportModule): GameSt
 
   const next: GameState = structuredClone(state);
   const nextActive = next.activeMatch!;
+  const scope: MatchScope = nextActive.scope ?? "domestic";
   const rng = createRng(next.rngState);
 
-  const home = next.clubs[nextActive.homeId];
-  const away = next.clubs[nextActive.awayId];
+  // Club Cup entrants are existing domestic clubs (shared `clubs` registry); the World Cup
+  // uses a separate nation registry/competition; domestic fixtures use the main competition.
+  const clubsMap = scope === "worldcup" ? next.worldCup!.clubs : next.clubs;
+  const comp = scope === "worldcup" ? next.worldCup!.competition : scope === "clubcup" ? next.clubCup!.competition : next.competition;
+
+  const home = clubsMap[nextActive.homeId];
+  const away = clubsMap[nextActive.awayId];
   const homeTeam = resolveTeam(home, next.players, sport);
   const awayTeam = resolveTeam(away, next.players, sport);
+
+  const markFinished = () => {
+    if (scope !== "domestic") {
+      next.lastResultFixtureId = nextActive.fixtureId;
+      next.lastResultScope = scope;
+    }
+    next.activeMatch = undefined;
+  };
 
   if (sport.simulateSegment && sport.finalizeSegments) {
     const kind = nextActive.phase;
@@ -61,8 +84,8 @@ export function advanceActiveMatch(state: GameState, sport: SportModule): GameSt
       finalResult.fixtureId = nextActive.fixtureId;
       nextActive.finished = true;
       nextActive.finalResult = finalResult;
-      finishMatch(next, next.competition, nextActive.fixtureId, home, away, homeTeam, awayTeam, finalResult);
-      next.activeMatch = undefined;
+      finishMatch(next, comp, nextActive.fixtureId, home, away, homeTeam, awayTeam, finalResult);
+      markFinished();
     }
   } else {
     // sport doesn't support segmentation: resolve atomically in one go
@@ -72,8 +95,8 @@ export function advanceActiveMatch(state: GameState, sport: SportModule): GameSt
     nextActive.finalResult = finalResult;
     nextActive.homeScore = finalResult.homeScore;
     nextActive.awayScore = finalResult.awayScore;
-    finishMatch(next, next.competition, nextActive.fixtureId, home, away, homeTeam, awayTeam, finalResult);
-    next.activeMatch = undefined;
+    finishMatch(next, comp, nextActive.fixtureId, home, away, homeTeam, awayTeam, finalResult);
+    markFinished();
   }
 
   next.rngState = rng.state();
