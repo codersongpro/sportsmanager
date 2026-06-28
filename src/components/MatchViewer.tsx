@@ -35,7 +35,7 @@ function toneRing(tone?: string): string {
 }
 
 /** Cosmetic-only accent color per event tone, used by the dark-theme BroadcastFeed. */
-function toneAccent(tone?: string): string {
+export function toneAccent(tone?: string): string {
   switch (tone) {
     case "score": return "var(--mint)";
     case "danger": return "var(--red)";
@@ -46,6 +46,58 @@ function toneAccent(tone?: string): string {
 }
 
 export { playerShortName as shortName };
+
+type ScoreTag = "GO_AHEAD" | "EQUALIZER" | "LATE_WINNER" | "INSURANCE";
+
+const SCORE_TAG_LABEL: Record<ScoreTag, LocalizedText> = {
+  GO_AHEAD: { ko: "역전", en: "GO-AHEAD" },
+  EQUALIZER: { ko: "동점", en: "EQUALIZER" },
+  LATE_WINNER: { ko: "극장 결승", en: "LATE WINNER" },
+  INSURANCE: { ko: "쐐기점", en: "INSURANCE" },
+};
+
+/**
+ * Derives excitement tags (go-ahead/equalizer/late winner/insurance) from the
+ * scoring progression, using pres.scoreOf on single-event slices as a
+ * sport-agnostic point-delta — works identically whether a score is worth 1
+ * (soccer/baseball/rally sports) or a variable amount (basketball).
+ */
+function buildScoreTags(
+  events: MatchEvent[],
+  pres: MatchPresentation,
+  homeId: string,
+  awayId: string,
+  endMinute: number,
+): Map<MatchEvent, ScoreTag> {
+  const tags = new Map<MatchEvent, ScoreTag>();
+  const ascending = [...events].sort((a, b) => a.minute - b.minute);
+  let home = 0;
+  let away = 0;
+  const lateAt = endMinute * 0.9;
+  for (const ev of ascending) {
+    const dHome = pres.scoreOf([ev], homeId);
+    const dAway = pres.scoreOf([ev], awayId);
+    if (dHome <= 0 && dAway <= 0) continue;
+    const prevDiff = home - away;
+    home += dHome;
+    away += dAway;
+    const scoredHome = dHome > 0;
+    const newDiff = home - away;
+    const wasTrailing = scoredHome ? prevDiff < 0 : prevDiff > 0;
+    const wasAhead = scoredHome ? prevDiff > 0 : prevDiff < 0;
+    const nowLevel = newDiff === 0;
+    const nowAhead = scoredHome ? newDiff > 0 : newDiff < 0;
+    const late = ev.minute >= lateAt;
+    if (wasTrailing && nowLevel) {
+      tags.set(ev, "EQUALIZER");
+    } else if (!wasAhead && nowAhead) {
+      tags.set(ev, late ? "LATE_WINNER" : "GO_AHEAD");
+    } else if (wasAhead && nowAhead && late) {
+      tags.set(ev, "INSURANCE");
+    }
+  }
+  return tags;
+}
 
 export function MatchViewer({ result, home, away, players, sportId }: Props) {
   const { t, tl } = useI18n();
@@ -229,7 +281,10 @@ export function MatchViewer({ result, home, away, players, sportId }: Props) {
             {!finished && !activeBreak && <span className="inline-block h-[7px] w-[7px] animate-pulse rounded-full" style={{ background: "var(--red)" }} />}
             {finished || activeBreak ? clockLabel : `${t("live")} ${clockLabel}`}
           </span>
-          <span className="font-display text-[36px] font-bold leading-none tabular-nums" style={{ color: newestScore ? "var(--mint)" : "var(--text)" }}>
+          <span
+            key={`${homeScore}-${awayScore}`}
+            className={`font-display text-[36px] font-bold leading-none tabular-nums ${homeScore + awayScore > 0 ? "score-flash" : ""}`}
+          >
             {homeScore} <span style={{ color: "var(--muted-3)" }}>:</span> {awayScore}
           </span>
           {liveRally && !finished && (
@@ -507,9 +562,14 @@ export function BroadcastFeed({
   tl: (text: LocalizedText) => string;
   t: (key: never) => string;
 }) {
+  const scoreTags = useMemo(() => {
+    const events = feed.filter((i): i is Extract<FeedItem, { kind: "event" }> => i.kind === "event").map((i) => i.ev);
+    return buildScoreTags(events, pres, home.id, away.id, endMinute);
+  }, [feed, pres, home.id, away.id, endMinute]);
+
   return (
     <Tile title={title} className="flex flex-col lg:h-full lg:min-h-0" bodyClassName="min-h-0">
-      <div className="flex max-h-[50vh] flex-col-reverse gap-0.5 overflow-y-auto pr-1 text-sm lg:h-full lg:max-h-none lg:min-h-0">
+      <div className="flex flex-col-reverse gap-0.5 pr-1 text-sm lg:h-full lg:min-h-0 lg:overflow-y-auto">
         {feed.length === 0 && <p style={{ color: "var(--muted-3)" }}>—</p>}
         {feed.map((item, i) => {
           if (item.kind === "marker") {
@@ -528,8 +588,14 @@ export function BroadcastFeed({
           const club = home.id === ev.clubId ? home : away;
           const important = meta.tone === "score" || meta.tone === "danger";
           const accent = toneAccent(meta.tone);
+          const tag = scoreTags.get(ev);
+          const key = `e-${ev.minute}-${ev.type}-${ev.clubId}-${ev.playerId ?? ""}-${ev.assistId ?? ""}`;
           return (
-            <div key={`e${i}`} className="flex gap-3 border-b px-1.5 py-2.5" style={{ borderColor: "rgba(255,255,255,.04)" }}>
+            <div
+              key={key}
+              className={`flex gap-3 border-b px-1.5 py-2.5 ${meta.tone === "score" ? "feed-flash" : ""}`}
+              style={{ borderColor: "rgba(255,255,255,.04)" }}
+            >
               <span className="font-display shrink-0 whitespace-nowrap text-[13px] font-bold" style={{ color: accent, minWidth: 32 }}>
                 {pres.clockLabel(ev.minute, endMinute, false)}
               </span>
@@ -538,6 +604,14 @@ export function BroadcastFeed({
                 <div className="flex items-center gap-1.5">
                   <span className="shrink-0">{meta.emoji}</span>
                   <span className={`truncate text-[12.5px] ${important ? "font-bold" : "font-semibold"}`}>{tl(meta.label)}</span>
+                  {tag && (
+                    <span
+                      className="shrink-0 rounded-full px-1.5 py-[1px] text-[9.5px] font-bold uppercase tracking-wide"
+                      style={{ color: "#06140e", background: "var(--gold)" }}
+                    >
+                      {tl(SCORE_TAG_LABEL[tag])}
+                    </span>
+                  )}
                   <span className="ml-auto max-w-[35%] truncate text-[10.5px]" style={{ color: "var(--muted-3)" }}>{club.shortName}</span>
                 </div>
                 <div className="mt-0.5 text-[11.5px] leading-snug" style={{ color: "var(--muted-2)" }}>

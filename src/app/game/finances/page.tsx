@@ -10,6 +10,14 @@ export default function FinancesPage() {
 
   if (!state) return null;
   const myClub = state.clubs[state.manager.clubId];
+  if (myClub.isNational) {
+    return (
+      <div className="mx-auto flex w-full max-w-2xl flex-col gap-6">
+        <h1 className="text-2xl font-bold">{t("finances")}</h1>
+        <p className="text-sm text-zinc-500">{t("financesUnavailableNational")}</p>
+      </div>
+    );
+  }
   const weeklyWages = myClub.squad.reduce((s, id) => s + (state.players[id]?.wage ?? 0), 0);
   const weeklyIncome = Math.round(myClub.reputation * 1800 + weeklyWages * 0.15);
 

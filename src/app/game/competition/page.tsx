@@ -83,13 +83,15 @@ export default function CompetitionPage() {
       )}
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <div className="rounded-2xl border p-5" style={{ borderColor: "var(--line)", background: "var(--panel)" }}>
-          <h2 className="font-display mb-1.5 text-[15px] font-bold">{t("worldCup")}</h2>
-          <p className="mb-3 text-[12.5px]" style={{ color: "var(--muted-2)" }}>{t("worldCupDesc")}</p>
-          <Link href="/game/worldcup" className="inline-block text-[12.5px] font-semibold" style={{ color: "var(--mint)" }}>
-            {t("worldCup")} →
-          </Link>
-        </div>
+        {!myClub.isNational && (
+          <div className="rounded-2xl border p-5" style={{ borderColor: "var(--line)", background: "var(--panel)" }}>
+            <h2 className="font-display mb-1.5 text-[15px] font-bold">{t("worldCup")}</h2>
+            <p className="mb-3 text-[12.5px]" style={{ color: "var(--muted-2)" }}>{t("worldCupDesc")}</p>
+            <Link href="/game/worldcup" className="inline-block text-[12.5px] font-semibold" style={{ color: "var(--mint)" }}>
+              {t("worldCup")} →
+            </Link>
+          </div>
+        )}
         <div className="rounded-2xl border p-5" style={{ borderColor: "var(--line)", background: "var(--panel)" }}>
           <h2 className="font-display mb-1.5 text-[15px] font-bold">{t("clubCup")}</h2>
           <p className="mb-3 text-[12.5px]" style={{ color: "var(--muted-2)" }}>{t("clubCupDesc")}</p>

@@ -36,12 +36,36 @@ function side(team: MatchTeam): Side {
 
 const HIT: Pool2 = [{ ko: "적시타! 주자가 홈을 밟습니다.", en: "RBI hit! A run scores!" }, { ko: "중전 안타로 득점합니다.", en: "Base hit brings one home!" }];
 const HR: Pool2 = [{ ko: "홈런! 담장을 넘깁니다.", en: "HOME RUN! Gone!" }, { ko: "높게 뻗은 타구가 홈런이 됩니다.", en: "A towering blast, home run!" }];
-const SO: Pool2 = [{ ko: "삼진 아웃! 타자를 돌려세웁니다.", en: "Strikeout! Sits him down." }];
-const BB: Pool2 = [{ ko: "볼넷으로 출루합니다.", en: "Draws a walk." }];
-const DOUBLE: Pool2 = [{ ko: "2루타! 타구가 외야 깊숙이 향합니다.", en: "Rips a double into the gap." }];
-const ERR: Pool2 = [{ ko: "실책! 수비 실수가 나옵니다.", en: "Error! A misplay in the field." }];
-const STEAL: Pool2 = [{ ko: "도루 성공!", en: "Steals the base!" }];
-const DP: Pool2 = [{ ko: "병살타! 두 명을 잡아냅니다.", en: "Double play! Two down." }];
+const SO: Pool2 = [
+  { ko: "삼진 아웃! 타자를 돌려세웁니다.", en: "Strikeout! Sits him down." },
+  { ko: "삼진! 헛스윙으로 물러납니다.", en: "Strikeout! Swings through it for the third strike." },
+  { ko: "삼진! 꼼짝없이 루킹 삼진을 당합니다.", en: "Strikeout! Frozen looking at strike three." },
+];
+const BB: Pool2 = [
+  { ko: "볼넷으로 출루합니다.", en: "Draws a walk." },
+  { ko: "스트라이크존을 벗어난 공을 골라 걸어 나갑니다.", en: "Lays off the close ones and takes the walk." },
+  { ko: "풀카운트 끝에 볼넷을 얻어냅니다.", en: "Works the count full and earns the walk." },
+];
+const DOUBLE: Pool2 = [
+  { ko: "2루타! 타구가 외야 깊숙이 향합니다.", en: "Rips a double into the gap." },
+  { ko: "2루타! 라인을 타고 흐르는 강한 타구입니다.", en: "Doubles down the line!" },
+  { ko: "2루타! 펜스 앞까지 굴러갑니다.", en: "A double that rolls all the way to the wall." },
+];
+const ERR: Pool2 = [
+  { ko: "실책! 수비 실수가 나옵니다.", en: "Error! A misplay in the field." },
+  { ko: "실책! 송구가 빠지며 주자가 진루합니다.", en: "Error! The throw gets away, runner advances." },
+  { ko: "실책! 평범한 타구를 놓칩니다.", en: "Error! Boots a routine grounder." },
+];
+const STEAL: Pool2 = [
+  { ko: "도루 성공!", en: "Steals the base!" },
+  { ko: "완벽한 타이밍으로 도루에 성공합니다!", en: "A perfectly timed jump, safe at the bag!" },
+  { ko: "포수의 송구보다 빠르게 슬라이딩합니다!", en: "Beats the throw with a headfirst slide!" },
+];
+const DP: Pool2 = [
+  { ko: "병살타! 두 명을 잡아냅니다.", en: "Double play! Two down." },
+  { ko: "병살타! 내야진의 깔끔한 연계 플레이입니다.", en: "Double play! Turned smoothly around the horn." },
+  { ko: "병살타! 이닝을 한 번에 끝내버립니다.", en: "Double play! Ends the inning in a flash." },
+];
 const EXTRA: { type: string; detail: Pool2 }[] = [
   { type: "single", detail: [{ ko: "깔끔한 안타로 출루합니다.", en: "Punches a clean single." }] },
   { type: "triple", detail: [{ ko: "외야 깊숙한 타구로 3루까지 내달립니다.", en: "Races into third with a triple." }] },

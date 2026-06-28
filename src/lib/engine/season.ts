@@ -121,7 +121,7 @@ function rebuildLeagueOrTournament(
   season: number,
 ) {
   return comp.format === "league"
-    ? createLeague(comp.id, comp.name, comp.country, clubs, season)
+    ? createLeague(comp.id, comp.name, comp.country, clubs, season, comp.kind)
     : createTournament(comp.id, comp.name, comp.country, comp.kind, clubs, season);
 }
 

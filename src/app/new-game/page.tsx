@@ -5,11 +5,12 @@ import { useRouter } from "next/navigation";
 import type { CompetitionFormat, SportId } from "@/lib/types";
 import { SPORT_ORDER, getSport } from "@/lib/sports";
 import { getClubsForSport, getLeaguesForSport } from "@/data/clubs";
+import { COUNTRIES } from "@/data/countries";
 import { useI18n } from "@/lib/i18n/I18nProvider";
 import { useGameStore } from "@/lib/store/gameStore";
 import { localizedDisplayName } from "@/lib/utils/format";
 
-type Step = "sport" | "mode" | "league" | "club" | "manager";
+type Step = "sport" | "mode" | "entity" | "league" | "club" | "nation" | "manager";
 
 export default function NewGamePage() {
   const { t, tl, locale } = useI18n();
@@ -19,8 +20,10 @@ export default function NewGamePage() {
   const [step, setStep] = useState<Step>("sport");
   const [sportId, setSportId] = useState<SportId>("soccer");
   const [format, setFormat] = useState<CompetitionFormat>("league");
+  const [entityType, setEntityType] = useState<"club" | "nation">("club");
   const [leagueId, setLeagueId] = useState<string>("eng");
   const [clubId, setClubId] = useState<string>("");
+  const [countryCode, setCountryCode] = useState<string>(COUNTRIES[0]?.code ?? "");
   const [managerName, setManagerName] = useState("");
   const [starting, setStarting] = useState(false);
 
@@ -40,13 +43,15 @@ export default function NewGamePage() {
   }
 
   function start() {
-    if (!managerName.trim() || !clubId) return;
+    if (!managerName.trim()) return;
+    if (entityType === "club" && !clubId) return;
+    if (entityType === "nation" && !countryCode) return;
     setStarting(true);
     startNewGame({
       sportId,
       format,
-      leagueId,
-      clubId,
+      entityType,
+      ...(entityType === "nation" ? { countryCode } : { leagueId, clubId }),
       managerName: managerName.trim(),
       locale,
     });
@@ -110,7 +115,38 @@ export default function NewGamePage() {
             <button onClick={() => setStep("sport")} className="rounded-md border px-4 py-2">
               {t("back")}
             </button>
-            <button onClick={() => setStep("league")} className="rounded-md bg-blue-600 px-4 py-2 text-white">
+            <button onClick={() => setStep("entity")} className="rounded-md bg-blue-600 px-4 py-2 text-white">
+              {t("next")}
+            </button>
+          </div>
+        </section>
+      )}
+
+      {step === "entity" && (
+        <section className="flex flex-col gap-3">
+          <h2 className="font-semibold text-zinc-500">{t("chooseEntityType")}</h2>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {(["club", "nation"] as const).map((e) => (
+              <button
+                key={e}
+                onClick={() => setEntityType(e)}
+                className={`surface-panel flex flex-col items-start gap-1 rounded-lg border p-4 text-left ${
+                  entityType === e ? "surface-selected" : ""
+                }`}
+              >
+                <span className="font-semibold">{e === "club" ? t("manageClub") : t("manageNation")}</span>
+                <span className="text-xs text-zinc-500">{e === "club" ? t("manageClubDesc") : t("manageNationDesc")}</span>
+              </button>
+            ))}
+          </div>
+          <div className="flex justify-between">
+            <button onClick={() => setStep("mode")} className="rounded-md border px-4 py-2">
+              {t("back")}
+            </button>
+            <button
+              onClick={() => setStep(entityType === "club" ? "league" : "nation")}
+              className="rounded-md bg-blue-600 px-4 py-2 text-white"
+            >
               {t("next")}
             </button>
           </div>
@@ -137,7 +173,7 @@ export default function NewGamePage() {
             ))}
           </div>
           <div className="flex justify-between">
-            <button onClick={() => setStep("mode")} className="rounded-md border px-4 py-2">
+            <button onClick={() => setStep("entity")} className="rounded-md border px-4 py-2">
               {t("back")}
             </button>
             <button onClick={() => setStep("club")} className="rounded-md bg-blue-600 px-4 py-2 text-white">
@@ -182,6 +218,38 @@ export default function NewGamePage() {
         </section>
       )}
 
+      {step === "nation" && (
+        <section className="flex flex-col gap-3">
+          <h2 className="font-semibold text-zinc-500">{t("chooseNation")}</h2>
+          <div className="grid max-h-80 grid-cols-2 gap-2 overflow-y-auto sm:grid-cols-3">
+            {COUNTRIES.map((c) => (
+              <button
+                key={c.code}
+                onClick={() => setCountryCode(c.code)}
+                className={`surface-panel flex min-h-20 flex-col gap-1 rounded-md border px-3 py-2 text-left text-sm ${
+                  countryCode === c.code ? "surface-selected" : ""
+                }`}
+              >
+                <span className="font-semibold">{tl(c.name)}</span>
+                <span className="text-xs text-zinc-500">REP {c.strength}</span>
+              </button>
+            ))}
+          </div>
+          <div className="flex justify-between">
+            <button onClick={() => setStep("entity")} className="rounded-md border px-4 py-2">
+              {t("back")}
+            </button>
+            <button
+              disabled={!countryCode}
+              onClick={() => setStep("manager")}
+              className="rounded-md bg-blue-600 px-4 py-2 text-white disabled:opacity-40"
+            >
+              {t("next")}
+            </button>
+          </div>
+        </section>
+      )}
+
       {step === "manager" && (
         <section className="flex flex-col gap-3">
           <h2 className="font-semibold text-zinc-500">{t("managerProfile")}</h2>
@@ -195,7 +263,7 @@ export default function NewGamePage() {
             />
           </label>
           <div className="flex justify-between">
-            <button onClick={() => setStep("club")} className="rounded-md border px-4 py-2">
+            <button onClick={() => setStep(entityType === "club" ? "club" : "nation")} className="rounded-md border px-4 py-2">
               {t("back")}
             </button>
             <button

@@ -343,25 +343,27 @@ export default function DashboardPage() {
           </div>
         </Tile>
 
-        <Tile title={t("financeSummary")} action={
-          <button onClick={() => router.push("/game/finances")} className="text-[11.5px] font-semibold" style={{ color: "var(--mint)" }}>
-            {t("viewFinances")} →
-          </button>
-        }>
-          <div className="flex flex-col gap-2.5">
-            <div className="flex items-center justify-between">
-              <span className="text-[11.5px]" style={{ color: "var(--muted-2)" }}>{t("balance")}</span>
-              <span className="font-display text-sm font-bold">{formatMoney(finance.balance)}</span>
+        {!myClub.isNational && (
+          <Tile title={t("financeSummary")} action={
+            <button onClick={() => router.push("/game/finances")} className="text-[11.5px] font-semibold" style={{ color: "var(--mint)" }}>
+              {t("viewFinances")} →
+            </button>
+          }>
+            <div className="flex flex-col gap-2.5">
+              <div className="flex items-center justify-between">
+                <span className="text-[11.5px]" style={{ color: "var(--muted-2)" }}>{t("balance")}</span>
+                <span className="font-display text-sm font-bold">{formatMoney(finance.balance)}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-[11.5px]" style={{ color: "var(--muted-2)" }}>{t("netWeekly")}</span>
+                <span className="font-display text-sm font-bold" style={{ color: finance.netWeekly >= 0 ? "var(--mint)" : "var(--red)" }}>
+                  {finance.netWeekly >= 0 ? "+" : ""}{formatMoney(finance.netWeekly)}
+                </span>
+              </div>
+              <StatusBadge tone={finance.riskTone}>{tl(finance.explanation)}</StatusBadge>
             </div>
-            <div className="flex items-center justify-between">
-              <span className="text-[11.5px]" style={{ color: "var(--muted-2)" }}>{t("netWeekly")}</span>
-              <span className="font-display text-sm font-bold" style={{ color: finance.netWeekly >= 0 ? "var(--mint)" : "var(--red)" }}>
-                {finance.netWeekly >= 0 ? "+" : ""}{formatMoney(finance.netWeekly)}
-              </span>
-            </div>
-            <StatusBadge tone={finance.riskTone}>{tl(finance.explanation)}</StatusBadge>
-          </div>
-        </Tile>
+          </Tile>
+        )}
       </div>
 
       {/* top performers */}

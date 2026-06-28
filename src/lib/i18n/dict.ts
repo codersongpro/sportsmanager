@@ -42,6 +42,13 @@ export const dict = {
     ko: "단판 토너먼트. 패하면 탈락, 결승에서 우승을 가립니다.",
     en: "Single-elimination knockout. Lose and you're out.",
   },
+  chooseEntityType: { ko: "운영할 대상을 선택하세요", en: "Choose what to manage" },
+  manageClub: { ko: "클럽 운영", en: "Manage a Club" },
+  manageClubDesc: { ko: "리그 클럽을 맡아 시즌을 운영합니다", en: "Take charge of a domestic club's season" },
+  manageNation: { ko: "국가대표팀 운영", en: "Manage a Nation" },
+  manageNationDesc: { ko: "국가대표팀을 맡아 대회를 운영합니다", en: "Take charge of a national team's campaign" },
+  transfersUnavailableNational: { ko: "국가대표팀은 이적시장을 이용할 수 없습니다", en: "Transfers aren't available for national teams" },
+  financesUnavailableNational: { ko: "국가대표팀은 재무 관리가 필요하지 않습니다", en: "National teams don't need financial management" },
 
   // sports
   soccer: { ko: "축구", en: "Football" },

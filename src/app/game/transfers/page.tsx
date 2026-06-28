@@ -29,6 +29,8 @@ export default function TransfersPage() {
   const sport = state ? getSport(state.sportId) : null;
   const myClub = state ? state.clubs[state.manager.clubId] : null;
 
+  const isNational = !!myClub?.isNational;
+
   const results = useMemo(() => {
     if (!state || !sport || !myClub) return [];
     const q = query.trim().toLowerCase();
@@ -43,6 +45,15 @@ export default function TransfersPage() {
   }, [state, sport, myClub, query, freeAgentsOnly]);
 
   if (!state || !sport || !myClub) return null;
+
+  if (isNational) {
+    return (
+      <div className="mx-auto flex w-full max-w-7xl flex-col gap-[18px]">
+        <h1 className="font-display text-xl font-bold">{t("transferMarket")}</h1>
+        <p className="text-sm" style={{ color: "var(--muted-2)" }}>{t("transfersUnavailableNational")}</p>
+      </div>
+    );
+  }
 
   const rep = state.manager.reputation;
   const mySquad = myClub.squad.map((id) => state.players[id]).filter(Boolean);
