@@ -63,7 +63,11 @@ export default function GameLayout({ children }: { children: React.ReactNode }) 
   const myClub = state.clubs[state.manager.clubId];
   const sport = getSport(state.sportId);
   const matchView = pathname.startsWith("/game/match/");
-  const navItems = state.sportId === "soccer" ? NAV : NAV.filter((item) => item.href !== "/game/worldcup");
+  const navItems = NAV.filter((item) => {
+    if (item.href === "/game/worldcup") return state.sportId === "soccer" && !myClub.isNational;
+    if (myClub.isNational && (item.href === "/game/finances" || item.href === "/game/transfers")) return false;
+    return true;
+  });
   const primaryNav = navItems.slice(0, 4);
   const secondaryNav = navItems.slice(4);
   const activeItem = navItems.find((item) => pathname === item.href);
@@ -210,15 +214,19 @@ export default function GameLayout({ children }: { children: React.ReactNode }) 
             </div>
 
             <div className="ml-auto flex items-center gap-4">
-              <div className="text-right">
-                <div className="text-[10px] tracking-wide" style={{ color: "var(--muted-3)" }}>
-                  {t("transferBudget").toUpperCase()}
-                </div>
-                <div className="font-display text-[17px] font-bold leading-none" style={{ color: "var(--mint)" }}>
-                  ₩{formatMoney(myClub.finances.transferBudget)}
-                </div>
-              </div>
-              <div className="h-7 w-px" style={{ background: "var(--border-soft)" }} />
+              {!myClub.isNational && (
+                <>
+                  <div className="text-right">
+                    <div className="text-[10px] tracking-wide" style={{ color: "var(--muted-3)" }}>
+                      {t("transferBudget").toUpperCase()}
+                    </div>
+                    <div className="font-display text-[17px] font-bold leading-none" style={{ color: "var(--mint)" }}>
+                      ₩{formatMoney(myClub.finances.transferBudget)}
+                    </div>
+                  </div>
+                  <div className="h-7 w-px" style={{ background: "var(--border-soft)" }} />
+                </>
+              )}
               <div className="text-right">
                 <div className="text-[10px] tracking-wide" style={{ color: "var(--muted-3)" }}>
                   {t("season").toUpperCase()} · {t("day").toUpperCase()}

@@ -25,11 +25,31 @@ function side(team: MatchTeam): Side {
 }
 
 const WINNER: Pool2 = [{ ko: "위너! 코너를 정확히 찌릅니다.", en: "Winner down the line!" }, { ko: "강한 발리로 마무리합니다.", en: "Puts away the volley!" }];
-const ACE: Pool2 = [{ ko: "서브 에이스!", en: "Service ace!" }];
-const SMASH: Pool2 = [{ ko: "오버헤드 스매시가 적중합니다.", en: "Overhead smash!" }];
-const DINK: Pool2 = [{ ko: "날카로운 딩크 싸움 끝에 득점합니다.", en: "Wins the dink battle!" }];
-const FAULT: Pool2 = [{ ko: "폴트. 네트에 걸렸습니다.", en: "Fault into the net." }];
-const GAMEWON: Pool2 = [{ ko: "게임을 가져갑니다!", en: "Takes the game!" }];
+const ACE: Pool2 = [
+  { ko: "서브 에이스!", en: "Service ace!" },
+  { ko: "서브 에이스! 상대가 손도 대지 못합니다!", en: "Service ace! Doesn't even get a paddle on it!" },
+  { ko: "강력한 서브가 그대로 꽂힙니다!", en: "An unreturnable serve, ace!" },
+];
+const SMASH: Pool2 = [
+  { ko: "오버헤드 스매시가 적중합니다.", en: "Overhead smash!" },
+  { ko: "강력한 오버헤드 스매시로 마무리합니다!", en: "A thunderous overhead smash puts it away!" },
+  { ko: "높은 공을 그대로 내려찍습니다!", en: "Pounds the high ball straight down!" },
+];
+const DINK: Pool2 = [
+  { ko: "날카로운 딩크 싸움 끝에 득점합니다.", en: "Wins the dink battle!" },
+  { ko: "킷친 라인에서의 정교한 딩크가 성공합니다.", en: "A delicate dink at the kitchen line finds the gap." },
+  { ko: "끈질긴 딩크 랠리 끝에 점수를 따냅니다.", en: "Outlasts the dink rally for the point." },
+];
+const FAULT: Pool2 = [
+  { ko: "폴트. 네트에 걸렸습니다.", en: "Fault into the net." },
+  { ko: "폴트. 라인 밖으로 벗어납니다.", en: "Fault, sails out of bounds." },
+  { ko: "폴트. 킷친 바이올레이션이 선언됩니다.", en: "Fault, called for a kitchen violation." },
+];
+const GAMEWON: Pool2 = [
+  { ko: "게임을 가져갑니다!", en: "Takes the game!" },
+  { ko: "결정적인 한 점으로 게임을 마무리합니다!", en: "Closes out the game with a clutch point!" },
+  { ko: "완벽한 경기력으로 게임을 따냅니다!", en: "A dominant performance seals the game!" },
+];
 const EXTRA: { type: string; detail: Pool2 }[] = [
   { type: "thirdShotDrop", detail: [{ ko: "서드샷 드롭으로 키친 싸움에 들어갑니다.", en: "Drops the third shot into the kitchen." }] },
   { type: "kitchenViolation", detail: [{ ko: "논발리존 침범이 선언됩니다.", en: "Kitchen violation is called." }] },

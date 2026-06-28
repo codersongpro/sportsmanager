@@ -35,11 +35,31 @@ function side(team: MatchTeam): Side {
 const THREE: Pool2 = [{ ko: "3점슛 성공! 림을 가릅니다.", en: "Splash! Drains the three!" }, { ko: "코너에서 3점이 정확합니다.", en: "Corner three, bullseye!" }];
 const DUNK: Pool2 = [{ ko: "강력한 덩크! 림이 흔들립니다.", en: "Thunderous slam!" }, { ko: "앨리웁 덩크 성공!", en: "Alley-oop jam!" }];
 const TWO: Pool2 = [{ ko: "야투 성공! 미드레인지 점퍼가 들어갑니다.", en: "Smooth mid-range jumper." }, { ko: "골밑 마무리 성공!", en: "Finishes at the rim." }];
-const FT: Pool2 = [{ ko: "자유투를 침착하게 넣습니다.", en: "Knocks down the free throw." }];
-const STEAL: Pool2 = [{ ko: "스틸! 공을 가로챕니다.", en: "Steal! Picks his pocket!" }];
-const BLOCK: Pool2 = [{ ko: "블록! 슛을 걷어냅니다.", en: "Blocked! Sent away!" }];
-const TO: Pool2 = [{ ko: "턴오버. 공격권을 넘겨줍니다.", en: "Turnover, coughs it up." }];
-const REB: Pool2 = [{ ko: "리바운드를 따냅니다.", en: "Grabs the board!" }];
+const FT: Pool2 = [
+  { ko: "자유투를 침착하게 넣습니다.", en: "Knocks down the free throw." },
+  { ko: "자유투 라인에서 정확하게 성공시킵니다.", en: "Calmly sinks it from the stripe." },
+  { ko: "압박 속에서도 자유투를 놓치지 않습니다.", en: "Ice in his veins at the line." },
+];
+const STEAL: Pool2 = [
+  { ko: "스틸! 공을 가로챕니다.", en: "Steal! Picks his pocket!" },
+  { ko: "스틸! 패스를 끊어내며 속공으로 연결합니다!", en: "Steal! Jumps the passing lane!" },
+  { ko: "스틸! 핸들링 실수를 그대로 가로챕니다.", en: "Steal! Pounces on the loose handle!" },
+];
+const BLOCK: Pool2 = [
+  { ko: "블록! 슛을 걷어냅니다.", en: "Blocked! Sent away!" },
+  { ko: "블록! 골밑에서 완벽하게 차단합니다!", en: "Blocked! Rejected at the rim!" },
+  { ko: "블록! 관중석으로 날려버립니다!", en: "Blocked! Swatted into the stands!" },
+];
+const TO: Pool2 = [
+  { ko: "턴오버. 공격권을 넘겨줍니다.", en: "Turnover, coughs it up." },
+  { ko: "턴오버. 트래블링 바이올레이션이 선언됩니다.", en: "Turnover, called for traveling." },
+  { ko: "턴오버. 패스가 빗나갑니다.", en: "Turnover, the pass sails out of bounds." },
+];
+const REB: Pool2 = [
+  { ko: "리바운드를 따냅니다.", en: "Grabs the board!" },
+  { ko: "박스아웃 끝에 리바운드를 잡아냅니다.", en: "Boxes out and secures the rebound!" },
+  { ko: "공중볼 다툼에서 승리하며 리바운드를 가져갑니다.", en: "Wins the battle for the loose ball!" },
+];
 const EXTRA: { type: string; detail: Pool2 }[] = [
   { type: "fastBreak", detail: [{ ko: "수비 리바운드 이후 빠르게 속공을 전개합니다.", en: "Turns the rebound into an open-court break." }] },
   { type: "pickAndRoll", detail: [{ ko: "픽앤롤로 수비 스위치를 강요합니다.", en: "Forces a switch with the pick and roll." }] },

@@ -47,6 +47,7 @@ export function createLeague(
   country: string,
   clubs: Club[],
   season: number,
+  kind: "club" | "national" = "club",
 ): CompetitionState {
   const ids = clubs.map((c) => c.id);
   const single = roundRobin(ids);
@@ -68,7 +69,7 @@ export function createLeague(
     id,
     name,
     format: "league",
-    kind: "club",
+    kind,
     country,
     clubIds: ids,
     fixtures,

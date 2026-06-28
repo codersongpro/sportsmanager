@@ -121,23 +121,25 @@ function collectIssues(state: GameState, sport: SportModule): Issue[] {
     });
   }
 
-  const wageBill = weeklyWageBill(club, players);
-  if (club.finances.balance < 0) {
-    issues.push({
-      id: "balance_negative",
-      severity: "danger",
-      title: { ko: "재정 점검", en: "Review finances" },
-      reason: { ko: "구단 잔고가 마이너스입니다", en: "Club balance is negative" },
-      href: "/game/finances",
-    });
-  } else if (wageBill > club.finances.wageBudget) {
-    issues.push({
-      id: "wage_over_budget",
-      severity: "warning",
-      title: { ko: "재정 점검", en: "Review finances" },
-      reason: { ko: "주급 지출이 예산을 초과했습니다", en: "Weekly wages exceed your wage budget" },
-      href: "/game/finances",
-    });
+  if (!club.isNational) {
+    const wageBill = weeklyWageBill(club, players);
+    if (club.finances.balance < 0) {
+      issues.push({
+        id: "balance_negative",
+        severity: "danger",
+        title: { ko: "재정 점검", en: "Review finances" },
+        reason: { ko: "구단 잔고가 마이너스입니다", en: "Club balance is negative" },
+        href: "/game/finances",
+      });
+    } else if (wageBill > club.finances.wageBudget) {
+      issues.push({
+        id: "wage_over_budget",
+        severity: "warning",
+        title: { ko: "재정 점검", en: "Review finances" },
+        reason: { ko: "주급 지출이 예산을 초과했습니다", en: "Weekly wages exceed your wage budget" },
+        href: "/game/finances",
+      });
+    }
   }
 
   return issues.sort((a, b) => SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity]);

@@ -31,11 +31,31 @@ function side(team: MatchTeam): Side {
 }
 
 const SPIKE: Pool2 = [{ ko: "강력한 스파이크 득점!", en: "Hammered down for the point!" }, { ko: "대각 스파이크가 코트를 가릅니다.", en: "Cross-court kill!" }];
-const ACE: Pool2 = [{ ko: "서브 에이스!", en: "Service ace!" }];
-const BLOCK: Pool2 = [{ ko: "블로킹 성공! 상대 공격을 막아냅니다.", en: "Stuff block at the net!" }];
-const DIG: Pool2 = [{ ko: "놀라운 디그로 랠리를 살립니다.", en: "Incredible dig keeps it alive!" }];
-const ERR: Pool2 = [{ ko: "범실. 공격이 라인을 벗어납니다.", en: "Unforced error, hit out." }];
-const SETWON: Pool2 = [{ ko: "세트를 가져갑니다!", en: "Takes the set!" }];
+const ACE: Pool2 = [
+  { ko: "서브 에이스!", en: "Service ace!" },
+  { ko: "서브 에이스! 리시브가 전혀 닿지 않습니다!", en: "Service ace! Drops untouched!" },
+  { ko: "강렬한 서브가 그대로 점수로 연결됩니다!", en: "A blistering serve, straight to the floor!" },
+];
+const BLOCK: Pool2 = [
+  { ko: "블로킹 성공! 상대 공격을 막아냅니다.", en: "Stuff block at the net!" },
+  { ko: "블로킹 성공! 상대 스파이크를 그대로 돌려보냅니다!", en: "Stuff block! Sends it right back down!" },
+  { ko: "더블 블로킹으로 완벽하게 차단합니다!", en: "A perfect double block shuts it down!" },
+];
+const DIG: Pool2 = [
+  { ko: "놀라운 디그로 랠리를 살립니다.", en: "Incredible dig keeps it alive!" },
+  { ko: "몸을 던진 디그로 공을 살려냅니다!", en: "A diving dig keeps the rally going!" },
+  { ko: "강한 스파이크를 디그로 받아냅니다!", en: "Digs out a thunderous spike!" },
+];
+const ERR: Pool2 = [
+  { ko: "범실. 공격이 라인을 벗어납니다.", en: "Unforced error, hit out." },
+  { ko: "범실. 공격이 네트에 걸립니다.", en: "Unforced error, into the net." },
+  { ko: "범실. 리시브가 흐트러집니다.", en: "Unforced error, the reception breaks down." },
+];
+const SETWON: Pool2 = [
+  { ko: "세트를 가져갑니다!", en: "Takes the set!" },
+  { ko: "끈질긴 접전 끝에 세트를 따냅니다!", en: "Grinds out a hard-fought set!" },
+  { ko: "결정적인 한 점으로 세트를 마무리합니다!", en: "A clutch point seals the set!" },
+];
 const EXTRA: { type: string; detail: Pool2 }[] = [
   { type: "quickAttack", detail: [{ ko: "세터가 중앙 속공을 빠르게 엽니다.", en: "The setter opens a quick middle attack." }] },
   { type: "pipeAttack", detail: [{ ko: "후위 파이프 공격으로 블로커를 흔듭니다.", en: "A back-row pipe attack splits the block." }] },

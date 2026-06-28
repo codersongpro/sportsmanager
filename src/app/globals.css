@@ -64,6 +64,24 @@
   50% { opacity: .35; }
 }
 
+@keyframes feedFlashIn {
+  0% { background-color: rgba(24, 226, 154, .26); box-shadow: 0 0 0 1px rgba(24, 226, 154, .45); }
+  100% { background-color: transparent; box-shadow: 0 0 0 1px transparent; }
+}
+.feed-flash {
+  animation: feedFlashIn 1.6s ease-out;
+  border-radius: 10px;
+}
+
+@keyframes scoreFlashPop {
+  0% { color: var(--mint); transform: scale(1.22); }
+  100% { color: inherit; transform: scale(1); }
+}
+.score-flash {
+  display: inline-block;
+  animation: scoreFlashPop .7s ease-out;
+}
+
 body {
   background: var(--bg-base);
   color: var(--foreground);

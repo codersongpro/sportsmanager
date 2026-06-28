@@ -149,15 +149,47 @@ export function buildWorld(sport: SportModule, rng: RNG, startSeason: number): W
   return { clubs, players };
 }
 
+function buildNationalClub(sport: SportModule, players: Record<string, Player>, country: (typeof COUNTRIES)[number], pool: Player[]): Club {
+  pool.sort((a, b) => sport.calcOverall(b) - sport.calcOverall(a));
+  const squadPlayers = pool.slice(0, 26);
+  const top = squadPlayers.slice(0, 16);
+  const reputation = Math.round(top.reduce((s, p) => s + sport.calcOverall(p), 0) / top.length);
+
+  const id = `nat-${country.code}`;
+  const club: Club = {
+    id,
+    name: country.name.en,
+    nameKo: country.name.ko,
+    shortName: country.code,
+    leagueId: "world",
+    country: country.code,
+    reputation,
+    finances: { balance: 0, transferBudget: 0, wageBudget: 0 },
+    squad: squadPlayers.map((p) => p.id),
+    tactics: sport.defaultTactics(),
+    primaryColor: "#2b6cb0",
+    isNational: true,
+  };
+  const picked = sport.autoPickLineup(club, players);
+  club.tactics = { ...club.tactics, lineup: picked.lineup, bench: picked.bench };
+  return club;
+}
+
 /**
  * Build national teams from the club player pool, grouped by nationality.
  * Only nations with enough players get a team. Returns national clubs keyed by
  * `nat-<code>`; player ids are shared with their domestic clubs.
+ *
+ * `guaranteedCode`, when given, always gets a team regardless of its natural
+ * pool size — if that pool can't even fill a starting squad (per the sport's
+ * `squadTemplate` total), it's backfilled with the best available players
+ * from the rest of the world so the user's chosen nation is never unplayable.
  */
 export function buildNationalTeams(
   sport: SportModule,
   players: Record<string, Player>,
   minSquad = 16,
+  guaranteedCode?: string,
 ): Record<string, Club> {
   const byNation: Record<string, Player[]> = {};
   for (const p of Object.values(players)) {
@@ -165,32 +197,35 @@ export function buildNationalTeams(
   }
 
   const nationals: Record<string, Club> = {};
-  for (const country of COUNTRIES) {
-    const pool = (byNation[country.code] ?? []).slice();
-    if (pool.length < minSquad) continue;
-    pool.sort((a, b) => sport.calcOverall(b) - sport.calcOverall(a));
-    const squadPlayers = pool.slice(0, 26);
-    const top = squadPlayers.slice(0, 16);
-    const reputation = Math.round(top.reduce((s, p) => s + sport.calcOverall(p), 0) / top.length);
+  const claimed = new Set<string>();
 
-    const id = `nat-${country.code}`;
-    const club: Club = {
-      id,
-      name: country.name.en,
-      nameKo: country.name.ko,
-      shortName: country.code,
-      leagueId: "world",
-      country: country.code,
-      reputation,
-      finances: { balance: 0, transferBudget: 0, wageBudget: 0 },
-      squad: squadPlayers.map((p) => p.id),
-      tactics: sport.defaultTactics(),
-      primaryColor: "#2b6cb0",
-      isNational: true,
-    };
-    const picked = sport.autoPickLineup(club, players);
-    club.tactics = { ...club.tactics, lineup: picked.lineup, bench: picked.bench };
-    nationals[id] = club;
+  if (guaranteedCode) {
+    const country = COUNTRY_BY_CODE[guaranteedCode];
+    if (country) {
+      const pool = (byNation[country.code] ?? []).slice();
+      const requiredMin = sport.squadTemplate.reduce((s, slot) => s + slot.count, 0);
+      if (pool.length < requiredMin) {
+        const have = new Set(pool.map((p) => p.id));
+        const rest = Object.values(players)
+          .filter((p) => !have.has(p.id))
+          .sort((a, b) => sport.calcOverall(b) - sport.calcOverall(a));
+        for (const p of rest) {
+          if (pool.length >= requiredMin) break;
+          pool.push(p);
+        }
+      }
+      const club = buildNationalClub(sport, players, country, pool);
+      nationals[club.id] = club;
+      for (const id of club.squad) claimed.add(id);
+    }
+  }
+
+  for (const country of COUNTRIES) {
+    if (country.code === guaranteedCode) continue;
+    const pool = (byNation[country.code] ?? []).filter((p) => !claimed.has(p.id));
+    if (pool.length < minSquad) continue;
+    const club = buildNationalClub(sport, players, country, pool);
+    nationals[club.id] = club;
   }
   return nationals;
 }

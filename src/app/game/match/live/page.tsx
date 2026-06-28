@@ -11,7 +11,7 @@ import { deriveMatchAdvice } from "@/lib/engine/matchAdvice";
 import { TACTIC_PRESETS } from "@/lib/data/tacticPresets";
 import { TEAM_TALK_OPTIONS } from "@/lib/data/teamTalks";
 import { buildLiveVenue, lineupSlots, liveRallyScore, momentumBuckets } from "@/lib/sports/playback";
-import { BroadcastFeed, MatchViewer, MomentumBar, StatRow, type FeedItem } from "@/components/MatchViewer";
+import { BroadcastFeed, MatchViewer, MomentumBar, StatRow, toneAccent, type FeedItem } from "@/components/MatchViewer";
 import { Venue } from "@/components/Venue";
 import { Avatar, Tile } from "@/components/Tile";
 import { Button } from "@/components/ui";
@@ -98,6 +98,8 @@ export default function MatchLivePage() {
     for (const b of pres.breaks) if (b.at <= clock) feed.push({ kind: "marker", minute: b.at, label: b.label });
     for (const ev of knownEvents) feed.push({ kind: "event", minute: ev.minute, ev });
     feed.sort((a, b) => b.minute - a.minute || (a.kind === "marker" ? 1 : -1));
+    const latestEventItem = feed.find((item) => item.kind === "event") as Extract<FeedItem, { kind: "event" }> | undefined;
+    const latestMeta = latestEventItem ? pres.eventMeta(latestEventItem.ev.type) : null;
 
     const homeSlots = lineupSlots(sport, home, state.players);
     const awaySlots = lineupSlots(sport, away, state.players);
@@ -126,7 +128,10 @@ export default function MatchLivePage() {
               <span className="inline-block h-[7px] w-[7px] animate-pulse rounded-full" style={{ background: "var(--red)" }} />
               {tl(pres.segmentLabel(active.phase))}
             </span>
-            <span className="font-display text-[36px] font-bold leading-none tabular-nums">
+            <span
+              key={`${active.homeScore}-${active.awayScore}`}
+              className={`font-display text-[36px] font-bold leading-none tabular-nums ${active.homeScore + active.awayScore > 0 ? "score-flash" : ""}`}
+            >
               {active.homeScore} <span style={{ color: "var(--muted-3)" }}>:</span> {active.awayScore}
             </span>
             {liveRally && (
@@ -140,6 +145,19 @@ export default function MatchLivePage() {
             <Avatar initials={away.shortName.slice(0, 2).toUpperCase()} color="var(--red)" size={40} rounded="11px" />
           </div>
         </div>
+
+        {latestEventItem && latestMeta && (
+          <div
+            className="flex shrink-0 items-center gap-2 rounded-xl border px-3.5 py-2 text-[12.5px] lg:hidden"
+            style={{ borderColor: "var(--line)", background: "var(--panel)" }}
+          >
+            <span className="shrink-0">{latestMeta.emoji}</span>
+            <span className="font-display shrink-0 font-bold tabular-nums" style={{ color: toneAccent(latestMeta.tone) }}>
+              {pres.clockLabel(latestEventItem.ev.minute, totalSpan, false)}
+            </span>
+            <span className="min-w-0 flex-1 truncate font-semibold">{tl(latestMeta.label)}</span>
+          </div>
+        )}
 
         <div className="grid gap-3 lg:min-h-0 lg:flex-1 lg:grid-cols-[minmax(0,1fr)_minmax(320px,0.78fr)] lg:overflow-hidden">
           <div className="flex flex-col gap-3 lg:min-h-0 lg:overflow-hidden">
@@ -164,7 +182,7 @@ export default function MatchLivePage() {
                 {liveStats.length === 0 && <p className="text-sm" style={{ color: "var(--muted-3)" }}>—</p>}
               </div>
             </Tile>
-            <div className="lg:min-h-0 lg:flex-1 lg:overflow-hidden">
+            <div className="order-first lg:order-none lg:min-h-0 lg:flex-1 lg:overflow-hidden">
               <BroadcastFeed title={t("matchEvents")} feed={feed} players={state.players} home={home} away={away} pres={pres} endMinute={totalSpan} tl={tl} t={t} />
             </div>
           </div>

@@ -175,7 +175,12 @@ const GOAL: Pool2 = [
   { ko: "골! 환상적인 개인 기량으로 득점합니다!", en: "GOAL! Brilliant individual finish!" },
   { ko: "골! 문전 혼전 속에 밀어 넣습니다!", en: "GOAL! Bundled home in the scramble!" },
 ];
-const HEADER: Pool2 = [{ ko: "헤딩 골! 제공권 싸움에서 완벽하게 승리합니다!", en: "Headed GOAL! Towering above the defense!" }];
+const HEADER: Pool2 = [
+  { ko: "헤딩 골! 제공권 싸움에서 완벽하게 승리합니다!", en: "Headed GOAL! Towering above the defense!" },
+  { ko: "헤딩 골! 코너킥이 정확히 머리에 꽂힙니다!", en: "Headed GOAL! Meets the corner perfectly!" },
+  { ko: "헤딩 골! 크로스를 받아 그대로 머리로 꽂아 넣습니다!", en: "Headed GOAL! Powers the cross home with his forehead!" },
+  { ko: "헤딩 골! 점프 타이밍이 완벽했습니다!", en: "Headed GOAL! The timing of the leap was perfect!" },
+];
 const SAVE: Pool2 = [
   { ko: "선방! 골키퍼가 환상적으로 막아냅니다!", en: "Great save! The keeper denies them!" },
   { ko: "선방! 반사신경으로 슛을 쳐냅니다!", en: "Save! Superb reflexes to turn it away!" },
@@ -190,19 +195,39 @@ const WOOD: Pool2 = [
   { ko: "골대를 맞고 나옵니다! 운이 없었습니다!", en: "Off the post! So close!" },
   { ko: "크로스바를 강타합니다!", en: "Smashed against the crossbar!" },
 ];
-const CORNER: Pool2 = [{ ko: "코너킥을 얻어냅니다.", en: "Wins a corner." }];
+const CORNER: Pool2 = [
+  { ko: "코너킥을 얻어냅니다.", en: "Wins a corner." },
+  { ko: "수비에 막혀 코너킥으로 마무리됩니다.", en: "Deflected behind for a corner." },
+  { ko: "골키퍼가 쳐내며 코너킥을 허용합니다.", en: "The keeper tips it behind for a corner." },
+];
 const FOUL: Pool2 = [
   { ko: "거친 태클로 파울을 범합니다.", en: "A clumsy challenge, free kick given." },
   { ko: "상대를 끌어당겨 파울을 내줍니다.", en: "Pulls his man back, foul." },
 ];
-const YELLOW: Pool2 = [{ ko: "경고! 심판이 옐로카드를 꺼냅니다.", en: "Yellow card! Into the book he goes." }];
-const RED: Pool2 = [{ ko: "퇴장! 심판이 레드카드를 직접 제시합니다!", en: "RED CARD! He's off!" }];
-const OFFSIDE: Pool2 = [{ ko: "오프사이드 깃발이 올라갑니다.", en: "The flag is up — offside." }];
+const YELLOW: Pool2 = [
+  { ko: "경고! 심판이 옐로카드를 꺼냅니다.", en: "Yellow card! Into the book he goes." },
+  { ko: "경고! 거친 파울에 옐로카드가 나옵니다.", en: "Yellow card! A reckless foul earns a booking." },
+  { ko: "경고! 항의하다 옐로카드를 받습니다.", en: "Yellow card! Booked for arguing with the referee." },
+];
+const RED: Pool2 = [
+  { ko: "퇴장! 심판이 레드카드를 직접 제시합니다!", en: "RED CARD! He's off!" },
+  { ko: "퇴장! 두 번째 옐로카드로 그라운드를 떠납니다!", en: "RED CARD! A second yellow sends him off!" },
+  { ko: "퇴장! 거친 태클에 곧바로 레드카드가 나옵니다!", en: "RED CARD! Straight red for a horror tackle!" },
+];
+const OFFSIDE: Pool2 = [
+  { ko: "오프사이드 깃발이 올라갑니다.", en: "The flag is up — offside." },
+  { ko: "한발 빨랐습니다, 오프사이드입니다.", en: "Timed the run too early — offside." },
+  { ko: "수비 라인에 걸려 오프사이드 판정을 받습니다.", en: "Caught by the offside trap." },
+];
 const CHANCE: Pool2 = [
   { ko: "빠른 역습! 위험한 장면을 만듭니다!", en: "Lightning counter — danger!" },
   { ko: "날카로운 침투 패스가 수비를 흔듭니다!", en: "A slicing through-ball splits the defense!" },
 ];
-const INJURY: Pool2 = [{ ko: "부상으로 그라운드에 쓰러집니다.", en: "Down injured on the turf." }];
+const INJURY: Pool2 = [
+  { ko: "부상으로 그라운드에 쓰러집니다.", en: "Down injured on the turf." },
+  { ko: "충돌 후 고통스러운 표정으로 일어나지 못합니다.", en: "Stays down in pain after the collision." },
+  { ko: "의료진이 그라운드로 뛰어 들어옵니다.", en: "Medical staff rush onto the pitch." },
+];
 const EXTRA: { type: string; detail: Pool2 }[] = [
   { type: "pressWin", detail: [{ ko: "강한 압박으로 높은 위치에서 공을 되찾습니다.", en: "The press wins it high up the pitch." }] },
   { type: "throughBall", detail: [{ ko: "스루패스가 수비 라인을 가릅니다.", en: "A through ball splits the back line." }] },
