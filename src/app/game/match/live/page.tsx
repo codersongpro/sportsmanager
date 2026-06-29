@@ -37,6 +37,33 @@ export default function MatchLivePage() {
   const [subInId, setSubInId] = useState("");
   const [subError, setSubError] = useState<string | null>(null);
 
+  // Progressive broadcast reveal: a played segment lands as a whole batch of
+  // events, but they should tick onto the feed one at a time like a live
+  // broadcast. `revealCount` walks up to however many events have been played,
+  // pausing when it catches up and resuming when the next segment is played.
+  const totalEventCount = active ? active.segments.reduce((n, s) => n + s.result.events.length, 0) : 0;
+  const [revealCount, setRevealCount] = useState(0);
+
+  // Restart the reveal whenever the match itself changes (a new fixture begins),
+  // so the next match doesn't inherit the previous one's already-revealed count.
+  // Adjusting state during render (the React-sanctioned pattern) avoids the
+  // cascading-render warning a reset effect would trigger.
+  const lastFixtureRef = useRef<string | null | undefined>(active?.fixtureId);
+  if (active?.fixtureId !== lastFixtureRef.current) {
+    lastFixtureRef.current = active?.fixtureId;
+    if (revealCount !== 0) setRevealCount(0);
+  }
+
+  useEffect(() => {
+    if (revealCount >= totalEventCount) return;
+    const pending = totalEventCount - revealCount;
+    // Reveal faster when a burst is queued, slower for the occasional lone event,
+    // so a busy quarter doesn't drag while a quiet half still feels live.
+    const delay = Math.max(180, Math.min(750, 3500 / pending));
+    const id = window.setTimeout(() => setRevealCount((c) => Math.min(totalEventCount, c + 1)), delay);
+    return () => clearTimeout(id);
+  }, [revealCount, totalEventCount]);
+
   useEffect(() => {
     if (active && active.phase !== phaseRef.current) {
       phaseRef.current = active.phase;
@@ -88,7 +115,22 @@ export default function MatchLivePage() {
   if (active) {
     const home = clubsMap[active.homeId];
     const away = clubsMap[active.awayId];
-    const knownEvents = active.segments.flatMap((s) => s.result.events).sort((a, b) => a.minute - b.minute);
+    // Only the events revealed so far drive the feed, scoreboard, stats and pitch,
+    // so a played segment streams in one at a time instead of appearing at once.
+    const playedEvents = active.segments.flatMap((s) => s.result.events).sort((a, b) => a.minute - b.minute);
+    const knownEvents = playedEvents.slice(0, Math.min(revealCount, playedEvents.length));
+    // The segment currently being broadcast (which the reveal has reached) — not
+    // `active.phase`, which is the *next* segment to play, so the header doesn't
+    // read "second half" while the first half is still streaming in.
+    let broadcastPhase = active.segments[0]?.kind ?? active.phase;
+    let revealedSoFar = 0;
+    for (const seg of active.segments) {
+      broadcastPhase = seg.kind;
+      revealedSoFar += seg.result.events.length;
+      if (revealCount <= revealedSoFar) break;
+    }
+    const shownHomeScore = pres.scoreOf(knownEvents, home.id);
+    const shownAwayScore = pres.scoreOf(knownEvents, away.id);
     const totalSpan = Math.max(pres.endProgress, ...knownEvents.map((e) => e.minute), 1);
     const clock = knownEvents.length ? Math.max(...knownEvents.map((e) => e.minute)) : 0;
     const liveStats = pres.liveStats(knownEvents, home.id, away.id);
@@ -126,13 +168,13 @@ export default function MatchLivePage() {
           <div className="flex flex-col items-center gap-1.5 px-3">
             <span className="flex items-center gap-[7px] text-[11px] font-bold" style={{ color: "var(--red)" }}>
               <span className="inline-block h-[7px] w-[7px] animate-pulse rounded-full" style={{ background: "var(--red)" }} />
-              {tl(pres.segmentLabel(active.phase))}
+              {tl(pres.segmentLabel(broadcastPhase))}
             </span>
             <span
-              key={`${active.homeScore}-${active.awayScore}`}
-              className={`font-display text-[36px] font-bold leading-none tabular-nums ${active.homeScore + active.awayScore > 0 ? "score-flash" : ""}`}
+              key={`${shownHomeScore}-${shownAwayScore}`}
+              className={`font-display text-[36px] font-bold leading-none tabular-nums ${shownHomeScore + shownAwayScore > 0 ? "score-flash" : ""}`}
             >
-              {active.homeScore} <span style={{ color: "var(--muted-3)" }}>:</span> {active.awayScore}
+              {shownHomeScore} <span style={{ color: "var(--muted-3)" }}>:</span> {shownAwayScore}
             </span>
             {liveRally && (
               <span className="text-[11px] font-semibold tabular-nums" style={{ color: "var(--muted-3)" }}>
@@ -161,7 +203,7 @@ export default function MatchLivePage() {
 
         <div className="grid gap-3 lg:min-h-0 lg:flex-1 lg:grid-cols-[minmax(0,1fr)_minmax(320px,0.78fr)] lg:overflow-hidden">
           <div className="flex flex-col gap-3 lg:min-h-0 lg:overflow-hidden">
-            <Tile title={t("watchMatch")} action={<span className="font-mono text-xs text-soft">{tl(pres.segmentLabel(active.phase))}</span>} className="shrink-0">
+            <Tile title={t("watchMatch")} action={<span className="font-mono text-xs text-soft">{tl(pres.segmentLabel(broadcastPhase))}</span>} className="shrink-0">
               <Venue
                 venue={pres.venue}
                 ballX={ballX}
