@@ -1,6 +1,6 @@
 import type { LocalizedText, MatchEvent, MatchResult, MatchSegmentResult, MatchTeam, Player, PitchZone, SimOptions } from "@/lib/types";
 import type { RNG } from "@/lib/sim/rng";
-import { avgAttr, buildPool, phrase, poisson, pick, type Pool } from "../common/simutil";
+import { avgAttr, buildPool, lineupDevelopment, performanceMultiplier, phrase, poisson, pick, type Pool } from "../common/simutil";
 import { BSB_POSITION_GROUP } from "./constants";
 
 type Pool2 = LocalizedText[];
@@ -20,11 +20,12 @@ function isP(p: Player): boolean {
 function side(team: MatchTeam): Side {
   const batters = team.lineup.filter((p) => !isP(p));
   const bl = batters.length ? batters : team.lineup;
-  const batRating = bl.reduce((s, p) => s + (p.attributes.contact ?? 40) + (p.attributes.power ?? 40) * 0.8 + (p.attributes.eye ?? 40) * 0.5, 0) / (bl.length * 2.3);
+  const dev = lineupDevelopment(team.lineup);
+  const batRating = (bl.reduce((s, p) => s + (p.attributes.contact ?? 40) + (p.attributes.power ?? 40) * 0.8 + (p.attributes.eye ?? 40) * 0.5, 0) / (bl.length * 2.3)) * dev;
   const pitcher = team.lineup.find(isP);
-  const pitchRating = pitcher
+  const pitchRating = (pitcher
     ? ((pitcher.attributes.velocity ?? 40) + (pitcher.attributes.control ?? 40) + (pitcher.attributes.movement ?? 40)) / 3
-    : avgAttr(team.lineup, "fielding");
+    : avgAttr(team.lineup, "fielding")) * dev;
   return {
     batRating,
     pitchRating,
@@ -102,7 +103,7 @@ const EXTRA: { type: string; detail: Pool2 }[] = [
 ];
 
 function halfInningLambda(bat: number, pitch: number, homeBatting: boolean, inning: number): number {
-  const base = 0.48 * Math.pow(bat / Math.max(28, pitch), 1.22);
+  const base = 0.48 * Math.pow(bat / Math.max(28, pitch), 1.15);
   const leverage = inning >= 7 ? 1.08 : 1;
   return Math.max(0.04, Math.min(2.4, base * leverage + (homeBatting ? 0.03 : 0)));
 }
@@ -197,10 +198,12 @@ export function simulateSegment(home: MatchTeam, away: MatchTeam, rng: RNG, kind
   const events: MatchEvent[] = [];
   const hits: Record<string, number> = {};
 
-  const awayRuns = poisson(rng, halfInningLambda(as.batRating, hs.pitchRating, false, inning));
+  // Each half-inning carries its own "on the day" swing so a weaker offence can
+  // break out and an ace can have a shaky frame, drawn from the threaded rng.
+  const awayRuns = poisson(rng, halfInningLambda(as.batRating, hs.pitchRating, false, inning) * performanceMultiplier(rng));
   emitHalfInning({ events, rng, batting: as, pitching: hs, battingClub: away.club.id, fieldingClub: home.club.id, runs: awayRuns, inning, top: true, hits });
 
-  const homeRuns = poisson(rng, halfInningLambda(homeBat.batRating, as.pitchRating, true, inning));
+  const homeRuns = poisson(rng, halfInningLambda(homeBat.batRating, as.pitchRating, true, inning) * performanceMultiplier(rng));
   emitHalfInning({ events, rng, batting: homeBat, pitching: as, battingClub: home.club.id, fieldingClub: away.club.id, runs: homeRuns, inning, top: false, hits });
 
   return {

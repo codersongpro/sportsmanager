@@ -143,17 +143,45 @@ const SURFACE: Record<Props["venue"], React.ReactNode> = {
       <div className={`${lineH} right-[7%] top-0 h-full w-px`} style={{ left: "64%" }} />
     </>
   ),
-  diamond: (
-    <>
-      <div className="absolute left-1/2 top-1/2 h-[46%] w-[46%] -translate-x-1/2 -translate-y-1/2 rotate-45 rounded-md border-2 border-white/50 bg-[#7a5230]" />
-      <div className="absolute left-1/2 top-[27%] h-2 w-2 -translate-x-1/2 rotate-45 bg-white" />
-      <div className="absolute left-[73%] top-1/2 h-2 w-2 -translate-y-1/2 rotate-45 bg-white" />
-      <div className="absolute left-1/2 top-[73%] h-2 w-2 -translate-x-1/2 rotate-45 bg-white" />
-      <div className="absolute left-[27%] top-1/2 h-2 w-2 -translate-y-1/2 rotate-45 bg-white" />
-      <div className="absolute left-1/2 top-1/2 h-[8%] w-[8%] -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/40 bg-[#8a5e38]" />
-    </>
-  ),
+  diamond: <DiamondField />,
 };
+
+/**
+ * Accurate baseball field: foul lines fanning from home plate to the outfield, an
+ * outfield fence arc, an infield dirt diamond with the four bases, an infield
+ * grass island, and a pitcher's mound. Drawn as one stretched SVG so the diagonal
+ * foul lines and arc stay clean; coordinates are a 0–100 space matching the player
+ * markers laid over it. The live viewer keeps home plate at the top (matching the
+ * catcher/batter marker coordinates); the tactics board inverts slot.y, so it
+ * passes `flip` to mirror the field vertically (home plate at the bottom).
+ */
+function DiamondField({ flip = false }: { flip?: boolean }) {
+  return (
+    <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="absolute inset-0 h-full w-full">
+      <g transform={flip ? "translate(0 100) scale(1 -1)" : undefined}>
+        {/* fair-territory fan (slightly brighter grass between the foul lines) */}
+        <path d="M50 14 L94 62 A56 56 0 0 1 6 62 Z" fill="rgba(150,210,150,0.10)" />
+        {/* outfield fence arc */}
+        <path d="M94 62 A56 56 0 0 1 6 62" fill="none" stroke="rgba(255,255,255,0.30)" strokeWidth="0.7" />
+        {/* foul lines from home plate to the foul poles */}
+        <path d="M50 14 L94 62 M50 14 L6 62" stroke="rgba(255,255,255,0.45)" strokeWidth="0.6" fill="none" />
+        {/* infield dirt diamond */}
+        <path d="M50 14 L77 41 L50 68 L23 41 Z" fill="#7a5230" stroke="rgba(255,255,255,0.20)" strokeWidth="0.5" />
+        {/* infield grass island inside the base paths */}
+        <path d="M50 23 L68 41 L50 59 L32 41 Z" fill="rgba(20,90,52,0.55)" />
+        {/* pitcher's mound */}
+        <circle cx="50" cy="41" r="4" fill="#8a5e38" stroke="rgba(255,255,255,0.25)" strokeWidth="0.4" />
+        <rect x="49.3" y="40.5" width="1.4" height="1" fill="rgba(255,255,255,0.7)" />
+        {/* bases */}
+        <rect x="74.8" y="39.2" width="2.6" height="2.6" fill="white" transform="rotate(45 76.1 40.5)" />
+        <rect x="48.7" y="65.2" width="2.6" height="2.6" fill="white" transform="rotate(45 50 66.5)" />
+        <rect x="22.6" y="39.2" width="2.6" height="2.6" fill="white" transform="rotate(45 23.9 40.5)" />
+        {/* home plate */}
+        <path d="M48.3 12 L51.7 12 L51.7 14 L50 15.6 L48.3 14 Z" fill="white" />
+      </g>
+    </svg>
+  );
+}
 
 /** Per-sport markings for the vertical (top-to-bottom) formation board on the tactics page. */
 export function VenueSurfaceVertical({ venue }: { venue: Props["venue"] }) {
@@ -201,5 +229,5 @@ const SURFACE_VERTICAL: Record<Props["venue"], React.ReactNode> = {
       <div className={`${lineV} left-1/2 top-[64%] h-[29%] w-px`} />
     </>
   ),
-  diamond: SURFACE.diamond,
+  diamond: <DiamondField flip />,
 };

@@ -1,6 +1,6 @@
 import type { LocalizedText, MatchEvent, MatchResult, MatchSegmentResult, MatchTeam, Player, PitchZone, SimOptions } from "@/lib/types";
 import type { RNG } from "@/lib/sim/rng";
-import { avgAttr, buildPool, phrase, pick, poisson, type Pool } from "../common/simutil";
+import { avgAttr, buildPool, lineupDevelopment, phrase, pick, poisson, type Pool } from "../common/simutil";
 import { BB_POSITION_GROUP } from "./constants";
 
 type Pool2 = LocalizedText[];
@@ -22,8 +22,9 @@ function grp(p: Player): string {
 
 function side(team: MatchTeam): Side {
   const l = team.lineup;
-  const off = (avgAttr(l, "three") + avgAttr(l, "shooting") + avgAttr(l, "finishing") + avgAttr(l, "passing")) / 4;
-  const def = (avgAttr(l, "perimeter") + avgAttr(l, "interior") + avgAttr(l, "rebound") + avgAttr(l, "steal") + avgAttr(l, "block")) / 5;
+  const dev = lineupDevelopment(l);
+  const off = ((avgAttr(l, "three") + avgAttr(l, "shooting") + avgAttr(l, "finishing") + avgAttr(l, "passing")) / 4) * dev;
+  const def = ((avgAttr(l, "perimeter") + avgAttr(l, "interior") + avgAttr(l, "rebound") + avgAttr(l, "steal") + avgAttr(l, "block")) / 5) * dev;
   const scorers = buildPool(l, (p) => (grp(p) === "GUARD" ? 5 : grp(p) === "WING" ? 6 : 4) * (0.4 + ((p.attributes.three ?? 40) + (p.attributes.shooting ?? 40) + (p.attributes.finishing ?? 40)) / 300));
   const assisters = buildPool(l, (p) => (grp(p) === "GUARD" ? 7 : 3) * (0.4 + ((p.attributes.passing ?? 40) + (p.attributes.iq ?? 40)) / 200));
   const rebounders = buildPool(l, (p) => (grp(p) === "BIG" ? 7 : 2) * (0.3 + (p.attributes.rebound ?? 40) / 100));
@@ -174,7 +175,7 @@ function segIndex(kind: string): number {
 
 function quarterTarget(off: number, def: number, homeAdv: boolean, rng: RNG): number {
   const base = 26 * Math.pow(off / Math.max(30, def), 1.05);
-  return Math.max(14, Math.min(38, Math.round(base * rng.range(0.85, 1.15) + (homeAdv ? 0.6 : -0.6))));
+  return Math.max(14, Math.min(38, Math.round(base * rng.range(0.8, 1.2) + (homeAdv ? 0.6 : -0.6))));
 }
 
 /** Simulate one quarter (or OT period) of a match. Lineups are read fresh, so mid-match substitutions apply from the next segment onward. */

@@ -12,6 +12,7 @@ import type {
 import type { RNG } from "@/lib/sim/rng";
 import { POSITION_GROUP } from "./constants";
 import { calcOverall } from "./ratings";
+import { developmentFactor, performanceMultiplier } from "../common/simutil";
 import {
   isCrossFlavor,
   isThroughFlavor,
@@ -83,8 +84,7 @@ function teamPower(team: MatchTeam): TeamPower {
     const pos = p.positions[0] ?? "CM";
     const grp = POSITION_GROUP[pos] ?? "MID";
     const ovr = calcOverall(p, pos);
-    const cond = 0.85 + (p.condition / 100) * 0.15;
-    const eff = ovr * cond * (1 + p.form * 0.01);
+    const eff = ovr * developmentFactor(p);
     const a = p.attributes;
     aggrSum += a.aggression ?? 40;
 
@@ -159,7 +159,7 @@ function teamPower(team: MatchTeam): TeamPower {
 }
 
 function expectedGoals(att: TeamPower, def: TeamPower): number {
-  const xg = 1.35 * Math.pow(att.attackPower / def.defPower, 1.7);
+  const xg = 1.35 * Math.pow(att.attackPower / def.defPower, 1.4);
   return Math.max(0.15, Math.min(5, xg));
 }
 
@@ -610,8 +610,11 @@ export function simulateSegment(
   }
 
   const share = SEGMENT_SHARE[kind];
-  const homeXg = homeXgFull * share;
-  const awayXg = awayXgFull * share;
+  // "On the day" swing: each side has an independent good/bad spell this segment,
+  // so a weaker team can nick a half and the favourite can't coast. Drawn from the
+  // threaded rng, so the atomic and segment-by-segment paths stay identical.
+  const homeXg = homeXgFull * share * performanceMultiplier(rng);
+  const awayXg = awayXgFull * share * performanceMultiplier(rng);
   const homeGoals = poisson(rng, homeXg);
   const awayGoals = poisson(rng, awayXg);
 

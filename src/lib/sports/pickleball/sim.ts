@@ -1,6 +1,6 @@
 import type { LocalizedText, MatchEvent, MatchResult, MatchSegmentResult, MatchTeam, PitchZone, SimOptions } from "@/lib/types";
 import type { RNG } from "@/lib/sim/rng";
-import { avgAttr, buildPool, phrase, pick, type Pool } from "../common/simutil";
+import { avgAttr, buildPool, lineupDevelopment, phrase, pick, type Pool } from "../common/simutil";
 
 type Pool2 = LocalizedText[];
 
@@ -17,7 +17,7 @@ function side(team: MatchTeam): Side {
   const touch = (avgAttr(l, "dink") + avgAttr(l, "strategy") + avgAttr(l, "consistency")) / 3;
   const move = (avgAttr(l, "reflexes") + avgAttr(l, "speed") + avgAttr(l, "agility")) / 3;
   return {
-    strength: power * 0.42 + touch * 0.33 + move * 0.25,
+    strength: (power * 0.42 + touch * 0.33 + move * 0.25) * lineupDevelopment(l),
     serve: avgAttr(l, "serve"),
     attackers: buildPool(l, (p) => 0.4 + ((p.attributes.drive ?? 40) + (p.attributes.volley ?? 40)) / 180),
     finesse: buildPool(l, (p) => 0.4 + ((p.attributes.dink ?? 40) + (p.attributes.strategy ?? 40)) / 180),
@@ -119,7 +119,10 @@ export function simulateSegment(home: MatchTeam, away: MatchTeam, rng: RNG, kind
   const neutral = opts.neutralVenue ?? false;
   const hs = side(home);
   const as = side(away);
-  const hStrength = hs.strength + (neutral ? 0 : 1.5);
+  // Per-game "clutch" swing (constant within the game) so short games can flip
+  // the underdog's way; drawn from the threaded rng to stay deterministic.
+  const clutch = rng.gaussian(0, 2.5);
+  const hStrength = hs.strength + (neutral ? 0 : 1.5) + clutch;
   const game = gameIndex(kind);
 
   const events: MatchEvent[] = [];

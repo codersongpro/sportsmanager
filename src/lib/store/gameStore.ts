@@ -56,6 +56,17 @@ function persist(state: GameState) {
 }
 
 /**
+ * Plays the opening segment of a freshly-created active match so the live page
+ * opens with the first half/quarter/set/inning already underway instead of an
+ * empty 0-0 board waiting on an extra click. The `segments.length === 0` guard
+ * ensures we only auto-advance a brand-new match, never one already in progress.
+ */
+function withOpeningSegment(state: GameState, sport: ReturnType<typeof getSport>): GameState {
+  const am = state.activeMatch;
+  return am && !am.finished && am.segments.length === 0 ? advanceActiveMatch(state, sport) : state;
+}
+
+/**
  * The club the user is currently directing tactics/subs/team-talk for: their
  * domestic club normally, or (mid an interactive World Cup match) their
  * nation, which lives in a separate `worldCup.clubs` registry. Club Cup
@@ -90,7 +101,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
     // The engine pauses here when it reaches the user's own fixture
     // (`activeMatch`); the Match Center page then steps through it segment
     // by segment via `playNextSegment`.
-    const next = continueGame(cur, sport);
+    const next = withOpeningSegment(continueGame(cur, sport), sport);
     set({ state: next });
     persist(next);
   },
@@ -347,7 +358,10 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
     const fixture = findUserPendingFixture(cur.worldCup.competition, cur.worldCup.userNationId);
     if (!fixture) return;
     const sport = getSport(cur.sportId);
-    const next: GameState = { ...cur, activeMatch: beginActiveMatch(cur, fixture, sport, "worldcup"), updatedAt: Date.now() };
+    const next = withOpeningSegment(
+      { ...cur, activeMatch: beginActiveMatch(cur, fixture, sport, "worldcup"), updatedAt: Date.now() },
+      sport,
+    );
     set({ state: next });
     persist(next);
   },
@@ -377,7 +391,10 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
     const fixture = findUserPendingFixture(cur.clubCup.competition, cur.clubCup.userClubId);
     if (!fixture) return;
     const sport = getSport(cur.sportId);
-    const next: GameState = { ...cur, activeMatch: beginActiveMatch(cur, fixture, sport, "clubcup"), updatedAt: Date.now() };
+    const next = withOpeningSegment(
+      { ...cur, activeMatch: beginActiveMatch(cur, fixture, sport, "clubcup"), updatedAt: Date.now() },
+      sport,
+    );
     set({ state: next });
     persist(next);
   },

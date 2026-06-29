@@ -1,6 +1,6 @@
 import type { LocalizedText, MatchEvent, MatchResult, MatchSegmentResult, MatchTeam, Player, PitchZone, SimOptions } from "@/lib/types";
 import type { RNG } from "@/lib/sim/rng";
-import { avgAttr, buildPool, phrase, pick, type Pool } from "../common/simutil";
+import { avgAttr, buildPool, lineupDevelopment, phrase, pick, type Pool } from "../common/simutil";
 import { VB_POSITION_GROUP } from "./constants";
 
 type Pool2 = LocalizedText[];
@@ -22,7 +22,7 @@ function side(team: MatchTeam): Side {
   const attack = avgAttr(l, "spike") * 0.6 + avgAttr(l, "serve") * 0.25 + avgAttr(l, "setting") * 0.15;
   const def = (avgAttr(l, "block") + avgAttr(l, "dig") + avgAttr(l, "receive")) / 3;
   return {
-    strength: attack * 0.58 + def * 0.42,
+    strength: (attack * 0.58 + def * 0.42) * lineupDevelopment(l),
     spikers: buildPool(l, (p) => (grp(p) === "ATT" ? 6 : grp(p) === "BLK" ? 4 : 1) * (0.4 + (p.attributes.spike ?? 40) / 90)),
     servers: buildPool(l, (p) => 0.4 + (p.attributes.serve ?? 40) / 80),
     blockers: buildPool(l, (p) => (grp(p) === "BLK" ? 6 : grp(p) === "ATT" ? 3 : 1) * (0.4 + (p.attributes.block ?? 40) / 90)),
@@ -129,7 +129,10 @@ export function simulateSegment(home: MatchTeam, away: MatchTeam, rng: RNG, kind
   const neutral = opts.neutralVenue ?? false;
   const hs = side(home);
   const as = side(away);
-  const hStrength = hs.strength + (neutral ? 0 : 2);
+  // Per-set "clutch" swing (constant within the set): some sets one side just
+  // turns up, so a tight match can flip the underdog's way. Drawn from the rng.
+  const clutch = rng.gaussian(0, 2.5);
+  const hStrength = hs.strength + (neutral ? 0 : 2) + clutch;
   const setNumber = setIndex(kind);
   const target = setTarget(setNumber);
 
