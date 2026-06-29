@@ -62,8 +62,9 @@ export default function MatchLivePage() {
     if (revealCount >= totalEventCount) return;
     const pending = totalEventCount - revealCount;
     // Reveal faster when a burst is queued, slower for the occasional lone event,
-    // so a busy quarter doesn't drag while a quiet half still feels live.
-    const delay = Math.max(180, Math.min(750, 3500 / pending));
+    // so a busy quarter doesn't drag while a quiet half still feels live. Paced at
+    // roughly half the original speed so the broadcast is easier to follow.
+    const delay = Math.max(360, Math.min(1500, 7000 / pending));
     const id = window.setTimeout(() => setRevealCount((c) => Math.min(totalEventCount, c + 1)), delay);
     return () => clearTimeout(id);
   }, [revealCount, totalEventCount]);

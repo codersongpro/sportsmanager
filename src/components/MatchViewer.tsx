@@ -114,7 +114,7 @@ export function MatchViewer({ result, home, away, players, sportId }: Props) {
 
   const [clock, setClock] = useState(0);
   const [playing, setPlaying] = useState(true);
-  const [speed, setSpeed] = useState(1);
+  const [speed, setSpeed] = useState(0.5);
   const [activeBreak, setActiveBreak] = useState<LocalizedText | null>(null);
 
   const clockRef = useRef(0);
@@ -569,7 +569,7 @@ export function BroadcastFeed({
 
   return (
     <Tile title={title} className="flex flex-col lg:h-full lg:min-h-0" bodyClassName="min-h-0">
-      <div className="flex flex-col-reverse gap-0.5 pr-1 text-sm lg:h-full lg:min-h-0 lg:overflow-y-auto">
+      <div className="flex max-h-[50vh] flex-col-reverse gap-0.5 overflow-y-auto pr-1 text-sm lg:h-full lg:max-h-none lg:min-h-0">
         {feed.length === 0 && <p style={{ color: "var(--muted-3)" }}>—</p>}
         {feed.map((item, i) => {
           if (item.kind === "marker") {
