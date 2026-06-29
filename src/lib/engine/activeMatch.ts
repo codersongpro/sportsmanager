@@ -79,6 +79,9 @@ export function advanceActiveMatch(state: GameState, sport: SportModule): GameSt
     const upcoming = sport.nextSegment?.(kind, nextActive.homeScore, nextActive.awayScore, nextActive.opts) ?? null;
     if (upcoming) {
       nextActive.phase = upcoming;
+      // Each new segment (half/quarter/set/inning) is a fresh break, so the
+      // manager can give — and change — a team talk again at every interval.
+      nextActive.teamTalkGiven = false;
     } else {
       const finalResult = sport.finalizeSegments(homeTeam, awayTeam, nextActive.segments, nextActive.opts, rng);
       finalResult.fixtureId = nextActive.fixtureId;
