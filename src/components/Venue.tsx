@@ -17,16 +17,21 @@ interface Props {
   flash: string | null;
   homeMarkers?: VenueMarker[];
   awayMarkers?: VenueMarker[];
+  /** When set, the matching side's markers become clickable (e.g. to pick a player to substitute). */
+  homeMarkerClick?: (id: string) => void;
+  awayMarkerClick?: (id: string) => void;
+  /** Marker id currently selected (e.g. the chosen sub-out player), rendered with an emphasis ring. */
+  selectedMarkerId?: string;
 }
 
 /** Per-sport playing surface for the live match viewer. */
-export function Venue({ venue, ballX, ballY, homeShort, awayShort, flash, homeMarkers, awayMarkers }: Props) {
+export function Venue({ venue, ballX, ballY, homeShort, awayShort, flash, homeMarkers, awayMarkers, homeMarkerClick, awayMarkerClick, selectedMarkerId }: Props) {
   return (
     <div className={`relative aspect-[16/10] w-full overflow-hidden rounded-lg border ${venueFrameClass(venue)}`} style={venueBgStyle(venue)}>
       <VenueSurface venue={venue} />
 
-      {homeMarkers?.map((m) => <PlayerMarker key={`h${m.id}`} marker={m} color="var(--blue)" />)}
-      {awayMarkers?.map((m) => <PlayerMarker key={`a${m.id}`} marker={m} color="var(--red)" />)}
+      {homeMarkers?.map((m) => <PlayerMarker key={`h${m.id}`} marker={m} color="var(--blue)" onClick={homeMarkerClick} selected={m.id === selectedMarkerId} />)}
+      {awayMarkers?.map((m) => <PlayerMarker key={`a${m.id}`} marker={m} color="var(--red)" onClick={awayMarkerClick} selected={m.id === selectedMarkerId} />)}
 
       {/* ball / play marker */}
       <div
@@ -46,17 +51,24 @@ export function Venue({ venue, ballX, ballY, homeShort, awayShort, flash, homeMa
   );
 }
 
-function PlayerMarker({ marker, color }: { marker: VenueMarker; color: string }) {
+function PlayerMarker({ marker, color, onClick, selected }: { marker: VenueMarker; color: string; onClick?: (id: string) => void; selected?: boolean }) {
+  const clickable = !!onClick;
   return (
     <div
-      className="absolute z-[5] flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-0.5 transition-all duration-500 ease-out"
+      onClick={clickable ? () => onClick(marker.id) : undefined}
+      className={`absolute z-[5] flex -translate-x-1/2 -translate-y-1/2 flex-col items-center gap-0.5 transition-all duration-500 ease-out ${clickable ? "cursor-pointer" : ""}`}
       style={{ left: `${marker.x}%`, top: `${marker.y}%` }}
     >
       <div
         className="h-2.5 w-2.5 rounded-full shadow ring-1 ring-black/30"
-        style={{ background: color, boxShadow: marker.highlight ? `0 0 0 4px ${color}55` : undefined }}
+        style={{ background: color, boxShadow: selected ? "0 0 0 4px var(--mint)" : marker.highlight ? `0 0 0 4px ${color}55` : undefined }}
       />
-      <span className="whitespace-nowrap rounded bg-black/45 px-1 text-[9px] leading-tight text-white">{marker.label}</span>
+      <span
+        className="whitespace-nowrap rounded px-1 text-[9px] leading-tight text-white"
+        style={{ background: selected ? "var(--mint)" : "rgba(0,0,0,.45)", color: selected ? "#06140e" : "#fff" }}
+      >
+        {marker.label}
+      </span>
     </div>
   );
 }

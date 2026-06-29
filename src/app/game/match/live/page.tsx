@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import type { MatchSegmentKind } from "@/lib/types";
+import type { MatchSegmentKind, Tactics } from "@/lib/types";
 import { useI18n } from "@/lib/i18n/I18nProvider";
 import { useGameStore } from "@/lib/store/gameStore";
 import { getSport } from "@/lib/sports";
@@ -16,6 +16,11 @@ import { Venue } from "@/components/Venue";
 import { Avatar, Tile } from "@/components/Tile";
 import { Button } from "@/components/ui";
 import { clubDisplayName } from "@/lib/utils/format";
+
+const MENTALITY: Tactics["mentality"][] = ["defensive", "balanced", "attacking"];
+const TEMPO: Tactics["tempo"][] = ["slow", "normal", "fast"];
+const PRESSING: Tactics["pressing"][] = ["low", "medium", "high"];
+const WIDTH: Tactics["width"][] = ["narrow", "normal", "wide"];
 
 export default function MatchLivePage() {
   const { t, tl } = useI18n();
@@ -34,14 +39,39 @@ export default function MatchLivePage() {
   const phaseRef = useRef<MatchSegmentKind | null>(null);
   const [tacticChanges, setTacticChanges] = useState(0);
   const [subOutId, setSubOutId] = useState("");
-  const [subInId, setSubInId] = useState("");
   const [subError, setSubError] = useState<string | null>(null);
+
+  // Progressive broadcast reveal: a played segment lands as a whole batch of
+  // events, but they should tick onto the feed one at a time like a live
+  // broadcast. `revealCount` walks up to however many events have been played,
+  // pausing when it catches up and resuming when the next segment is played.
+  const totalEventCount = active ? active.segments.reduce((n, s) => n + s.result.events.length, 0) : 0;
+  const [revealCount, setRevealCount] = useState(0);
+
+  // Restart the reveal whenever the match itself changes (a new fixture begins),
+  // so the next match doesn't inherit the previous one's already-revealed count.
+  // Adjusting state during render (the React-sanctioned pattern) avoids the
+  // cascading-render warning a reset effect would trigger.
+  const lastFixtureRef = useRef<string | null | undefined>(active?.fixtureId);
+  if (active?.fixtureId !== lastFixtureRef.current) {
+    lastFixtureRef.current = active?.fixtureId;
+    if (revealCount !== 0) setRevealCount(0);
+  }
+
+  useEffect(() => {
+    if (revealCount >= totalEventCount) return;
+    const pending = totalEventCount - revealCount;
+    // Reveal faster when a burst is queued, slower for the occasional lone event,
+    // so a busy quarter doesn't drag while a quiet half still feels live.
+    const delay = Math.max(180, Math.min(750, 3500 / pending));
+    const id = window.setTimeout(() => setRevealCount((c) => Math.min(totalEventCount, c + 1)), delay);
+    return () => clearTimeout(id);
+  }, [revealCount, totalEventCount]);
 
   useEffect(() => {
     if (active && active.phase !== phaseRef.current) {
       phaseRef.current = active.phase;
       setSubOutId("");
-      setSubInId("");
       setSubError(null);
     }
   }, [active?.phase]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -73,12 +103,21 @@ export default function MatchLivePage() {
     if (useGameStore.getState().state?.seasonOver) router.push("/game/dashboard");
   }
 
-  function handleSub() {
-    if (!active || !subOutId || !subInId) return;
-    const res = makeSubstitution(subOutId, subInId);
+  // Click-to-substitute: pick the player coming off (pitch marker or chip), then
+  // click the replacement to make the change instantly — no dropdowns or confirm.
+  function selectSubOut(outId: string) {
+    setSubError(null);
+    setSubOutId((cur) => (cur === outId ? "" : outId));
+  }
+  function bringOn(inId: string) {
+    if (!active) return;
+    if (!subOutId) {
+      setSubError(tl({ ko: "먼저 교체할 선수를 선택하세요", en: "Pick a player to take off first" }));
+      return;
+    }
+    const res = makeSubstitution(subOutId, inId);
     if (res.ok) {
       setSubOutId("");
-      setSubInId("");
       setSubError(null);
     } else {
       setSubError(tl(res.message));
@@ -88,7 +127,22 @@ export default function MatchLivePage() {
   if (active) {
     const home = clubsMap[active.homeId];
     const away = clubsMap[active.awayId];
-    const knownEvents = active.segments.flatMap((s) => s.result.events).sort((a, b) => a.minute - b.minute);
+    // Only the events revealed so far drive the feed, scoreboard, stats and pitch,
+    // so a played segment streams in one at a time instead of appearing at once.
+    const playedEvents = active.segments.flatMap((s) => s.result.events).sort((a, b) => a.minute - b.minute);
+    const knownEvents = playedEvents.slice(0, Math.min(revealCount, playedEvents.length));
+    // The segment currently being broadcast (which the reveal has reached) — not
+    // `active.phase`, which is the *next* segment to play, so the header doesn't
+    // read "second half" while the first half is still streaming in.
+    let broadcastPhase = active.segments[0]?.kind ?? active.phase;
+    let revealedSoFar = 0;
+    for (const seg of active.segments) {
+      broadcastPhase = seg.kind;
+      revealedSoFar += seg.result.events.length;
+      if (revealCount <= revealedSoFar) break;
+    }
+    const shownHomeScore = pres.scoreOf(knownEvents, home.id);
+    const shownAwayScore = pres.scoreOf(knownEvents, away.id);
     const totalSpan = Math.max(pres.endProgress, ...knownEvents.map((e) => e.minute), 1);
     const clock = knownEvents.length ? Math.max(...knownEvents.map((e) => e.minute)) : 0;
     const liveStats = pres.liveStats(knownEvents, home.id, away.id);
@@ -109,9 +163,14 @@ export default function MatchLivePage() {
     const subOutOptions = myClub.tactics.lineup.filter((id) => state.players[id] && !active.subbedOffIds.includes(id));
     const subInOptions = myClub.tactics.bench.filter((id) => state.players[id] && !active.subbedOffIds.includes(id));
     const maxSubs = pres.maxSubs ?? 5;
-    const isFirstSegment = active.phase === (sport.firstSegment?.(active.opts) ?? "first_half");
-    const canTeamTalk = !isFirstSegment && !active.teamTalkGiven;
+    const subsLeft = active.subsMade < maxSubs;
+    // Team talk resets each segment (see advanceActiveMatch), so it can be given
+    // and changed at every break, not just once at halftime.
+    const canTeamTalk = !active.teamTalkGiven;
     const tips = deriveMatchAdvice(active, myClub.id);
+    // The user's own side on the pitch — its markers are clickable to pick a sub.
+    const userIsHome = home.id === myClub.id;
+    const pitchSubClick = subsLeft ? selectSubOut : undefined;
 
     return (
       <div className="flex flex-col gap-3 p-2 sm:p-3 lg:h-full lg:min-h-0 lg:overflow-hidden">
@@ -126,13 +185,13 @@ export default function MatchLivePage() {
           <div className="flex flex-col items-center gap-1.5 px-3">
             <span className="flex items-center gap-[7px] text-[11px] font-bold" style={{ color: "var(--red)" }}>
               <span className="inline-block h-[7px] w-[7px] animate-pulse rounded-full" style={{ background: "var(--red)" }} />
-              {tl(pres.segmentLabel(active.phase))}
+              {tl(pres.segmentLabel(broadcastPhase))}
             </span>
             <span
-              key={`${active.homeScore}-${active.awayScore}`}
-              className={`font-display text-[36px] font-bold leading-none tabular-nums ${active.homeScore + active.awayScore > 0 ? "score-flash" : ""}`}
+              key={`${shownHomeScore}-${shownAwayScore}`}
+              className={`font-display text-[36px] font-bold leading-none tabular-nums ${shownHomeScore + shownAwayScore > 0 ? "score-flash" : ""}`}
             >
-              {active.homeScore} <span style={{ color: "var(--muted-3)" }}>:</span> {active.awayScore}
+              {shownHomeScore} <span style={{ color: "var(--muted-3)" }}>:</span> {shownAwayScore}
             </span>
             {liveRally && (
               <span className="text-[11px] font-semibold tabular-nums" style={{ color: "var(--muted-3)" }}>
@@ -161,7 +220,7 @@ export default function MatchLivePage() {
 
         <div className="grid gap-3 lg:min-h-0 lg:flex-1 lg:grid-cols-[minmax(0,1fr)_minmax(320px,0.78fr)] lg:overflow-hidden">
           <div className="flex flex-col gap-3 lg:min-h-0 lg:overflow-hidden">
-            <Tile title={t("watchMatch")} action={<span className="font-mono text-xs text-soft">{tl(pres.segmentLabel(active.phase))}</span>} className="shrink-0">
+            <Tile title={t("watchMatch")} action={<span className="font-mono text-xs text-soft">{tl(pres.segmentLabel(broadcastPhase))}</span>} className="shrink-0">
               <Venue
                 venue={pres.venue}
                 ballX={ballX}
@@ -171,6 +230,9 @@ export default function MatchLivePage() {
                 flash={null}
                 homeMarkers={homeMarkers}
                 awayMarkers={awayMarkers}
+                homeMarkerClick={userIsHome ? pitchSubClick : undefined}
+                awayMarkerClick={userIsHome ? undefined : pitchSubClick}
+                selectedMarkerId={subOutId}
               />
             </Tile>
             <MomentumBar buckets={momentum} homeShort={home.shortName} awayShort={away.shortName} title={t("momentum")} />
@@ -205,35 +267,49 @@ export default function MatchLivePage() {
             </Tile>
 
             <Tile title={t("substitutionsTitle")} subtitle={`${t("subsUsed")}: ${active.subsMade} / ${maxSubs}`}>
-              {active.subsMade >= maxSubs ? (
+              {!subsLeft ? (
                 <p className="text-sm" style={{ color: "var(--muted-3)" }}>{t("noSubsRemaining")}</p>
               ) : (
-                <div className="flex flex-col gap-2">
-                  <select
-                    value={subOutId}
-                    onChange={(e) => setSubOutId(e.target.value)}
-                    className="rounded-md border px-2 py-1.5 text-sm"
-                    style={{ borderColor: "var(--border-soft)", background: "var(--panel-2)", color: "var(--text)" }}
-                  >
-                    <option value="">{t("subOutLabel")} — {t("selectPlayer")}</option>
-                    {subOutOptions.map((id) => (
-                      <option key={id} value={id}>{state.players[id].nameKo ?? state.players[id].name}</option>
-                    ))}
-                  </select>
-                  <select
-                    value={subInId}
-                    onChange={(e) => setSubInId(e.target.value)}
-                    className="rounded-md border px-2 py-1.5 text-sm"
-                    style={{ borderColor: "var(--border-soft)", background: "var(--panel-2)", color: "var(--text)" }}
-                  >
-                    <option value="">{t("subInLabel")} — {t("selectPlayer")}</option>
-                    {subInOptions.map((id) => (
-                      <option key={id} value={id}>{state.players[id].nameKo ?? state.players[id].name}</option>
-                    ))}
-                  </select>
-                  <Button variant="secondary" disabled={!subOutId || !subInId} onClick={handleSub}>
-                    {t("confirmSubBtn")}
-                  </Button>
+                <div className="flex flex-col gap-2.5">
+                  <div>
+                    <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide" style={{ color: "var(--muted-3)" }}>{t("subOutLabel")}</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {subOutOptions.map((id) => {
+                        const sel = subOutId === id;
+                        return (
+                          <button
+                            key={id}
+                            onClick={() => selectSubOut(id)}
+                            className="rounded-lg border px-2 py-1 text-xs font-semibold"
+                            style={{
+                              borderColor: sel ? "var(--mint)" : "var(--border-soft)",
+                              background: sel ? "var(--mint)" : "var(--panel-2)",
+                              color: sel ? "#06140e" : "var(--text)",
+                            }}
+                          >
+                            {state.players[id].nameKo ?? state.players[id].name}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <div>
+                    <p className="mb-1 text-[11px] font-semibold uppercase tracking-wide" style={{ color: "var(--muted-3)" }}>{t("subInLabel")}</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {subInOptions.length === 0 && <p className="text-xs" style={{ color: "var(--muted-3)" }}>—</p>}
+                      {subInOptions.map((id) => (
+                        <button
+                          key={id}
+                          onClick={() => bringOn(id)}
+                          disabled={!subOutId}
+                          className="rounded-lg border px-2 py-1 text-xs font-semibold disabled:opacity-40"
+                          style={{ borderColor: "var(--border-soft)", background: "var(--panel-2)", color: "var(--text)" }}
+                        >
+                          {state.players[id].nameKo ?? state.players[id].name}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
                   {subError && <p className="text-xs" style={{ color: "var(--red)" }}>{subError}</p>}
                 </div>
               )}
@@ -262,17 +338,25 @@ export default function MatchLivePage() {
             </Tile>
 
             <Tile title={t("teamInstructions")}>
-              <div className="grid grid-cols-2 gap-1.5">
-                {TACTIC_PRESETS.map((preset) => (
-                  <button
-                    key={preset.name.en}
-                    onClick={() => bumpTactics(preset.patch)}
-                    className="rounded-lg px-2 py-1.5 text-xs font-semibold"
-                    style={{ color: "var(--muted-2)", background: "rgba(255,255,255,.05)" }}
-                  >
-                    {tl(preset.name)}
-                  </button>
-                ))}
+              <div className="flex flex-col gap-3">
+                <div className="grid grid-cols-2 gap-1.5">
+                  {TACTIC_PRESETS.map((preset) => (
+                    <button
+                      key={preset.name.en}
+                      onClick={() => bumpTactics(preset.patch)}
+                      className="rounded-lg px-2 py-1.5 text-xs font-semibold"
+                      style={{ color: "var(--muted-2)", background: "rgba(255,255,255,.05)" }}
+                    >
+                      {tl(preset.name)}
+                    </button>
+                  ))}
+                </div>
+                <div className="flex flex-col gap-1.5 border-t pt-2.5" style={{ borderColor: "var(--line)" }}>
+                  <InstrField label={t("mentality")} value={myClub.tactics.mentality} options={MENTALITY} onChange={(v) => bumpTactics({ mentality: v as Tactics["mentality"] })} t={t} />
+                  <InstrField label={t("tempo")} value={myClub.tactics.tempo} options={TEMPO} onChange={(v) => bumpTactics({ tempo: v as Tactics["tempo"] })} t={t} />
+                  <InstrField label={t("pressing")} value={myClub.tactics.pressing} options={PRESSING} onChange={(v) => bumpTactics({ pressing: v as Tactics["pressing"] })} t={t} />
+                  <InstrField label={t("width")} value={myClub.tactics.width} options={WIDTH} onChange={(v) => bumpTactics({ width: v as Tactics["width"] })} t={t} />
+                </div>
               </div>
             </Tile>
 
@@ -337,6 +421,39 @@ export default function MatchLivePage() {
           {t("backToDashboard")}
         </Link>
       </div>
+    </div>
+  );
+}
+
+/** Compact label + dropdown for one team instruction (mentality/tempo/pressing/width). */
+function InstrField({
+  label,
+  value,
+  options,
+  onChange,
+  t,
+}: {
+  label: string;
+  value: string;
+  options: string[];
+  onChange: (v: string) => void;
+  t: (k: never) => string;
+}) {
+  return (
+    <div className="flex items-center justify-between gap-2">
+      <span className="text-[12px]" style={{ color: "var(--muted-2)" }}>{label}</span>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="font-display rounded-md bg-transparent px-1 py-0.5 text-right text-[12.5px] font-bold outline-none"
+        style={{ color: "var(--mint)" }}
+      >
+        {options.map((o) => (
+          <option key={o} value={o} className="text-black">
+            {t(o as never)}
+          </option>
+        ))}
+      </select>
     </div>
   );
 }
