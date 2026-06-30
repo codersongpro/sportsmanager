@@ -47,6 +47,9 @@ export default function MatchLivePage() {
   // pausing when it catches up and resuming when the next segment is played.
   const totalEventCount = active ? active.segments.reduce((n, s) => n + s.result.events.length, 0) : 0;
   const [revealCount, setRevealCount] = useState(0);
+  // Lets the user freeze the broadcast at any moment — e.g. to study the pitch and
+  // queue up a substitution or tactic change — without the feed racing ahead.
+  const [paused, setPaused] = useState(false);
 
   // Restart the reveal whenever the match itself changes (a new fixture begins),
   // so the next match doesn't inherit the previous one's already-revealed count.
@@ -56,10 +59,11 @@ export default function MatchLivePage() {
   if (active?.fixtureId !== lastFixtureRef.current) {
     lastFixtureRef.current = active?.fixtureId;
     if (revealCount !== 0) setRevealCount(0);
+    if (paused) setPaused(false);
   }
 
   useEffect(() => {
-    if (revealCount >= totalEventCount) return;
+    if (paused || revealCount >= totalEventCount) return;
     const pending = totalEventCount - revealCount;
     // Reveal faster when a burst is queued, slower for the occasional lone event,
     // so a busy quarter doesn't drag while a quiet half still feels live. Paced at
@@ -67,7 +71,7 @@ export default function MatchLivePage() {
     const delay = Math.max(360, Math.min(1500, 7000 / pending));
     const id = window.setTimeout(() => setRevealCount((c) => Math.min(totalEventCount, c + 1)), delay);
     return () => clearTimeout(id);
-  }, [revealCount, totalEventCount]);
+  }, [paused, revealCount, totalEventCount]);
 
   useEffect(() => {
     if (active && active.phase !== phaseRef.current) {
@@ -219,9 +223,30 @@ export default function MatchLivePage() {
           </div>
         )}
 
-        <div className="grid gap-3 lg:min-h-0 lg:flex-1 lg:grid-cols-[minmax(0,1fr)_minmax(320px,0.78fr)] lg:overflow-hidden">
-          <div className="flex flex-col gap-3 lg:min-h-0 lg:overflow-hidden">
-            <Tile title={t("watchMatch")} action={<span className="font-mono text-xs text-soft">{tl(pres.segmentLabel(broadcastPhase))}</span>} className="shrink-0">
+        <div className="grid gap-3 lg:min-h-0 lg:flex-1 lg:grid-cols-[minmax(0,1fr)_minmax(300px,0.62fr)_minmax(300px,0.68fr)] lg:grid-rows-[minmax(0,1fr)] lg:overflow-hidden">
+          <Button onClick={() => playNextSegment()} className="order-first w-full shrink-0 lg:hidden">
+            {t("continueMatchBtn")}
+          </Button>
+
+          <div className="order-2 flex flex-col gap-3 lg:order-none lg:min-h-0 lg:overflow-y-auto lg:pr-1">
+            <Tile
+              title={t("watchMatch")}
+              action={
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-xs text-soft">{tl(pres.segmentLabel(broadcastPhase))}</span>
+                  {revealCount < totalEventCount && (
+                    <button
+                      onClick={() => setPaused((p) => !p)}
+                      className="rounded-md border px-2 py-1 text-[11px] font-semibold"
+                      style={{ borderColor: "var(--border-soft)", color: "var(--muted-2)", background: "var(--panel-2)" }}
+                    >
+                      {paused ? `▶ ${t("play")}` : `⏸ ${t("pause")}`}
+                    </button>
+                  )}
+                </div>
+              }
+              className="shrink-0"
+            >
               <Venue
                 venue={pres.venue}
                 ballX={ballX}
@@ -245,15 +270,13 @@ export default function MatchLivePage() {
                 {liveStats.length === 0 && <p className="text-sm" style={{ color: "var(--muted-3)" }}>—</p>}
               </div>
             </Tile>
-            <div className="order-first lg:order-none lg:min-h-0 lg:flex-1 lg:overflow-hidden">
-              <BroadcastFeed title={t("matchEvents")} feed={feed} players={state.players} home={home} away={away} pres={pres} endMinute={totalSpan} tl={tl} t={t} />
-            </div>
-            <Button onClick={() => playNextSegment()} className="order-[-1] w-full shrink-0 lg:hidden">
-              {t("continueMatchBtn")}
-            </Button>
           </div>
 
-          <div className="flex flex-col gap-3 lg:min-h-0">
+          <div className="order-1 lg:order-none lg:min-h-0 lg:overflow-hidden">
+            <BroadcastFeed title={t("matchEvents")} feed={feed} players={state.players} home={home} away={away} pres={pres} endMinute={totalSpan} tl={tl} t={t} />
+          </div>
+
+          <div className="order-3 flex flex-col gap-3 lg:order-none lg:min-h-0 lg:overflow-hidden">
           <div className="flex flex-col gap-3 pr-1 lg:min-h-0 lg:flex-1 lg:overflow-y-auto">
             <Tile title={t("tacticalAdvice")}>
               {tips.length === 0 ? (
