@@ -24,13 +24,17 @@ export function makeLineup(cfg: LineupConfig) {
 
     for (const slot of form.slots) {
       let best: Player | undefined;
+      let bestRank = -1;
       let bestScore = -1;
       for (const p of pool) {
         if (used.has(p.id)) continue;
-        let score = calcOverall(p, slot.position);
-        if (p.positions.includes(slot.position)) score += 6;
-        else if (cfg.positionGroup[p.positions[0]] === cfg.positionGroup[slot.position]) score += 2;
-        if (score > bestScore) {
+        // Prefer a true positional fit first (exact position, then same group), so a
+        // required slot like setter/pitcher is always filled by a real one when the
+        // squad has it; rating only breaks ties within the same fit tier.
+        const rank = p.positions.includes(slot.position) ? 2 : cfg.positionGroup[p.positions[0]] === cfg.positionGroup[slot.position] ? 1 : 0;
+        const score = calcOverall(p, slot.position);
+        if (rank > bestRank || (rank === bestRank && score > bestScore)) {
+          bestRank = rank;
           bestScore = score;
           best = p;
         }

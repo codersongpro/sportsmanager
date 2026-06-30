@@ -44,6 +44,8 @@ describe("season engine", () => {
     expect([fixture?.homeId, fixture?.awayId]).toContain(state.manager.clubId);
   });
 
+  // Simulates a whole season match-by-match, so it needs more than the default
+  // 5s, especially under parallel-suite CPU load.
   it("completes the league and rolls into a fresh season", () => {
     let state = freshGame();
     let guard = 0;
@@ -64,5 +66,5 @@ describe("season engine", () => {
     const anyPlayerId = Object.keys(state.players)[0];
     expect(rolled.players[anyPlayerId].age).toBe(state.players[anyPlayerId].age + 1);
     expect(rolled.players[anyPlayerId].apps).toBe(0);
-  });
+  }, 30000);
 });
