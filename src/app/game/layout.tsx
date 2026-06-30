@@ -89,7 +89,10 @@ export default function GameLayout({ children }: { children: React.ReactNode }) 
   }
 
   return (
-    <div className={`flex min-h-screen flex-1 ${matchView ? "overflow-hidden" : ""}`} style={{ background: "var(--bg-base)" }}>
+    <div
+      className={`flex min-h-screen flex-1 ${matchView ? "overflow-hidden lg:h-screen" : ""}`}
+      style={{ background: "var(--bg-base)" }}
+    >
       <aside
         className="hidden shrink-0 flex-col gap-1 p-3.5 lg:flex"
         style={{ width: 236, background: "var(--bg-sidebar)", borderRight: "1px solid var(--border-soft)" }}
