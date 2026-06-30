@@ -149,11 +149,87 @@ export function buildWorld(sport: SportModule, rng: RNG, startSeason: number): W
   return { clubs, players };
 }
 
-function buildNationalClub(sport: SportModule, players: Record<string, Player>, country: (typeof COUNTRIES)[number], pool: Player[]): Club {
-  pool.sort((a, b) => sport.calcOverall(b) - sport.calcOverall(a));
-  const squadPlayers = pool.slice(0, 26);
-  const top = squadPlayers.slice(0, 16);
-  const reputation = Math.round(top.reduce((s, p) => s + sport.calcOverall(p), 0) / top.length);
+// A full international squad size to backfill the user's guaranteed nation up to.
+const GUARANTEED_SQUAD_SIZE = 23;
+const MAX_NATIONAL_SQUAD = 26;
+
+/** Position group ("GK"/"DEF"/... or sport equivalent) of a player's primary position. */
+function groupOfPlayer(sport: SportModule, p: Player): string {
+  const key = p.positions[0] ?? "";
+  return sport.positions.find((m) => m.key === key)?.group ?? "";
+}
+
+/** How many starters of each position group the national club's default formation needs. */
+function formationGroupNeed(sport: SportModule): Record<string, number> {
+  const key = sport.defaultTactics().formation;
+  const form = sport.formations.find((f) => f.key === key) ?? sport.formations[0];
+  const need: Record<string, number> = {};
+  for (const slot of form.slots) {
+    const g = sport.positions.find((m) => m.key === slot.position)?.group ?? "";
+    need[g] = (need[g] ?? 0) + 1;
+  }
+  return need;
+}
+
+/**
+ * Pick a national squad that always covers every position group the formation
+ * needs, so `autoPickLineup` can field a valid lineup (no missing goalkeeper,
+ * pitcher, etc). Players come from the nation's own pool first (best overall),
+ * then — only to patch a short/missing group, or to reach `floorSize` for the
+ * user's guaranteed nation — the best available players worldwide are borrowed.
+ * `claimed` is mutated so no player is ever on two national teams.
+ */
+function selectNationalSquad(
+  sport: SportModule,
+  naturalPool: Player[],
+  reserve: Player[],
+  claimed: Set<string>,
+  groupNeed: Record<string, number>,
+  floorSize: number,
+): Player[] {
+  const chosen: Player[] = [];
+  const ids = new Set<string>();
+  const add = (p: Player) => {
+    chosen.push(p);
+    ids.add(p.id);
+    claimed.add(p.id);
+  };
+  const natural = naturalPool
+    .filter((p) => !claimed.has(p.id))
+    .sort((a, b) => sport.calcOverall(b) - sport.calcOverall(a));
+  const groupCount = (g: string) => chosen.reduce((n, p) => n + (groupOfPlayer(sport, p) === g ? 1 : 0), 0);
+
+  // 1) Cover each required position group: own players first, then borrow.
+  for (const g of Object.keys(groupNeed)) {
+    for (const p of natural) {
+      if (groupCount(g) >= groupNeed[g]) break;
+      if (!ids.has(p.id) && groupOfPlayer(sport, p) === g) add(p);
+    }
+    for (const p of reserve) {
+      if (groupCount(g) >= groupNeed[g]) break;
+      if (!claimed.has(p.id) && groupOfPlayer(sport, p) === g) add(p);
+    }
+  }
+
+  // 2) Fill out the squad with the nation's remaining best players.
+  for (const p of natural) {
+    if (chosen.length >= MAX_NATIONAL_SQUAD) break;
+    if (!ids.has(p.id)) add(p);
+  }
+
+  // 3) Guaranteed nation only: top up to a full squad from the world pool.
+  for (const p of reserve) {
+    if (chosen.length >= floorSize) break;
+    if (!claimed.has(p.id)) add(p);
+  }
+
+  return chosen;
+}
+
+function buildNationalClub(sport: SportModule, players: Record<string, Player>, country: (typeof COUNTRIES)[number], squadPlayers: Player[]): Club {
+  const ranked = [...squadPlayers].sort((a, b) => sport.calcOverall(b) - sport.calcOverall(a));
+  const top = ranked.slice(0, Math.min(16, ranked.length));
+  const reputation = top.length ? Math.round(top.reduce((s, p) => s + sport.calcOverall(p), 0) / top.length) : 50;
 
   const id = `nat-${country.code}`;
   const club: Club = {
@@ -165,7 +241,7 @@ function buildNationalClub(sport: SportModule, players: Record<string, Player>, 
     country: country.code,
     reputation,
     finances: { balance: 0, transferBudget: 0, wageBudget: 0 },
-    squad: squadPlayers.map((p) => p.id),
+    squad: ranked.map((p) => p.id),
     tactics: sport.defaultTactics(),
     primaryColor: "#2b6cb0",
     isNational: true,
@@ -177,13 +253,14 @@ function buildNationalClub(sport: SportModule, players: Record<string, Player>, 
 
 /**
  * Build national teams from the club player pool, grouped by nationality.
- * Only nations with enough players get a team. Returns national clubs keyed by
- * `nat-<code>`; player ids are shared with their domestic clubs.
+ * Only nations with enough players of their own get a team. Returns national
+ * clubs keyed by `nat-<code>`; player ids are shared with their domestic clubs.
  *
- * `guaranteedCode`, when given, always gets a team regardless of its natural
- * pool size — if that pool can't even fill a starting squad (per the sport's
- * `squadTemplate` total), it's backfilled with the best available players
- * from the rest of the world so the user's chosen nation is never unplayable.
+ * Every squad is made position-complete (see `selectNationalSquad`) so no
+ * national side is ever missing the positions its formation needs. The
+ * `guaranteedCode` nation, when given, always gets a team — backfilled to a
+ * full squad from the rest of the world — so the user's chosen nation is never
+ * unplayable.
  */
 export function buildNationalTeams(
   sport: SportModule,
@@ -196,35 +273,29 @@ export function buildNationalTeams(
     (byNation[p.nationality] ??= []).push(p);
   }
 
+  // Best-first world pool, reused to patch position gaps / backfill thin squads.
+  const reserve = Object.values(players).sort((a, b) => sport.calcOverall(b) - sport.calcOverall(a));
+  const groupNeed = formationGroupNeed(sport);
   const nationals: Record<string, Club> = {};
   const claimed = new Set<string>();
 
   if (guaranteedCode) {
     const country = COUNTRY_BY_CODE[guaranteedCode];
     if (country) {
-      const pool = (byNation[country.code] ?? []).slice();
-      const requiredMin = sport.squadTemplate.reduce((s, slot) => s + slot.count, 0);
-      if (pool.length < requiredMin) {
-        const have = new Set(pool.map((p) => p.id));
-        const rest = Object.values(players)
-          .filter((p) => !have.has(p.id))
-          .sort((a, b) => sport.calcOverall(b) - sport.calcOverall(a));
-        for (const p of rest) {
-          if (pool.length >= requiredMin) break;
-          pool.push(p);
-        }
-      }
-      const club = buildNationalClub(sport, players, country, pool);
+      const squad = selectNationalSquad(sport, byNation[country.code] ?? [], reserve, claimed, groupNeed, GUARANTEED_SQUAD_SIZE);
+      const club = buildNationalClub(sport, players, country, squad);
       nationals[club.id] = club;
-      for (const id of club.squad) claimed.add(id);
     }
   }
 
   for (const country of COUNTRIES) {
     if (country.code === guaranteedCode) continue;
-    const pool = (byNation[country.code] ?? []).filter((p) => !claimed.has(p.id));
-    if (pool.length < minSquad) continue;
-    const club = buildNationalClub(sport, players, country, pool);
+    const natural = (byNation[country.code] ?? []).filter((p) => !claimed.has(p.id));
+    if (natural.length < minSquad) continue;
+    // floorSize 0: AI nations fill from their own pool and only borrow to patch
+    // a missing position group, keeping their national identity intact.
+    const squad = selectNationalSquad(sport, natural, reserve, claimed, groupNeed, 0);
+    const club = buildNationalClub(sport, players, country, squad);
     nationals[club.id] = club;
   }
   return nationals;

@@ -21,14 +21,17 @@ export function autoPickLineup(
 
   for (const slot of form.slots) {
     let best: Player | undefined;
+    let bestRank = -1;
     let bestScore = -1;
     for (const p of pool) {
       if (used.has(p.id)) continue;
-      // rate the player at the slot position; bonus if it is a natural position
-      let score = calcOverall(p, slot.position);
-      if (p.positions.includes(slot.position)) score += 6;
-      else if (POSITION_GROUP[p.positions[0]] === POSITION_GROUP[slot.position]) score += 2;
-      if (score > bestScore) {
+      // Prefer a true positional fit first (exact position, then same group), so a
+      // required slot like GK is always filled by a real keeper when one is
+      // available; rating only breaks ties within the same fit tier.
+      const rank = p.positions.includes(slot.position) ? 2 : POSITION_GROUP[p.positions[0]] === POSITION_GROUP[slot.position] ? 1 : 0;
+      const score = calcOverall(p, slot.position);
+      if (rank > bestRank || (rank === bestRank && score > bestScore)) {
+        bestRank = rank;
         bestScore = score;
         best = p;
       }
