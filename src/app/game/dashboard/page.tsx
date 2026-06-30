@@ -137,14 +137,23 @@ export default function DashboardPage() {
   if (state.seasonOver) {
     return (
       <div className="mx-auto flex w-full max-w-7xl flex-col gap-5">
-        <div className="rounded-2xl border p-6" style={{ borderColor: "var(--line)", background: "var(--panel)" }}>
-          <p className="font-display text-xl font-bold">{t("seasonComplete")}</p>
-          {comp.championId && (
-            <p className="mt-1 text-sm text-soft">
-              {t("champion")}: {clubDisplayName(state.clubs[comp.championId])}
-            </p>
-          )}
-          <Button className="mt-4" onClick={() => rollover()}>{t("startNewSeason")}</Button>
+        <div
+          className="relative overflow-hidden rounded-2xl border bg-cover bg-center p-6"
+          style={{ borderColor: "var(--line)", backgroundImage: "url(/assets/fx/win-celebration.webp)" }}
+        >
+          <div
+            className="pointer-events-none absolute inset-0"
+            style={{ background: "linear-gradient(180deg, rgba(10,13,19,.25) 0%, rgba(10,13,19,.78) 75%)" }}
+          />
+          <div className="relative">
+            <p className="font-display text-xl font-bold">{t("seasonComplete")}</p>
+            {comp.championId && (
+              <p className="mt-1 text-sm text-soft">
+                {t("champion")}: {clubDisplayName(state.clubs[comp.championId])}
+              </p>
+            )}
+            <Button className="mt-4" onClick={() => rollover()}>{t("startNewSeason")}</Button>
+          </div>
         </div>
       </div>
     );
@@ -179,12 +188,15 @@ export default function DashboardPage() {
 
       {/* next match hero */}
       <div
-        className="relative col-span-full overflow-hidden rounded-2xl border"
-        style={{ borderColor: "rgba(255,255,255,.07)", background: "linear-gradient(115deg,#10243a 0%,#0d1727 45%,#131822 100%)" }}
+        className="relative col-span-full overflow-hidden rounded-2xl border bg-cover bg-center"
+        style={{ borderColor: "rgba(255,255,255,.07)", backgroundImage: `url(/assets/venue/${state.sportId}-hero.webp)` }}
       >
         <div
           className="pointer-events-none absolute inset-0"
-          style={{ background: "radial-gradient(600px 200px at 18% 120%, rgba(24,226,154,.18), transparent 70%)" }}
+          style={{
+            background:
+              "linear-gradient(115deg, rgba(16,36,58,.88) 0%, rgba(13,23,39,.92) 45%, rgba(19,24,34,.95) 100%), radial-gradient(600px 200px at 18% 120%, rgba(24,226,154,.18), transparent 70%)",
+          }}
         />
         <div className="relative flex flex-wrap items-center gap-6 p-[22px] sm:px-[26px]">
           {upcoming && opponent ? (

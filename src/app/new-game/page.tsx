@@ -78,12 +78,17 @@ export default function NewGamePage() {
                   key={id}
                   disabled={!sport.available}
                   onClick={() => chooseSport(id)}
-                  className={`surface-panel flex min-h-24 flex-col items-start gap-1 rounded-lg border p-4 text-left disabled:cursor-not-allowed disabled:opacity-40 ${
+                  className={`surface-panel relative flex min-h-24 flex-col items-start justify-end gap-1 overflow-hidden rounded-lg border bg-cover p-4 text-left disabled:cursor-not-allowed disabled:opacity-40 ${
                     selected ? "surface-selected" : ""
                   }`}
+                  style={{ backgroundImage: `url(/assets/venue/${id}-hero.webp)`, backgroundPosition: "center 85%" }}
                 >
-                  <span className="font-semibold">{tl(sport.name)}</span>
-                  {!sport.available && <span className="text-xs text-zinc-400">{t("comingSoon")}</span>}
+                  <div
+                    className="pointer-events-none absolute inset-0"
+                    style={{ background: "linear-gradient(180deg, rgba(10,13,19,.05) 0%, rgba(10,13,19,.78) 100%)" }}
+                  />
+                  <span className="relative font-semibold text-white">{tl(sport.name)}</span>
+                  {!sport.available && <span className="relative text-xs text-zinc-300">{t("comingSoon")}</span>}
                 </button>
               );
             })}

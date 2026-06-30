@@ -41,10 +41,14 @@ export default function Home() {
       style={{ background: "var(--bg-base)" }}
     >
       <div
+        className="pointer-events-none absolute inset-0 bg-cover bg-center opacity-60"
+        style={{ backgroundImage: "url(/assets/brand/title-hero.webp)" }}
+      />
+      <div
         className="pointer-events-none absolute inset-0"
         style={{
           background:
-            "radial-gradient(900px 480px at 50% -8%, rgba(24,226,154,.16), transparent 60%), radial-gradient(700px 420px at 100% 100%, rgba(76,141,255,.10), transparent 60%)",
+            "radial-gradient(900px 480px at 50% -8%, rgba(24,226,154,.16), transparent 60%), radial-gradient(700px 420px at 100% 100%, rgba(76,141,255,.10), transparent 60%), linear-gradient(180deg, rgba(10,13,19,.35) 0%, rgba(10,13,19,.55) 55%, var(--bg-base) 100%)",
         }}
       />
 
@@ -53,16 +57,12 @@ export default function Home() {
       </div>
 
       <div className="relative z-10 flex flex-col items-center gap-3 text-center">
-        <div
-          className="font-display flex h-[68px] w-[68px] items-center justify-center rounded-[18px] text-3xl font-bold"
-          style={{
-            background: "linear-gradient(135deg, var(--mint), #0a8f63)",
-            color: "#06140e",
-            boxShadow: "0 0 0 1px rgba(24,226,154,.3), 0 12px 32px rgba(24,226,154,.3)",
-          }}
-        >
-          SM
-        </div>
+        <img
+          src="/assets/brand/app-logo.webp"
+          alt=""
+          className="h-[76px] w-[76px] rounded-[18px]"
+          style={{ boxShadow: "0 0 0 1px rgba(24,226,154,.3), 0 12px 32px rgba(24,226,154,.3)" }}
+        />
         <h1 className="font-display mt-3 text-5xl font-bold leading-none tracking-wide sm:text-6xl">
           {t("appTitle")}
         </h1>

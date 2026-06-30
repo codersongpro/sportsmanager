@@ -95,16 +95,12 @@ export default function GameLayout({ children }: { children: React.ReactNode }) 
         style={{ width: 236, background: "var(--bg-sidebar)", borderRight: "1px solid var(--border-soft)" }}
       >
         <div className="flex items-center gap-2.5 px-1.5 pb-4 pt-1">
-          <div
-            className="font-display flex h-9 w-9 shrink-0 items-center justify-center rounded-[10px] text-xl font-bold"
-            style={{
-              background: "linear-gradient(135deg, var(--mint), #0a8f63)",
-              color: "#06140e",
-              boxShadow: "0 0 0 1px rgba(24,226,154,.3), 0 6px 16px rgba(24,226,154,.25)",
-            }}
-          >
-            SM
-          </div>
+          <img
+            src="/assets/brand/app-logo.webp"
+            alt=""
+            className="h-9 w-9 shrink-0 rounded-[10px]"
+            style={{ boxShadow: "0 0 0 1px rgba(24,226,154,.3), 0 6px 16px rgba(24,226,154,.25)" }}
+          />
           <div className="min-w-0 flex-1">
             <div className="font-display truncate text-[17px] font-bold leading-none tracking-wide">PRO MANAGER</div>
             <div className="mt-1 text-[10px] tracking-[2px]" style={{ color: "var(--muted-3)" }}>
