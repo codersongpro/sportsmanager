@@ -15,10 +15,15 @@ interface Props {
   tactics: Tactics;
   players: Record<string, Player>;
   maxHeight?: number;
+  day?: number;
+}
+
+function isInjured(p: Player, day?: number): boolean {
+  return p.injuredUntilDay != null && day != null && p.injuredUntilDay > day;
 }
 
 /** Vertical formation board (tactics-page style): per-sport surface with lineup slots and hover detail cards. Shared by the tactics page and the live Match Center. */
-export function LineupBoard({ sport, tactics, players, maxHeight = 560 }: Props) {
+export function LineupBoard({ sport, tactics, players, maxHeight = 560, day }: Props) {
   const { t, tl } = useI18n();
   const [hovered, setHovered] = useState<number | null>(null);
   const pres = sport.matchPresentation;
@@ -35,6 +40,7 @@ export function LineupBoard({ sport, tactics, players, maxHeight = 560 }: Props)
         const group = sport.positions.find((meta) => meta.key === slot.position)?.group ?? "";
         const color = groupColor(group);
         const top = 100 - slot.y;
+        const injured = p ? isInjured(p, day) : false;
         return (
           <div
             key={i}
@@ -44,10 +50,15 @@ export function LineupBoard({ sport, tactics, players, maxHeight = 560 }: Props)
             onMouseLeave={() => setHovered((h) => (h === i ? null : h))}
           >
             <div
-              className="font-display flex h-10 w-10 cursor-default items-center justify-center rounded-full border-[2.5px] text-[15px] font-bold"
-              style={{ background: "#0E121B", borderColor: color, color: "#EAEEF5", boxShadow: "0 4px 12px rgba(0,0,0,.4)" }}
+              className="font-display relative flex h-10 w-10 cursor-default items-center justify-center rounded-full border-[2.5px] text-[15px] font-bold"
+              style={{ background: "#0E121B", borderColor: injured ? "var(--red)" : color, color: "#EAEEF5", boxShadow: "0 4px 12px rgba(0,0,0,.4)" }}
             >
               {p ? playerInitials(p) : slot.position}
+              {injured && (
+                <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full text-[9px]" style={{ background: "var(--red)" }}>
+                  🩹
+                </span>
+              )}
             </div>
             <span className="whitespace-nowrap rounded px-1.5 py-px text-[10px] font-semibold" style={{ color: "#EAEEF5", background: "rgba(0,0,0,.55)" }}>
               {p ? shortName(p) : "—"}
@@ -61,7 +72,7 @@ export function LineupBoard({ sport, tactics, players, maxHeight = 560 }: Props)
                 onMouseEnter={() => setHovered(i)}
                 onMouseLeave={() => setHovered(null)}
               >
-                <PlayerHoverCard player={p} sport={sport} t={t} tl={tl} />
+                <PlayerHoverCard player={p} sport={sport} t={t} tl={tl} day={day} />
               </div>
             )}
           </div>
@@ -76,11 +87,13 @@ function PlayerHoverCard({
   sport,
   t,
   tl,
+  day,
 }: {
   player: Player;
   sport: SportModule;
   t: ReturnType<typeof useI18n>["t"];
   tl: ReturnType<typeof useI18n>["tl"];
+  day?: number;
 }) {
   const group = sport.positions.find((meta) => meta.key === player.positions[0])?.group ?? "";
   const ovr = sport.calcOverall(player);
@@ -115,6 +128,12 @@ function PlayerHoverCard({
         <span>{t("condition")}</span>
         <span className="font-display font-bold" style={{ color: conditionColor(player.condition) }}>{Math.round(player.condition)}%</span>
       </div>
+      {isInjured(player, day) && (
+        <div className="flex items-center justify-between text-[10.5px]" style={{ color: "var(--red)" }}>
+          <span>🩹 {t("injured")}</span>
+          <span className="font-display font-bold">D-{player.injuredUntilDay! - day!} {t("daysOut")}</span>
+        </div>
+      )}
     </div>
   );
 }

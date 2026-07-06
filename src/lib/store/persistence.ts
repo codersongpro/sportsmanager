@@ -3,12 +3,13 @@ import type { GameState, SportId } from "@/lib/types";
 
 const PREFIX = "sm_save_";
 
-export const CURRENT_VERSION = 2;
+export const CURRENT_VERSION = 3;
 
 /** Bring a save from an older `GameState.version` up to `CURRENT_VERSION`. Pure, so it's testable without IndexedDB. */
 export function migrate(state: GameState): GameState {
   if (state.version >= CURRENT_VERSION) return state;
   // v1 -> v2: introduced `GameState.activeMatch` (optional, so no data migration needed beyond the version bump)
+  // v2 -> v3: revived condition/form/injury/morale + `GameState.lastTrainingReport` (all optional, no backfill needed)
   return { ...state, version: CURRENT_VERSION };
 }
 

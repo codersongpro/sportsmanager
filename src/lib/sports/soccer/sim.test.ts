@@ -52,10 +52,11 @@ describe("simulateMatch", () => {
     const viaMatch = simulateMatch(home, away, createRng(7), { allowDraw: true });
 
     const rng = createRng(7);
-    const segments = [
-      { kind: "first_half" as const, result: simulateSegment(home, away, rng, "first_half", { allowDraw: true }) },
-      { kind: "second_half" as const, result: simulateSegment(home, away, rng, "second_half", { allowDraw: true }) },
-    ];
+    const sentOffSoFar = (segs: { result: { events: { type: string; playerId?: string }[] } }[]) =>
+      segs.flatMap((s) => s.result.events.filter((e) => e.type === "red" && e.playerId).map((e) => e.playerId!));
+    const segments: { kind: "first_half" | "second_half"; result: ReturnType<typeof simulateSegment> }[] = [];
+    segments.push({ kind: "first_half", result: simulateSegment(home, away, rng, "first_half", { allowDraw: true, sentOffIds: sentOffSoFar(segments) }) });
+    segments.push({ kind: "second_half", result: simulateSegment(home, away, rng, "second_half", { allowDraw: true, sentOffIds: sentOffSoFar(segments) }) });
     const viaSegments = finalizeSegments(home, away, segments, { allowDraw: true }, rng);
 
     expect(viaSegments.homeScore).toBe(viaMatch.homeScore);

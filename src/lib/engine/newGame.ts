@@ -3,6 +3,7 @@ import { createRng, hashSeed } from "@/lib/sim/rng";
 import { getSport } from "@/lib/sports";
 import { getLeaguesForSport } from "@/data/clubs";
 import { COUNTRY_BY_CODE } from "@/data/countries";
+import { CURRENT_VERSION } from "@/lib/store/persistence";
 import { buildWorld, buildNationalTeams } from "./world";
 import { createLeague, createTournament } from "./competition";
 
@@ -78,7 +79,7 @@ export function createNewGame(opts: NewGameOptions): GameState {
 
   const now = Date.now();
   return {
-    version: 2,
+    version: CURRENT_VERSION,
     id: `save_${now}_${Math.floor(rng.next() * 1e6)}`,
     createdAt: now,
     updatedAt: now,

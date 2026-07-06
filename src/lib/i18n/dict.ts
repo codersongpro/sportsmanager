@@ -98,6 +98,8 @@ export const dict = {
   contract: { ko: "계약", en: "Contract" },
   attributes: { ko: "능력치", en: "Attributes" },
   injured: { ko: "부상", en: "Injured" },
+  daysOut: { ko: "일 결장", en: "days out" },
+  cannotFieldInjured: { ko: "부상 선수는 선발로 배치할 수 없습니다", en: "Injured players can't be placed in the lineup" },
 
   // tactics
   formation: { ko: "포메이션", en: "Formation" },
@@ -129,6 +131,8 @@ export const dict = {
   fitnessReport: { ko: "체력 / 부상 현황", en: "Fitness & Injuries" },
   avgCondition: { ko: "평균 체력", en: "Avg Condition" },
   noInjuries: { ko: "부상자가 없습니다", en: "No injuries" },
+  weeklyTrainingReport: { ko: "주간 훈련 리포트", en: "Weekly Training Report" },
+  noTrainingReport: { ko: "아직 훈련 리포트가 없습니다", en: "No training report yet" },
 
   // finances
   balance: { ko: "잔고", en: "Balance" },

@@ -3,7 +3,7 @@
 import { useI18n } from "@/lib/i18n/I18nProvider";
 import { useGameStore } from "@/lib/store/gameStore";
 import { getSport } from "@/lib/sports";
-import { Avatar, StatBar, Tile, conditionColor, groupColor } from "@/components/Tile";
+import { Avatar, RatingNumber, StatBar, Tile, conditionColor, groupColor } from "@/components/Tile";
 import { playerDisplayName, playerInitials } from "@/lib/utils/format";
 
 const FOCUS_COLORS = ["var(--mint)", "var(--blue)", "var(--red)", "var(--gold)", "var(--purple)", "#9aa4b8"];
@@ -110,6 +110,35 @@ export default function TrainingPage() {
           </div>
         </Tile>
       </div>
+
+      <Tile title={t("weeklyTrainingReport")}>
+        {!state.lastTrainingReport || state.lastTrainingReport.entries.length === 0 ? (
+          <div className="text-[12.5px]" style={{ color: "var(--muted-3)" }}>{t("noTrainingReport")}</div>
+        ) : (
+          <div className="grid gap-2 sm:grid-cols-2">
+            {state.lastTrainingReport.entries.map((entry) => {
+              const p = state.players[entry.playerId];
+              if (!p) return null;
+              const group = sport.positions.find((meta) => meta.key === p.positions[0])?.group ?? "";
+              const delta = entry.ovrAfter - entry.ovrBefore;
+              return (
+                <div
+                  key={entry.playerId}
+                  className="flex items-center gap-2.5 rounded-xl border px-3 py-2"
+                  style={{ borderColor: "var(--border-soft)", background: "var(--panel-2)" }}
+                >
+                  <Avatar initials={playerInitials(p)} color={groupColor(group)} size={30} rounded="8px" />
+                  <div className="min-w-0 flex-1 truncate text-[12.5px] font-semibold">{playerDisplayName(p)}</div>
+                  <RatingNumber value={Math.round(entry.ovrAfter)} color="var(--mint)" size="text-sm" />
+                  <span className="shrink-0 text-[11px] font-bold" style={{ color: "var(--mint)" }}>
+                    +{delta.toFixed(1)}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </Tile>
     </div>
   );
 }

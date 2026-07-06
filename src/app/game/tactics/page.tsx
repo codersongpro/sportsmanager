@@ -42,6 +42,8 @@ export default function TacticsPage() {
   const squadSorted = [...squad].sort((a, b) => sport.calcOverall(b) - sport.calcOverall(a));
 
   function setSlotPlayer(slotIndex: number, playerId: string) {
+    const candidate = state!.players[playerId];
+    if (candidate && candidate.injuredUntilDay != null && candidate.injuredUntilDay > state!.day) return;
     const lineup = [...tactics.lineup];
     const bench = [...tactics.bench];
     const previous = lineup[slotIndex];
@@ -81,7 +83,7 @@ export default function TacticsPage() {
             </div>
           </div>
 
-          <LineupBoard sport={sport} tactics={tactics} players={state.players} maxHeight={560} />
+          <LineupBoard sport={sport} tactics={tactics} players={state.players} maxHeight={560} day={state.day} />
         </div>
 
         {/* team instructions + lineup validity */}
@@ -162,11 +164,14 @@ export default function TacticsPage() {
                   className="flex-1 rounded-md bg-transparent px-1 py-1 text-[12.5px] text-foreground outline-none"
                 >
                   {playerId && !squadSorted.find((sp) => sp.id === playerId) && <option value={playerId}>{playerId}</option>}
-                  {squadSorted.map((sp) => (
-                    <option key={sp.id} value={sp.id} className="text-black">
-                      {playerDisplayName(sp)} ({sport.calcOverall(sp)})
-                    </option>
-                  ))}
+                  {squadSorted.map((sp) => {
+                    const injured = sp.injuredUntilDay != null && sp.injuredUntilDay > state.day;
+                    return (
+                      <option key={sp.id} value={sp.id} disabled={injured && sp.id !== playerId} className="text-black">
+                        {playerDisplayName(sp)} ({sport.calcOverall(sp)}){injured ? ` \u{1FA79} D-${sp.injuredUntilDay! - state.day}` : ""}
+                      </option>
+                    );
+                  })}
                 </select>
                 {p && (
                   <span className="shrink-0 text-[10.5px] font-semibold" style={{ color: conditionColor(p.condition) }}>

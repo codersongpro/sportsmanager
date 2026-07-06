@@ -35,4 +35,15 @@ describe("migrate (save version upgrades, pure / no IndexedDB)", () => {
     expect(migrated.id).toBe(save.id);
     expect(migrated.players).toBe(save.players);
   });
+
+  it("upgrades a v2 save (pre-lastTrainingReport) to the current version", () => {
+    const save = { ...freshSave(), version: 2 } as ReturnType<typeof freshSave>;
+    delete (save as { lastTrainingReport?: unknown }).lastTrainingReport;
+
+    const migrated = migrate(save);
+    expect(migrated.version).toBe(CURRENT_VERSION);
+    expect(migrated.lastTrainingReport).toBeUndefined();
+    expect(migrated.id).toBe(save.id);
+    expect(migrated.players).toBe(save.players);
+  });
 });

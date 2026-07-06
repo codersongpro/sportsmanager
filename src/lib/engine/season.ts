@@ -2,7 +2,7 @@ import type { Club, GameState, SimOptions, SportModule } from "@/lib/types";
 import { createRng, type RNG } from "@/lib/sim/rng";
 import { createLeague, createTournament, isComplete, recordResult, sortTable } from "./competition";
 import { beginActiveMatch } from "./activeMatch";
-import { bumpApps, finishMatch, outcomeFor, recordForm, resolveTeam } from "./matchFlow";
+import { applyPostMatchPlayerEffects, bumpApps, finishMatch, outcomeFor, pushNews, recordForm, resolveTeam } from "./matchFlow";
 
 const WEEK = 7;
 // Safety cap on how many calendar days a single "continue" can advance through
@@ -27,15 +27,15 @@ function playMatchesForDay(state: GameState, sport: SportModule, rng: RNG) {
       continue;
     }
 
-    const homeTeam = resolveTeam(home, state.players, sport);
-    const awayTeam = resolveTeam(away, state.players, sport);
+    const homeTeam = resolveTeam(home, state.players, sport, state.day);
+    const awayTeam = resolveTeam(away, state.players, sport, state.day);
     const opts: SimOptions = {
       allowDraw: comp.format === "league",
       neutralVenue: comp.kind === "national",
     };
     const result = sport.simulateMatch(homeTeam, awayTeam, rng, opts);
     result.fixtureId = fixture.id;
-    finishMatch(state, comp, fixture.id, home, away, homeTeam, awayTeam, result);
+    finishMatch(state, comp, fixture.id, home, away, homeTeam, awayTeam, result, rng);
   }
 }
 
@@ -49,8 +49,8 @@ function playPartnerMatchesForDay(state: GameState, sport: SportModule, rng: RNG
     const away = fixture.awayId ? state.clubs[fixture.awayId] : undefined;
     if (!home || !away) continue;
 
-    const homeTeam = resolveTeam(home, state.players, sport);
-    const awayTeam = resolveTeam(away, state.players, sport);
+    const homeTeam = resolveTeam(home, state.players, sport, state.day);
+    const awayTeam = resolveTeam(away, state.players, sport, state.day);
     const result = sport.simulateMatch(homeTeam, awayTeam, rng, { allowDraw: comp.format === "league", neutralVenue: false });
     result.fixtureId = fixture.id;
     recordResult(comp, result);
@@ -59,6 +59,18 @@ function playPartnerMatchesForDay(state: GameState, sport: SportModule, rng: RNG
     for (const p of awayTeam.lineup) bumpApps(state.players, p.id);
     recordForm(state.players, homeTeam.lineup.map((p) => p.id), result.playerRatings, away.shortName, outcomeFor(true, result), result.homeScore, result.awayScore, state.day);
     recordForm(state.players, awayTeam.lineup.map((p) => p.id), result.playerRatings, home.shortName, outcomeFor(false, result), result.awayScore, result.homeScore, state.day);
+    applyPostMatchPlayerEffects(state, comp, homeTeam, awayTeam, result, state.day, rng);
+  }
+}
+
+/** Daily condition recovery for every player; injured players recover slower and cap lower. */
+function applyDailyRecovery(state: GameState) {
+  for (const id in state.players) {
+    const p = state.players[id];
+    let rate = p.age <= 29 ? 4.5 : 3.5;
+    const injured = p.injuredUntilDay != null && p.injuredUntilDay > state.day;
+    if (injured) rate *= 0.5;
+    p.condition = Math.min(injured ? 85 : 100, p.condition + rate);
   }
 }
 
@@ -72,13 +84,51 @@ function processWeeklyFinances(state: GameState) {
 }
 
 function applyWeeklyTraining(state: GameState, sport: SportModule, rng: RNG) {
+  const userClubId = state.manager.clubId;
+  const userFocus = state.trainingFocus;
+  const trainingDeltas: { playerId: string; ovrBefore: number; ovrAfter: number }[] = [];
+
   for (const club of Object.values(state.clubs)) {
-    const focus = club.id === state.manager.clubId ? state.trainingFocus : "balanced";
+    const focus = club.id === userClubId ? userFocus : "balanced";
+    const isUserClub = club.id === userClubId;
     for (const id of club.squad) {
       const p = state.players[id];
       if (!p) continue;
-      state.players[id] = sport.trainPlayer(p, focus, rng);
+      const ovrBefore = isUserClub ? sport.calcOverall(p) : 0;
+      const trained = sport.trainPlayer(p, focus, rng);
+      state.players[id] = trained;
+      if (isUserClub) {
+        const ovrAfter = sport.calcOverall(trained);
+        if (ovrAfter - ovrBefore >= 0.05) trainingDeltas.push({ playerId: id, ovrBefore, ovrAfter });
+      }
+
+      const alreadyInjured = trained.injuredUntilDay != null && trained.injuredUntilDay > state.day;
+      if (!alreadyInjured && rng.bool(0.008)) {
+        trained.injuredUntilDay = state.day + 3 + rng.int(0, 11);
+        if (isUserClub) {
+          const name = trained.nameKo ?? trained.name;
+          pushNews(state, { ko: `${name} 훈련 중 부상`, en: `${trained.name} injured in training` });
+        }
+      }
     }
+  }
+
+  trainingDeltas.sort((a, b) => (b.ovrAfter - b.ovrBefore) - (a.ovrAfter - a.ovrBefore));
+  state.lastTrainingReport = { day: state.day, focus: userFocus, entries: trainingDeltas.slice(0, 8) };
+  const bigImprover = trainingDeltas.find((d) => d.ovrAfter - d.ovrBefore >= 0.5);
+  if (bigImprover) {
+    const p = state.players[bigImprover.playerId];
+    const name = p.nameKo ?? p.name;
+    const delta = (bigImprover.ovrAfter - bigImprover.ovrBefore).toFixed(1);
+    pushNews(state, { ko: `훈련 성과: ${name} 급성장 (+${delta})`, en: `Training: ${p.name} improving fast (+${delta})` });
+  }
+}
+
+/** Weekly morale decay: every player drifts 10% of the way toward a neutral baseline. */
+function processWeeklyUpkeep(state: GameState) {
+  for (const id in state.players) {
+    const p = state.players[id];
+    p.morale = Math.round((p.morale + (55 - p.morale) * 0.1) * 10) / 10;
   }
 }
 
@@ -100,11 +150,13 @@ export function continueGame(state: GameState, sport: SportModule): GameState {
   let steps = 0;
   while (steps++ < MAX_DAYS_PER_CONTINUE) {
     next.day += 1;
+    applyDailyRecovery(next);
     playMatchesForDay(next, sport, rng);
     playPartnerMatchesForDay(next, sport, rng);
     if (next.day % WEEK === 0) {
       processWeeklyFinances(next);
       applyWeeklyTraining(next, sport, rng);
+      processWeeklyUpkeep(next);
     }
     if (next.lastResultFixtureId || next.activeMatch || isComplete(next.competition)) break;
   }

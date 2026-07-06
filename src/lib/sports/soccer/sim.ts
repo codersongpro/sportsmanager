@@ -63,7 +63,7 @@ function poisson(rng: RNG, lambda: number): number {
   return k - 1;
 }
 
-function teamPower(team: MatchTeam): TeamPower {
+function teamPower(team: MatchTeam, sentOffIds?: string[]): TeamPower {
   let gk = 42;
   let gkPlayer: Player | undefined;
   let defSum = 0,
@@ -73,6 +73,7 @@ function teamPower(team: MatchTeam): TeamPower {
     fwdSum = 0,
     fwdN = 0,
     aggrSum = 0;
+  let sentOffCount = 0;
 
   const scorers: Pool = { players: [], weights: [] };
   const assisters: Pool = { players: [], weights: [] };
@@ -81,6 +82,10 @@ function teamPower(team: MatchTeam): TeamPower {
   const crossers: Pool = { players: [], weights: [] };
 
   for (const p of team.lineup) {
+    if (sentOffIds?.includes(p.id)) {
+      sentOffCount++;
+      continue;
+    }
     const pos = p.positions[0] ?? "CM";
     const grp = POSITION_GROUP[pos] ?? "MID";
     const ovr = calcOverall(p, pos);
@@ -139,11 +144,13 @@ function teamPower(team: MatchTeam): TeamPower {
   }
 
   const tactics = team.club.tactics;
+  const sentOffAttackMult = sentOffCount > 0 ? Math.pow(0.86, sentOffCount) : 1;
+  const sentOffDefMult = sentOffCount > 0 ? Math.pow(0.9, sentOffCount) : 1;
   return {
     gk,
     gkPlayer,
-    attackPower: (attack * 0.5 + midfield * 0.35 + 8) * mentalityAttackMult(tactics.mentality) * tempoAttackMult(tactics.tempo),
-    defPower: (defense * 0.55 + midfield * 0.25 + gk * 0.2 + 8) * mentalityDefenseMult(tactics.mentality),
+    attackPower: (attack * 0.5 + midfield * 0.35 + 8) * mentalityAttackMult(tactics.mentality) * tempoAttackMult(tactics.tempo) * sentOffAttackMult,
+    defPower: (defense * 0.55 + midfield * 0.25 + gk * 0.2 + 8) * mentalityDefenseMult(tactics.mentality) * sentOffDefMult,
     scorers,
     assisters,
     foulers,
@@ -571,8 +578,8 @@ export function simulateSegment(
   kind: MatchSegmentKind,
   opts: SimOptions = {},
 ): MatchSegmentResult {
-  const hp = teamPower(home);
-  const ap = teamPower(away);
+  const hp = teamPower(home, opts.sentOffIds);
+  const ap = teamPower(away, opts.sentOffIds);
 
   if (kind === "penalties") {
     const [homePens, awayPens] = shootout(rng);
@@ -759,23 +766,29 @@ export function nextSegment(kind: MatchSegmentKind, homeScore: number, awayScore
 // Public entry point
 // ---------------------------------------------------------------------------
 
+/** Player ids sent off (red card) in any segment played so far. */
+function sentOffSoFar(segments: { kind: MatchSegmentKind; result: MatchSegmentResult }[]): string[] {
+  return segments.flatMap((s) => s.result.events.filter((e) => e.type === "red" && e.playerId).map((e) => e.playerId!));
+}
+
 export function simulateMatch(home: MatchTeam, away: MatchTeam, rng: RNG, opts: SimOptions = {}): MatchResult {
   const allowDraw = opts.allowDraw ?? true;
   const segments: { kind: MatchSegmentKind; result: MatchSegmentResult }[] = [];
+  const withSentOff = () => ({ ...opts, sentOffIds: sentOffSoFar(segments) });
 
-  segments.push({ kind: "first_half", result: simulateSegment(home, away, rng, "first_half", opts) });
-  segments.push({ kind: "second_half", result: simulateSegment(home, away, rng, "second_half", opts) });
+  segments.push({ kind: "first_half", result: simulateSegment(home, away, rng, "first_half", withSentOff()) });
+  segments.push({ kind: "second_half", result: simulateSegment(home, away, rng, "second_half", withSentOff()) });
 
   let homeScore = segments.reduce((s, x) => s + x.result.homeGoals, 0);
   let awayScore = segments.reduce((s, x) => s + x.result.awayGoals, 0);
 
   if (!allowDraw && homeScore === awayScore) {
-    const et = simulateSegment(home, away, rng, "extra_time", opts);
+    const et = simulateSegment(home, away, rng, "extra_time", withSentOff());
     segments.push({ kind: "extra_time", result: et });
     homeScore += et.homeGoals;
     awayScore += et.awayGoals;
     if (homeScore === awayScore) {
-      segments.push({ kind: "penalties", result: simulateSegment(home, away, rng, "penalties", opts) });
+      segments.push({ kind: "penalties", result: simulateSegment(home, away, rng, "penalties", withSentOff()) });
     }
   }
 

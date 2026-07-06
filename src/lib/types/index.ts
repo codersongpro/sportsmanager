@@ -345,6 +345,12 @@ export interface GameState {
   partnerCompetition?: CompetitionState;
   /** clubs that moved between tiers at the last season rollover, for the news feed */
   lastPromotions?: { clubId: string; direction: "promoted" | "relegated" }[];
+  /** the user club's most recent weekly training outcome, for the training page report tile */
+  lastTrainingReport?: {
+    day: number;
+    focus: string;
+    entries: { playerId: string; ovrBefore: number; ovrAfter: number }[];
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -409,6 +415,8 @@ export interface MatchTeam {
 export interface SimOptions {
   allowDraw?: boolean; // false -> resolve via ET / penalties
   neutralVenue?: boolean; // true -> no home advantage (knockouts)
+  /** player ids sent off (red card) earlier in the match; soccer only, reduces team power for the rest of the match */
+  sentOffIds?: string[];
 }
 
 /** How a sport renders its live match (visuals, stats, scoring, clock). */
