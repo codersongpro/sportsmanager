@@ -107,9 +107,16 @@ export function MatchViewer({ result, home, away, players, sportId }: Props) {
   const homeSlots = useMemo(() => lineupSlots(sport, home, players), [sport, home, players]);
   const awaySlots = useMemo(() => lineupSlots(sport, away, players), [sport, away, players]);
 
+  // Derived purely from the actual events, never floored by the sport's theoretical
+  // maximum length (`pres.endProgress`). Fixed-length sports (soccer halves, basketball
+  // quarters, baseball's minimum 9 innings) always generate events all the way out to
+  // that maximum anyway, so this is a no-op for them. But best-of-N sports (volleyball
+  // best-of-5 sets, pickleball best-of-3 games) can finish well short of it — flooring
+  // at `endProgress` there made the replay keep sweeping through sets/games that never
+  // happened (even firing their "end of set" break cards) before finally stopping.
   const endMinute = useMemo(
-    () => Math.max(pres.endProgress, result.events.reduce((m, e) => Math.max(m, e.minute), pres.endProgress)),
-    [result.events, pres.endProgress],
+    () => Math.max(1, Math.ceil(result.events.reduce((m, e) => Math.max(m, e.minute), 0))),
+    [result.events],
   );
 
   const [clock, setClock] = useState(0);
