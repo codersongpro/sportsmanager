@@ -265,6 +265,10 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
     const fee = negotiatedFee(player.value, rep);
     const label = player.nameKo ?? player.name;
     if (myClub.finances.transferBudget < fee) return fail(`이적 예산이 부족합니다`, "Insufficient transfer budget");
+    const currentWageBill = myClub.squad.reduce((sum, id) => sum + (cur.players[id]?.wage ?? 0), 0);
+    if (currentWageBill + player.wage > myClub.finances.wageBudget) {
+      return fail("주급 예산을 초과합니다", "This signing would exceed your wage budget");
+    }
 
     // Sign probability: club appeal + manager reputation vs the player's ambition.
     const appeal = myClub.reputation + rep * 0.5;

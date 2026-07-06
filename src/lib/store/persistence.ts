@@ -1,16 +1,21 @@
 import { del, get, keys, set } from "idb-keyval";
 import type { GameState, SportId } from "@/lib/types";
+import { computeBoardObjective } from "@/lib/engine/season";
 
 const PREFIX = "sm_save_";
 
-export const CURRENT_VERSION = 3;
+export const CURRENT_VERSION = 4;
 
 /** Bring a save from an older `GameState.version` up to `CURRENT_VERSION`. Pure, so it's testable without IndexedDB. */
 export function migrate(state: GameState): GameState {
   if (state.version >= CURRENT_VERSION) return state;
   // v1 -> v2: introduced `GameState.activeMatch` (optional, so no data migration needed beyond the version bump)
   // v2 -> v3: revived condition/form/injury/morale + `GameState.lastTrainingReport` (all optional, no backfill needed)
-  return { ...state, version: CURRENT_VERSION };
+  // v3 -> v4: introduced the board (season objective + confidence), sacking, honours, and debtWeeks. Everything but
+  // `board` is optional with no backfill needed; a pre-v4 save has no `board` yet, so compute one from its current
+  // reputation standing rather than leaving the dashboard/board tile without an objective.
+  const board = state.board ?? { objectiveRank: computeBoardObjective(state.competition.clubIds, state.clubs, state.manager.clubId), confidence: 60 };
+  return { ...state, version: CURRENT_VERSION, board };
 }
 
 export interface SaveSummary {

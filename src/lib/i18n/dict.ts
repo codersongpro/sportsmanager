@@ -185,6 +185,32 @@ export const dict = {
   partnerDivision: { ko: "2부 리그", en: "Division 2" },
   promoted: { ko: "승격", en: "Promoted" },
   relegated: { ko: "강등", en: "Relegated" },
+
+  // board / season objective
+  boardTitle: { ko: "이사회", en: "Board" },
+  boardConfidence: { ko: "이사회 신임도", en: "Board confidence" },
+  seasonObjective: { ko: "시즌 목표", en: "Season objective" },
+  objectiveTopN: { ko: "위 이상", en: "Finish top" },
+  objectiveSurvive: { ko: "잔류", en: "Avoid relegation" },
+
+  // sacking / game over
+  sackedTitle: { ko: "경질되었습니다", en: "You have been sacked" },
+  finalRecord: { ko: "최종 성적", en: "Final record" },
+  backToTitle: { ko: "타이틀로", en: "Back to title" },
+
+  // honours
+  honours: { ko: "역대 기록", en: "Honours" },
+  topScorer: { ko: "득점왕", en: "Top Scorer" },
+  seasonMvp: { ko: "시즌 MVP", en: "Season MVP" },
+  championsLabel: { ko: "우승", en: "Champions" },
+
+  // finances
+  matchdayIncome: { ko: "홈경기 수입", en: "Matchday income" },
+  prizeMoney: { ko: "상금", en: "Prize money" },
+  promotionBonus: { ko: "승격 보너스", en: "Promotion bonus" },
+  wageOverBudget: { ko: "주급 예산 초과", en: "Over wage budget" },
+  forcedSale: { ko: "강제 매각", en: "Forced sale" },
+  debtWarning: { ko: "재정 경고", en: "Financial warning" },
   matchResult: { ko: "경기 결과", en: "Match Result" },
   matchStats: { ko: "경기 통계", en: "Match Stats" },
   matchEvents: { ko: "주요 이벤트", en: "Match Events" },

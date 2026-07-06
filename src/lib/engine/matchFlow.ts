@@ -92,11 +92,61 @@ function applyMoraleForResult(state: GameState, comp: CompetitionState, club: Cl
   }
 }
 
+/** Home-side matchday gate income, scaled slightly by the home manager's reputation for the user's own club. National clubs have no finances. */
+function applyMatchdayIncome(state: GameState, home: Club) {
+  if (home.isNational) return;
+  let gate = Math.round(home.reputation * 1500);
+  if (home.id === state.manager.clubId) {
+    gate = Math.round(gate * (1 + (state.manager.reputation - 50) / 200));
+  }
+  home.finances.balance += gate;
+}
+
+/** Post-match board confidence delta for the user's own result (win/draw/loss, upset-weighted); no-op if the user wasn't in this match or has no board yet. */
+function applyBoardConfidenceForResult(state: GameState, homeTeam: MatchTeam, awayTeam: MatchTeam, result: MatchResult) {
+  if (!state.board) return;
+  const userClubId = state.manager.clubId;
+  const userIsHome = homeTeam.club.id === userClubId;
+  const userIsAway = awayTeam.club.id === userClubId;
+  if (!userIsHome && !userIsAway) return;
+
+  const outcome = outcomeFor(userIsHome, result);
+  const myRep = userIsHome ? homeTeam.club.reputation : awayTeam.club.reputation;
+  const oppRep = userIsHome ? awayTeam.club.reputation : homeTeam.club.reputation;
+  const clamp15 = (x: number) => Math.max(0, Math.min(1.5, x));
+  let delta = 0;
+  if (outcome === "W") delta = 3 + clamp15((oppRep - myRep) / 20);
+  else if (outcome === "D") delta = 0.5;
+  else delta = -(3 + clamp15((myRep - oppRep) / 20));
+  state.board.confidence = Math.round(Math.max(0, Math.min(100, state.board.confidence + delta)) * 10) / 10;
+}
+
+/** How many of the user's own competition fixtures have been played this season (resets every rollover, since `competition.fixtures` is rebuilt then). */
+function userMatchesPlayedThisSeason(state: GameState): number {
+  const userClubId = state.manager.clubId;
+  return state.competition.fixtures.filter((f) => f.played && (f.homeId === userClubId || f.awayId === userClubId)).length;
+}
+
 /**
- * Post-match player state update (condition/morale/injury). Called exactly
- * once per domestic match on both the atomic AI path and the segment-by-
- * segment user path (via `finishMatch`), plus once per partner-division
- * match, so every player in the league is kept in sync.
+ * Sustained board displeasure ends the manager's tenure. The save is preserved
+ * (`gameOver` just halts further `continueGame`/`rolloverSeason` progress); a
+ * grace period (at least 6 of the user's own fixtures played this season)
+ * prevents an instant sacking right after a demanding rollover.
+ */
+export function checkSacking(state: GameState) {
+  if (state.gameOver || !state.board) return;
+  if (state.board.confidence >= 15) return;
+  if (userMatchesPlayedThisSeason(state) < 6) return;
+  state.gameOver = { reason: "sacked", day: state.day, season: state.season };
+  pushNews(state, { ko: "이사회가 감독을 경질했습니다", en: "The board has sacked the manager" });
+}
+
+/**
+ * Post-match player state update (condition/morale/injury), plus the user's
+ * own board confidence and matchday income. Called exactly once per domestic
+ * match on both the atomic AI path and the segment-by-segment user path (via
+ * `finishMatch`), plus once per partner-division match, so every player and
+ * the user's board standing stay in sync.
  */
 export function applyPostMatchPlayerEffects(
   state: GameState,
@@ -114,6 +164,10 @@ export function applyPostMatchPlayerEffects(
 
   applyMoraleForResult(state, comp, homeTeam.club, outcomeFor(true, result));
   applyMoraleForResult(state, comp, awayTeam.club, outcomeFor(false, result));
+
+  applyMatchdayIncome(state, homeTeam.club);
+  applyBoardConfidenceForResult(state, homeTeam, awayTeam, result);
+  checkSacking(state);
 
   const userClubId = state.manager.clubId;
   for (const event of result.events) {

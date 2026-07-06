@@ -82,6 +82,42 @@ export default function CompetitionPage() {
         </div>
       )}
 
+      {state.honours && state.honours.length > 0 && (
+        <div className="rounded-2xl border p-5" style={{ borderColor: "var(--line)", background: "var(--panel)" }}>
+          <h2 className="font-display mb-3 text-[15px] font-bold">{t("honours")}</h2>
+          <div className="flex flex-col gap-2.5">
+            {[...state.honours].reverse().map((h, i) => {
+              const champ = state.clubs[h.championId];
+              return (
+                <div
+                  key={i}
+                  className="flex flex-col gap-1 rounded-xl border px-3.5 py-2.5 text-[12.5px] sm:flex-row sm:items-center sm:gap-4"
+                  style={{ borderColor: "var(--border-soft)", background: "var(--panel-2)" }}
+                >
+                  <span className="font-display font-bold" style={{ color: "var(--muted-2)" }}>{h.season}</span>
+                  <span>
+                    <span style={{ color: "var(--muted-3)" }}>{t("championsLabel")}: </span>
+                    <span style={{ color: "var(--mint)" }}>{champ ? clubDisplayName(champ) : "-"}</span>
+                  </span>
+                  {h.topScorer && (
+                    <span>
+                      <span style={{ color: "var(--muted-3)" }}>{t("topScorer")}: </span>
+                      {h.topScorer.name} ({h.topScorer.count})
+                    </span>
+                  )}
+                  {h.mvp && (
+                    <span>
+                      <span style={{ color: "var(--muted-3)" }}>{t("seasonMvp")}: </span>
+                      {h.mvp.name} ({h.mvp.avgRating.toFixed(2)})
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       <div className="grid gap-4 sm:grid-cols-2">
         {!myClub.isNational && (
           <div className="rounded-2xl border p-5" style={{ borderColor: "var(--line)", background: "var(--panel)" }}>

@@ -56,6 +56,10 @@ export const volleyballModule: SportModule = {
   playstyles: VB_PLAYSTYLES,
   squadTemplate: VB_SQUAD_TEMPLATE,
   matchPresentation: volleyballPresentation,
+  scoringEventTypes: [
+    { type: "spike", points: 1 },
+    { type: "ace", points: 1 },
+  ],
   attributeKeys: () => VB_ATTRIBUTE_KEYS,
   playstylesFor: vbPlaystylesFor,
   ageAndDevelop,

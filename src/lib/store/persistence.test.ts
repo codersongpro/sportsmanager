@@ -46,4 +46,17 @@ describe("migrate (save version upgrades, pure / no IndexedDB)", () => {
     expect(migrated.id).toBe(save.id);
     expect(migrated.players).toBe(save.players);
   });
+
+  it("upgrades a v3 save (pre-board) to the current version, backfilling a board objective", () => {
+    const save = { ...freshSave(), version: 3 } as ReturnType<typeof freshSave>;
+    delete (save as { board?: unknown }).board;
+
+    const migrated = migrate(save);
+    expect(migrated.version).toBe(CURRENT_VERSION);
+    expect(migrated.board).toBeDefined();
+    expect(migrated.board!.confidence).toBe(60);
+    expect(migrated.board!.objectiveRank).toBeGreaterThan(0);
+    expect(migrated.id).toBe(save.id);
+    expect(migrated.players).toBe(save.players);
+  });
 });

@@ -39,6 +39,7 @@ export const soccerModule: SportModule = {
   playstyles: SOCCER_PLAYSTYLES,
   squadTemplate: SOCCER_SQUAD_TEMPLATE,
   matchPresentation: soccerPresentation,
+  scoringEventTypes: [{ type: "goal", points: 1 }],
   attributeKeys: () => SOCCER_ATTRIBUTE_KEYS,
   playstylesFor: playstylesForPosition,
   calcOverall,

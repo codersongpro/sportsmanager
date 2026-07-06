@@ -62,6 +62,10 @@ export const baseballModule: SportModule = {
   playstyles: BSB_PLAYSTYLES,
   squadTemplate: BSB_SQUAD_TEMPLATE,
   matchPresentation: baseballPresentation,
+  scoringEventTypes: [
+    { type: "run", points: 1 },
+    { type: "homeRun", points: 1 },
+  ],
   attributeKeys: () => BSB_ATTRIBUTE_KEYS,
   playstylesFor: bsbPlaystylesFor,
   ageAndDevelop,

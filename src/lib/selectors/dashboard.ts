@@ -4,6 +4,8 @@
 
 import type { Club, GameState, LocalizedText, Player, SportModule } from "@/lib/types";
 import { sortTable, upcomingFixtures } from "@/lib/engine/competition";
+import { weeklyIncomeFor } from "@/lib/engine/finance";
+import { PROMOTION_RELEGATION_COUNT } from "@/lib/engine/season";
 
 export type Severity = "danger" | "warning" | "info";
 
@@ -21,9 +23,7 @@ export function weeklyWageBill(club: Club, players: Record<string, Player>): num
   return club.squad.reduce((sum, id) => sum + (players[id]?.wage ?? 0), 0);
 }
 
-export function weeklyIncomeFor(club: Club, wageBill: number): number {
-  return Math.round(club.reputation * 1800 + wageBill * 0.15);
-}
+export { weeklyIncomeFor };
 
 export function avgCondition(squad: Player[]): number {
   return squad.length ? squad.reduce((sum, p) => sum + p.condition, 0) / squad.length : 0;
@@ -390,4 +390,24 @@ export function financeSummary(state: GameState): FinanceSummary {
     riskTone,
     explanation,
   };
+}
+
+// ---------------------------------------------------------------------------
+// Board: season objective + confidence
+// ---------------------------------------------------------------------------
+
+export interface BoardSummary {
+  objectiveRank: number;
+  /** whether the objective is "finish top N" (league, ambitious/mid-table) or "avoid relegation" */
+  objectiveKind: "topN" | "survive";
+  confidence: number;
+  riskTone: RiskTone;
+}
+
+export function boardSummary(state: GameState): BoardSummary | null {
+  if (!state.board) return null;
+  const totalClubs = state.competition.clubIds.length;
+  const objectiveKind: "topN" | "survive" = state.board.objectiveRank >= totalClubs - PROMOTION_RELEGATION_COUNT ? "survive" : "topN";
+  const riskTone: RiskTone = state.board.confidence < 25 ? "danger" : state.board.confidence < 50 ? "warning" : "success";
+  return { objectiveRank: state.board.objectiveRank, objectiveKind, confidence: state.board.confidence, riskTone };
 }
