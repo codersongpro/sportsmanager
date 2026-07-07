@@ -6,6 +6,7 @@ import { continueGame, rolloverSeason } from "@/lib/engine/season";
 import { advanceActiveMatch, beginActiveMatch } from "@/lib/engine/activeMatch";
 import { createWorldCup, simulateWorldCupRound, createClubCup, simulateClubCupRound, findUserPendingFixture } from "@/lib/engine/worldcup";
 import { TEAM_TALK_OPTIONS } from "@/lib/data/teamTalks";
+import { createRng } from "@/lib/sim/rng";
 import { saveGame } from "./persistence";
 
 interface GameStoreState {
@@ -131,6 +132,10 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
     if (!myClub.tactics.lineup.includes(outId)) return fail("선발 명단에 없는 선수입니다", "That player isn't in the lineup");
     if (!myClub.tactics.bench.includes(inId) || active.subbedOffIds.includes(inId)) {
       return fail("교체로 투입할 수 없는 선수입니다", "That player can't be brought on");
+    }
+    const incoming = cur.players[inId];
+    if (incoming && incoming.injuredUntilDay != null && incoming.injuredUntilDay > cur.day) {
+      return fail("부상 선수는 투입할 수 없습니다", "That player is injured and can't be brought on");
     }
 
     const next: GameState = structuredClone(cur);
@@ -260,6 +265,10 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
     const fee = negotiatedFee(player.value, rep);
     const label = player.nameKo ?? player.name;
     if (myClub.finances.transferBudget < fee) return fail(`이적 예산이 부족합니다`, "Insufficient transfer budget");
+    const currentWageBill = myClub.squad.reduce((sum, id) => sum + (cur.players[id]?.wage ?? 0), 0);
+    if (currentWageBill + player.wage > myClub.finances.wageBudget) {
+      return fail("주급 예산을 초과합니다", "This signing would exceed your wage budget");
+    }
 
     // Sign probability: club appeal + manager reputation vs the player's ambition.
     const appeal = myClub.reputation + rep * 0.5;
@@ -267,8 +276,11 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
     const prob = clamp(1 / (1 + Math.exp(-(appeal - resistance + 16) / 12)), 0.05, 0.97);
 
     const next: GameState = structuredClone(cur);
-    if (Math.random() > prob) {
-      next.news.unshift({ id: `n_t${Date.now()}`, day: next.day, title: { ko: `${label} 영입 협상 결렬`, en: `${player.name} rejected your approach` }, read: false });
+    const rng = createRng(next.rngState);
+    const rejected = rng.next() > prob;
+    next.rngState = rng.state();
+    if (rejected) {
+      next.news.unshift({ id: `n_t${next.day}_${playerId}_r`, day: next.day, title: { ko: `${label} 영입 협상 결렬`, en: `${player.name} rejected your approach` }, read: false });
       next.updatedAt = Date.now();
       set({ state: next });
       persist(next);
@@ -283,7 +295,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
     from.squad = from.squad.filter((id) => id !== playerId);
     me.squad.push(playerId);
     next.players[playerId] = { ...player, clubId: me.id };
-    next.news.unshift({ id: `n_t${Date.now()}`, day: next.day, title: { ko: `${label} 영입 완료`, en: `Signed ${player.name}` }, read: false });
+    next.news.unshift({ id: `n_t${next.day}_${playerId}`, day: next.day, title: { ko: `${label} 영입 완료`, en: `Signed ${player.name}` }, read: false });
     next.updatedAt = Date.now();
     set({ state: next });
     persist(next);
@@ -326,7 +338,7 @@ export const useGameStore = create<GameStoreState>((set, get) => ({
       if (p) p.morale = clamp(p.morale + opt.moraleDelta, 0, 100);
     }
     next.manager.reputation = clamp(Math.round((next.manager.reputation + opt.repDelta) * 10) / 10, 1, 99);
-    next.news.unshift({ id: `n_p${Date.now()}`, day: next.day, title: opt.reply, read: false });
+    next.news.unshift({ id: `n_p${next.day}_${itemId}`, day: next.day, title: opt.reply, read: false });
     next.updatedAt = Date.now();
     set({ state: next });
     persist(next);

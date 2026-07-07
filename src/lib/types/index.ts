@@ -63,6 +63,8 @@ export interface Finances {
   balance: number; // cash on hand
   transferBudget: number; // available to spend on fees
   wageBudget: number; // weekly wage cap
+  /** consecutive weeks the user club's balance has been negative; resets to 0 once positive again */
+  debtWeeks?: number;
 }
 
 /** One phase of a match that can be simulated and revealed independently (sport-defined: "first_half", "q1", "i3", "s2", "g1", ...). */
@@ -345,6 +347,30 @@ export interface GameState {
   partnerCompetition?: CompetitionState;
   /** clubs that moved between tiers at the last season rollover, for the news feed */
   lastPromotions?: { clubId: string; direction: "promoted" | "relegated" }[];
+  /** the user club's most recent weekly training outcome, for the training page report tile */
+  lastTrainingReport?: {
+    day: number;
+    focus: string;
+    entries: { playerId: string; ovrBefore: number; ovrAfter: number }[];
+  };
+  /** the board's season expectation for the user's club, and how happy it currently is with the manager */
+  board?: {
+    /** finish this rank or better (lower = more ambitious) to satisfy the board */
+    objectiveRank: number;
+    /** 0-100; below the sacking threshold for long enough ends the career */
+    confidence: number;
+  };
+  /** set once the board has sacked the manager; the save is preserved, but the season/game no longer advances */
+  gameOver?: { reason: "sacked"; day: number; season: number };
+  /** completed-season history: champion, top scorer, and MVP, appended once per rollover and preserved across seasons */
+  honours?: {
+    season: number;
+    competitionName: LocalizedText;
+    championId: string;
+    userRank: number | null;
+    topScorer?: { playerId: string; name: string; count: number };
+    mvp?: { playerId: string; name: string; avgRating: number };
+  }[];
 }
 
 // ---------------------------------------------------------------------------
@@ -409,6 +435,8 @@ export interface MatchTeam {
 export interface SimOptions {
   allowDraw?: boolean; // false -> resolve via ET / penalties
   neutralVenue?: boolean; // true -> no home advantage (knockouts)
+  /** player ids sent off (red card) earlier in the match; soccer only, reduces team power for the rest of the match */
+  sentOffIds?: string[];
 }
 
 /** How a sport renders its live match (visuals, stats, scoring, clock). */
@@ -482,6 +510,8 @@ export interface SportModule {
   squadTemplate: SquadSlot[];
   /** how the live match is rendered for this sport */
   matchPresentation: MatchPresentation;
+  /** match event types that award a point to their `playerId`, with the point value each is worth; powers the season top-scorer honour */
+  scoringEventTypes?: { type: string; points: number }[];
   /** flat list of every attribute key the sport uses */
   attributeKeys(): string[];
   /** play styles available to a given position */

@@ -55,6 +55,12 @@ export const pickleballModule: SportModule = {
   playstyles: PB_PLAYSTYLES,
   squadTemplate: PB_SQUAD_TEMPLATE,
   matchPresentation: pickleballPresentation,
+  scoringEventTypes: [
+    { type: "ace", points: 1 },
+    { type: "smash", points: 1 },
+    { type: "winner", points: 1 },
+    { type: "dink", points: 1 },
+  ],
   attributeKeys: () => PB_ATTRIBUTE_KEYS,
   playstylesFor: pbPlaystylesFor,
   ageAndDevelop,

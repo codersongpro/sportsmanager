@@ -58,8 +58,8 @@ export function advanceActiveMatch(state: GameState, sport: SportModule): GameSt
 
   const home = clubsMap[nextActive.homeId];
   const away = clubsMap[nextActive.awayId];
-  const homeTeam = resolveTeam(home, next.players, sport);
-  const awayTeam = resolveTeam(away, next.players, sport);
+  const homeTeam = resolveTeam(home, next.players, sport, next.day);
+  const awayTeam = resolveTeam(away, next.players, sport, next.day);
 
   const markFinished = () => {
     if (scope !== "domestic") {
@@ -71,7 +71,11 @@ export function advanceActiveMatch(state: GameState, sport: SportModule): GameSt
 
   if (sport.simulateSegment && sport.finalizeSegments) {
     const kind = nextActive.phase;
-    const result = sport.simulateSegment(homeTeam, awayTeam, rng, kind, nextActive.opts);
+    // Recomputed fresh each segment (never persisted into `nextActive.opts`) so a red card
+    // costs the sent-off team's power for every remaining segment, matching the atomic
+    // `simulateMatch` path's identical accumulation.
+    const sentOffIds = nextActive.segments.flatMap((s) => s.result.events.filter((e) => e.type === "red" && e.playerId).map((e) => e.playerId!));
+    const result = sport.simulateSegment(homeTeam, awayTeam, rng, kind, { ...nextActive.opts, sentOffIds });
     nextActive.segments.push({ kind, result });
     nextActive.homeScore += result.homeGoals;
     nextActive.awayScore += result.awayGoals;
@@ -87,7 +91,7 @@ export function advanceActiveMatch(state: GameState, sport: SportModule): GameSt
       finalResult.fixtureId = nextActive.fixtureId;
       nextActive.finished = true;
       nextActive.finalResult = finalResult;
-      finishMatch(next, comp, nextActive.fixtureId, home, away, homeTeam, awayTeam, finalResult);
+      finishMatch(next, comp, nextActive.fixtureId, home, away, homeTeam, awayTeam, finalResult, rng);
       markFinished();
     }
   } else {
@@ -98,7 +102,7 @@ export function advanceActiveMatch(state: GameState, sport: SportModule): GameSt
     nextActive.finalResult = finalResult;
     nextActive.homeScore = finalResult.homeScore;
     nextActive.awayScore = finalResult.awayScore;
-    finishMatch(next, comp, nextActive.fixtureId, home, away, homeTeam, awayTeam, finalResult);
+    finishMatch(next, comp, nextActive.fixtureId, home, away, homeTeam, awayTeam, finalResult, rng);
     markFinished();
   }
 

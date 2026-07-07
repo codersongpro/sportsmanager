@@ -1,13 +1,14 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { Avatar, FormChip, RatingNumber, Tile, groupColor, ratingColorHex } from "@/components/Tile";
+import { Avatar, FormChip, RatingNumber, StatBar, Tile, groupColor, ratingColorHex } from "@/components/Tile";
 import { Button, StatusBadge } from "@/components/ui";
 import { useI18n } from "@/lib/i18n/I18nProvider";
 import { useGameStore } from "@/lib/store/gameStore";
 import { getSport } from "@/lib/sports";
 import { upcomingFixtures, sortTable } from "@/lib/engine/competition";
 import {
+  boardSummary,
   financeSummary,
   myClubOf,
   primaryAction,
@@ -112,6 +113,7 @@ export default function DashboardPage() {
   const tasks = todaysTasks(state, sport);
   const metrics = teamStatusSummary(state);
   const finance = financeSummary(state);
+  const board = boardSummary(state);
   const inboxItems = recentInbox(state, 5);
   const unreadCount = inboxItems.filter((i) => i.unread).length;
 
@@ -354,6 +356,33 @@ export default function DashboardPage() {
             )) : <p className="text-sm text-soft">{t("noNews")}</p>}
           </div>
         </Tile>
+
+        {board && (
+          <Tile title={t("boardTitle")}>
+            <div className="flex flex-col gap-2.5">
+              <div className="flex items-center justify-between">
+                <span className="text-[11.5px]" style={{ color: "var(--muted-2)" }}>{t("boardConfidence")}</span>
+                <span
+                  className="font-display text-sm font-bold"
+                  style={{ color: board.riskTone === "danger" ? "var(--red)" : board.riskTone === "warning" ? "var(--gold)" : "var(--mint)" }}
+                >
+                  {Math.round(board.confidence)}%
+                </span>
+              </div>
+              <StatBar value={board.confidence} color={board.riskTone === "danger" ? "var(--red)" : board.riskTone === "warning" ? "var(--gold)" : "var(--mint)"} />
+              <div className="flex items-center justify-between">
+                <span className="text-[11.5px]" style={{ color: "var(--muted-2)" }}>{t("seasonObjective")}</span>
+                <span className="text-[12.5px] font-semibold">
+                  {board.objectiveKind === "survive"
+                    ? t("objectiveSurvive")
+                    : locale === "ko"
+                      ? `${board.objectiveRank}${t("objectiveTopN")}`
+                      : `${t("objectiveTopN")} ${board.objectiveRank}`}
+                </span>
+              </div>
+            </div>
+          </Tile>
+        )}
 
         {!myClub.isNational && (
           <Tile title={t("financeSummary")} action={

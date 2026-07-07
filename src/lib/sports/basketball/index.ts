@@ -54,6 +54,12 @@ export const basketballModule: SportModule = {
   playstyles: BB_PLAYSTYLES,
   squadTemplate: BB_SQUAD_TEMPLATE,
   matchPresentation: basketballPresentation,
+  scoringEventTypes: [
+    { type: "three", points: 3 },
+    { type: "two", points: 2 },
+    { type: "dunk", points: 2 },
+    { type: "freeThrow", points: 1 },
+  ],
   attributeKeys: () => BB_ATTRIBUTE_KEYS,
   playstylesFor: bbPlaystylesFor,
   ageAndDevelop,

@@ -10,6 +10,7 @@ import { loadGame, saveGame } from "@/lib/store/persistence";
 import { getSport } from "@/lib/sports";
 import { clubDisplayName, formatMoney } from "@/lib/utils/format";
 import { Avatar } from "@/components/Tile";
+import { GameOverScreen } from "@/components/GameOverScreen";
 
 const ICONS = {
   dash: "M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z",
@@ -60,6 +61,7 @@ export default function GameLayout({ children }: { children: React.ReactNode }) 
   }, [state, router, loadFromSave]);
 
   if ((!checked && !state) || !state) return null;
+  if (state.gameOver) return <GameOverScreen state={state} />;
   const myClub = state.clubs[state.manager.clubId];
   const sport = getSport(state.sportId);
   const matchView = pathname.startsWith("/game/match/");
