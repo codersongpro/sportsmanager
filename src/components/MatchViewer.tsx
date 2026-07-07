@@ -343,12 +343,19 @@ export function MatchViewer({ result, home, away, players, sportId }: Props) {
         </div>
       )}
 
-      <div className="grid gap-3 lg:min-h-0 lg:flex-1 lg:grid-cols-[minmax(0,1fr)_minmax(320px,0.72fr)] lg:overflow-hidden">
+      {/*
+        Same 3-column template (and column order: watch/stats | feed | side panel) as the
+        live in-progress page (`app/game/match/live/page.tsx`), so finishing a match and
+        moving on to the next one doesn't reflow the whole screen from 3 columns down to 2
+        and back to 3 — only the third column's *content* changes (live management panels
+        here become player ratings once the match is over).
+      */}
+      <div className="grid gap-3 lg:min-h-0 lg:flex-1 lg:grid-cols-[minmax(0,1fr)_minmax(300px,0.62fr)_minmax(300px,0.68fr)] lg:overflow-hidden">
         <div className="hidden">
           <FormationTile title={`${home.shortName} · ${t("formation")}`} slots={homeSlots} attackUp ratingOf={ratingOf} t={t} venue={pres.venue} />
         </div>
 
-        <div className="flex flex-col gap-3 lg:min-h-0 lg:overflow-hidden">
+        <div className="flex flex-col gap-3 lg:min-h-0 lg:overflow-y-auto lg:pr-1">
           <Tile title={t("watchMatch")} action={<span className="font-mono text-xs text-soft">{clockLabel}</span>} className="min-h-0 shrink-0">
             <div className="mx-auto w-full max-w-3xl">
               <Venue
@@ -409,17 +416,14 @@ export function MatchViewer({ result, home, away, players, sportId }: Props) {
 
           <MomentumBar buckets={momentum} homeShort={home.shortName} awayShort={away.shortName} title={t("momentum")} />
 
-          <div className="grid gap-3 sm:grid-cols-2 lg:min-h-0 lg:flex-1 lg:overflow-hidden">
-            <Tile title={t("matchStats")}>
-              <div className="flex flex-col gap-2">
-                {liveStats.map((row, i) => (
-                  <StatRow key={i} label={tl(row.label)} h={row.h} a={row.a} suffix={row.suffix} />
-                ))}
-                {liveStats.length === 0 && <p className="text-sm" style={{ color: "var(--muted-3)" }}>—</p>}
-              </div>
-            </Tile>
-            <RatingsPanel title={t("ratings")} ratings={topPerformers} />
-          </div>
+          <Tile title={t("matchStats")}>
+            <div className="flex flex-col gap-2">
+              {liveStats.map((row, i) => (
+                <StatRow key={i} label={tl(row.label)} h={row.h} a={row.a} suffix={row.suffix} />
+              ))}
+              {liveStats.length === 0 && <p className="text-sm" style={{ color: "var(--muted-3)" }}>—</p>}
+            </div>
+          </Tile>
         </div>
 
         <div className="lg:min-h-0 lg:overflow-hidden">
@@ -434,6 +438,10 @@ export function MatchViewer({ result, home, away, players, sportId }: Props) {
             tl={tl}
             t={t}
           />
+        </div>
+
+        <div className="lg:min-h-0 lg:overflow-y-auto lg:pr-1">
+          <RatingsPanel title={t("ratings")} ratings={topPerformers} />
         </div>
       </div>
 
